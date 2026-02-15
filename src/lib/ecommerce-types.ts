@@ -104,6 +104,15 @@ export interface CartItem {
   updated_at: string;
 }
 
+export type TrackingStatus =
+  | "order_received"
+  | "processing"
+  | "packed"
+  | "shipped"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled";
+
 export interface Order {
   id: string;
   order_number: string;
@@ -123,6 +132,10 @@ export interface Order {
   billing_address: Address;
   notes?: string;
   tracking_number?: string;
+  tracking_url?: string;
+  tracking_status?: TrackingStatus;
+  tracking_message?: string;
+  tracking_updated_at?: string;
   shipped_at?: string;
   completed_at?: string;
   items?: OrderItem[];

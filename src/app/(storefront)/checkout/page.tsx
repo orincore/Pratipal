@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
 import type { CartItem, Address } from "@/lib/ecommerce-types";
+import { useCartStore } from "@/stores/cart-store";
 
 declare global {
   interface Window {
@@ -45,6 +46,7 @@ type AddressFormState = {
 export default function CheckoutPage() {
   const router = useRouter();
   const { customer } = useCustomerAuth();
+  const clearCartStore = useCartStore((state) => state.clearCart);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -377,6 +379,7 @@ export default function CheckoutPage() {
         }
 
         const data = await res.json();
+        clearCartStore();
         toast.success("Order placed successfully!");
         router.push(`/order-confirmation?orderId=${data.order.id}`);
       } else {
@@ -454,6 +457,7 @@ export default function CheckoutPage() {
       if (!res.ok) throw new Error("Payment verification failed");
 
       toast.success("Payment successful!");
+      clearCartStore();
       router.push(`/order-confirmation?orderId=${orderId}`);
     } catch (err: any) {
       toast.error(err.message || "Payment verification failed");

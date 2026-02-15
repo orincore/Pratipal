@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { Product, CartItem } from "@/types";
 
 interface CartStore {
@@ -72,6 +72,7 @@ export const useCartStore = create<CartStore>()(
     }),
     {
       name: "pratipal-cart",
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

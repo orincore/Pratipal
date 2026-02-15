@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Search, Eye } from "lucide-react";
+import { Search, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,13 +13,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import type { Order } from "@/lib/ecommerce-types";
+import type { Order, TrackingStatus } from "@/lib/ecommerce-types";
 
 export default function EcommerceOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [trackingInputs, setTrackingInputs] = useState({
+    tracking_number: "",
+    tracking_url: "",
+    tracking_status: "" as TrackingStatus | "",
+    tracking_message: "",
+  });
+  const [trackingSaving, setTrackingSaving] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -36,6 +44,40 @@ export default function EcommerceOrdersPage() {
     }
   }
 
+  const lockedCustomerStatuses = new Set(["completed", "cancelled", "failed"]);
+  const lockedTrackingStatuses = new Set<TrackingStatus>(["shipped", "out_for_delivery", "delivered"]);
+
+  const canCancelSelected = selectedOrder
+    ? !lockedCustomerStatuses.has(selectedOrder.status) &&
+      !(selectedOrder.tracking_status && lockedTrackingStatuses.has(selectedOrder.tracking_status))
+    : false;
+
+  async function handleAdminCancel() {
+    if (!selectedOrder || cancelLoading || !canCancelSelected) return;
+    const confirmed = window.confirm(`Cancel order #${selectedOrder.order_number}?`);
+    if (!confirmed) return;
+    setCancelLoading(true);
+    try {
+      const res = await fetch(`/api/orders/${selectedOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", reason: "Cancelled by admin" }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to cancel order");
+      }
+      const data = await res.json();
+      setSelectedOrder(data.order);
+      setOrders((prev) => prev.map((order) => (order.id === data.order.id ? data.order : order)));
+      toast.success("Order cancelled");
+    } catch (err: any) {
+      toast.error(err.message || "Unable to cancel order");
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
   const filtered = orders.filter(
     (o) =>
       o.order_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -45,7 +87,52 @@ export default function EcommerceOrdersPage() {
 
   function viewOrder(order: Order) {
     setSelectedOrder(order);
+    setTrackingInputs({
+      tracking_number: order.tracking_number || "",
+      tracking_url: order.tracking_url || "",
+      tracking_status: order.tracking_status || "",
+      tracking_message: order.tracking_message || "",
+    });
     setDialogOpen(true);
+  }
+
+  const trackingOptions: { label: string; value: TrackingStatus }[] = [
+    { label: "Order Received", value: "order_received" },
+    { label: "Processing", value: "processing" },
+    { label: "Packed", value: "packed" },
+    { label: "Shipped", value: "shipped" },
+    { label: "Out for Delivery", value: "out_for_delivery" },
+    { label: "Delivered", value: "delivered" },
+    { label: "Cancelled", value: "cancelled" },
+  ];
+
+  async function handleTrackingSave() {
+    if (!selectedOrder) return;
+    setTrackingSaving(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${selectedOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tracking_number: trackingInputs.tracking_number || null,
+          tracking_url: trackingInputs.tracking_url || null,
+          tracking_message: trackingInputs.tracking_message || null,
+          tracking_status: trackingInputs.tracking_status || null,
+        }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update tracking");
+      }
+      const data = await res.json();
+      setSelectedOrder(data.order);
+      setOrders((prev) => prev.map((order) => (order.id === data.order.id ? data.order : order)));
+      toast.success("Tracking updated");
+    } catch (err: any) {
+      toast.error(err.message || "Unable to update tracking");
+    } finally {
+      setTrackingSaving(false);
+    }
   }
 
   function getStatusColor(status: string) {
@@ -241,6 +328,90 @@ export default function EcommerceOrdersPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="border-t pt-4 space-y-3">
+                <div className="flex flex-col gap-3">
+                  <label className="text-sm font-medium">Tracking Number</label>
+                  <Input
+                    value={trackingInputs.tracking_number}
+                    onChange={(e) =>
+                      setTrackingInputs((prev) => ({ ...prev, tracking_number: e.target.value }))
+                    }
+                    placeholder="E.g. AWB123456"
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <label className="text-sm font-medium">Tracking URL</label>
+                  <Input
+                    value={trackingInputs.tracking_url}
+                    onChange={(e) =>
+                      setTrackingInputs((prev) => ({ ...prev, tracking_url: e.target.value }))
+                    }
+                    placeholder="https://courier.example.com/track/…"
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <label className="text-sm font-medium">Tracking Status</label>
+                  <select
+                    className="border rounded px-3 py-2 text-sm"
+                    value={trackingInputs.tracking_status || ""}
+                    onChange={(e) =>
+                      setTrackingInputs((prev) => ({
+                        ...prev,
+                        tracking_status: (e.target.value as TrackingStatus) || "",
+                      }))
+                    }
+                  >
+                    <option value="">Select status</option>
+                    {trackingOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <label className="text-sm font-medium">Customer Message</label>
+                  <textarea
+                    className="border rounded px-3 py-2 text-sm"
+                    rows={3}
+                    value={trackingInputs.tracking_message}
+                    onChange={(e) =>
+                      setTrackingInputs((prev) => ({ ...prev, tracking_message: e.target.value }))
+                    }
+                    placeholder="Short update customers will see"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={handleTrackingSave} disabled={trackingSaving}>
+                    {trackingSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving
+                      </>
+                    ) : (
+                      "Update Tracking"
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {canCancelSelected && (
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="destructive"
+                    onClick={handleAdminCancel}
+                    disabled={cancelLoading}
+                  >
+                    {cancelLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cancelling
+                      </>
+                    ) : (
+                      "Cancel Order"
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

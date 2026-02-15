@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
+import { getServiceSupabase, verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
 
-async function getCustomerIdFromCookie(): Promise<string | null> {
+const CUSTOMER_COOKIE_NAME = "customer_session";
+
+interface CustomerContext {
+  id: string | null;
+  email: string | null;
+}
+
+async function getCustomerContextFromCookie(): Promise<CustomerContext> {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("customer_session");
-  
-  if (sessionCookie?.value) {
-    try {
-      const decoded = jwt.verify(sessionCookie.value, process.env.JWT_SECRET || "") as any;
-      return decoded.id;
-    } catch {
-      return null;
-    }
+  const token = cookieStore.get(CUSTOMER_COOKIE_NAME)?.value;
+  if (!token) {
+    return { id: null, email: null };
   }
-  return null;
+  const payload = verifyToken(token);
+  if (!payload) {
+    return { id: null, email: null };
+  }
+  if (payload.role && payload.role !== "customer") {
+    return { id: null, email: null };
+  }
+  return { id: payload.sub, email: payload.email }; 
 }
 
 function generateOrderNumber(): string {
@@ -26,21 +33,30 @@ function generateOrderNumber(): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const customerId = await getCustomerIdFromCookie();
-    
-    if (!customerId) {
+    const { id: customerId, email } = await getCustomerContextFromCookie();
+
+    if (!customerId && !email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const supabase = getServiceSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from("orders")
-      .select(`
-        *,
-        items:order_items(*)
-      `)
-      .eq("customer_id", customerId)
+      .select(
+        `*,
+        items:order_items(*)`
+      )
       .order("created_at", { ascending: false });
+
+    if (customerId && email) {
+      query = query.or(`customer_id.eq.${customerId},customer_email.eq.${email}`);
+    } else if (customerId) {
+      query = query.eq("customer_id", customerId);
+    } else if (email) {
+      query = query.eq("customer_email", email);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -72,8 +88,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const customerId = await getCustomerIdFromCookie();
+    const { id: customerIdFromSession } = await getCustomerContextFromCookie();
     const supabase = getServiceSupabase();
+    let resolvedCustomerId = customerIdFromSession;
+
+    if (!resolvedCustomerId && customer_email) {
+      const { data: existingCustomer } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("email", customer_email.toLowerCase().trim())
+        .maybeSingle();
+      resolvedCustomerId = existingCustomer?.id || null;
+    }
 
     let subtotal = 0;
     const orderItems = [];
@@ -125,7 +151,7 @@ export async function POST(req: NextRequest) {
       .from("orders")
       .insert({
         order_number: orderNumber,
-        customer_id: customerId,
+        customer_id: resolvedCustomerId,
         customer_email,
         customer_name,
         status: "pending",
@@ -173,11 +199,11 @@ export async function POST(req: NextRequest) {
         .eq("id", item.product_id);
     }
 
-    if (customerId) {
+    if (resolvedCustomerId) {
       await supabase
         .from("cart_items")
         .delete()
-        .eq("customer_id", customerId);
+        .eq("customer_id", resolvedCustomerId);
     }
 
     return NextResponse.json({

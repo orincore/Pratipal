@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Menu, X, Search, User, Heart, LogOut } from "lucide-react";
+import { ShoppingCart, Menu, X, Search, User, LogOut, Loader2 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { CartDrawer } from "./cart-drawer";
 import LogoMark from "@/app/assets/logo.png";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
 import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { formatPrice } from "@/lib/utils";
 
 export function Header() {
   const [cartOpen, setCartOpen] = useState(false);
@@ -19,6 +21,12 @@ export function Header() {
   const router = useRouter();
   const { customer, logout, loading } = useCustomerAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -26,6 +34,62 @@ export function Header() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (searchVisible && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchVisible]);
+
+  const hasQuery = searchQuery.trim().length > 0;
+  const emptyState = useMemo(() => {
+    if (!hasQuery) {
+      return "Start typing to search our rituals";
+    }
+    if (searchLoading) {
+      return "Searching products...";
+    }
+    if (searchError) {
+      return searchError;
+    }
+    return searchResults.length === 0 ? "No products match your search" : null;
+  }, [hasQuery, searchLoading, searchError, searchResults.length]);
+
+  async function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!hasQuery) {
+      setSearchResults([]);
+      setSearchError("Please enter a product name");
+      return;
+    }
+    setSearchLoading(true);
+    setSearchError(null);
+    try {
+      const res = await fetch(
+        `/api/products?search=${encodeURIComponent(searchQuery.trim())}&limit=10`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Search failed");
+      }
+      const data = await res.json();
+      setSearchResults(data.products || []);
+    } catch (err: any) {
+      setSearchError(err.message || "Unable to search products");
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function closeSearchBar() {
+    setSearchVisible(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchError(null);
+    setSearchLoading(false);
+  }
 
   const navLinks = [
     { href: "/shop", label: "Shop" },
@@ -85,11 +149,11 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-1">
-            <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-50 transition-all">
+            <button
+              className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-50 transition-all"
+              onClick={() => setSearchVisible((prev) => !prev)}
+            >
               <Search className="h-4 w-4" />
-            </button>
-            <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-50 transition-all">
-              <Heart className="h-4 w-4" />
             </button>
             {mounted && !loading && customer ? (
               <div className="hidden sm:flex items-center gap-2">
@@ -205,6 +269,94 @@ export function Header() {
       </header>
 
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+
+      {searchVisible && (
+        <div className="border-t border-b border-gray-100 bg-white shadow-inner">
+          <div className="container py-4 space-y-4">
+            <form className="flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={handleSearchSubmit}>
+              <Input
+                ref={searchInputRef}
+                placeholder="Search products by name or description"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="flex items-center justify-center rounded-full bg-brand-secondary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-brand-accent transition"
+                  disabled={searchLoading}
+                >
+                  {searchLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Searching
+                    </>
+                  ) : (
+                    "Search"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-gray-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-700 hover:bg-gray-100 transition"
+                  onClick={closeSearchBar}
+                >
+                  Close
+                </button>
+              </div>
+            </form>
+            <div className="max-h-[360px] overflow-y-auto rounded-xl border bg-gray-50">
+              {searchError && !searchLoading && (
+                <div className="px-4 py-3 text-sm text-rose-600">{searchError}</div>
+              )}
+              {searchLoading && (
+                <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Looking for products…
+                </div>
+              )}
+              {!searchLoading && searchResults.length > 0 && (
+                <ul className="divide-y">
+                  {searchResults.map((product) => (
+                    <li key={product.id}>
+                      <button
+                        className="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-white"
+                        onClick={() => {
+                          closeSearchBar();
+                          router.push(`/product/${product.slug}`);
+                        }}
+                      >
+                        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-white shadow">
+                          {product.featured_image ? (
+                            <Image
+                              src={product.featured_image}
+                              alt={product.name}
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full bg-gray-200" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold line-clamp-1">{product.name}</p>
+                          {product.short_description && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">{product.short_description}</p>
+                          )}
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {formatPrice(product.sale_price || product.price)}
+                        </p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!searchLoading && searchResults.length === 0 && !searchError && (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">{emptyState}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { X, Plus, Minus, Trash2 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
     useCartStore();
   const [fetching, setFetching] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
@@ -203,7 +205,15 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                   {formatPrice(getTotal())}
                 </span>
               </div>
-              <Button variant="cta" className="w-full" size="lg">
+              <Button
+                variant="cta"
+                className="w-full"
+                size="lg"
+                onClick={() => {
+                  onClose();
+                  router.push("/checkout");
+                }}
+              >
                 Proceed to Checkout
               </Button>
               <Button
