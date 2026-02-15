@@ -7,10 +7,31 @@ import type {
   MediaItem,
   ProductCategory,
   LandingSlug,
+  HomepageSection,
 } from "@/types";
 import type { Product as EcomProduct, Category as EcomCategory } from "@/lib/ecommerce-types";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function getApiBaseUrl() {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SITE_URL;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    return "";
+  }
+  const vercelUrl = process.env.VERCEL_URL?.startsWith("http")
+    ? process.env.VERCEL_URL
+    : process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : undefined;
+  return (vercelUrl || process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000").replace(/\/$/, "");
+}
+
+function buildApiUrl(path: string) {
+  const base = getApiBaseUrl();
+  if (!base) return path;
+  return `${base}${path}`;
+}
 
 function mapEcomProductToProduct(ecomProduct: EcomProduct): Product {
   return {
@@ -23,6 +44,7 @@ function mapEcomProductToProduct(ecomProduct: EcomProduct): Product {
     category: (ecomProduct.category?.slug as ProductCategory) || "candles",
     status: ecomProduct.is_active ? "active" : "draft",
     landingPages: [],
+    homepageSection: (ecomProduct.homepage_section as HomepageSection) || undefined,
   };
 }
 
@@ -39,7 +61,7 @@ function mapEcomCategoryToCategory(ecomCategory: EcomCategory): Category {
 
 export async function getProducts(): Promise<Product[]> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/products?limit=100`, {
+    const res = await fetch(buildApiUrl(`/api/products?limit=100`), {
       cache: "no-store",
     });
     if (!res.ok) throw new Error("Failed to fetch products");
@@ -57,7 +79,7 @@ export async function getActiveProducts(): Promise<Product[]> {
 
 export async function getProductById(id: string): Promise<Product | undefined> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/products/${id}`, {
+    const res = await fetch(buildApiUrl(`/api/products/${id}`), {
       cache: "no-store",
     });
     if (!res.ok) return undefined;
@@ -78,7 +100,7 @@ export async function getProductsByCategory(
     if (!cat) return [];
     
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || ""}/api/products?categoryId=${cat.id}`,
+      buildApiUrl(`/api/products?categoryId=${cat.id}`),
       { cache: "no-store" }
     );
     if (!res.ok) throw new Error("Failed to fetch products");

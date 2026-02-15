@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
         featured_image: body.featured_image,
         is_featured: body.is_featured || false,
         is_active: body.is_active !== false,
+        homepage_section: body.homepage_section || null,
         weight: body.weight,
         dimensions: body.dimensions || {},
         tags: body.tags || [],

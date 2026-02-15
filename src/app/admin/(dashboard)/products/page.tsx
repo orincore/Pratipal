@@ -2,38 +2,20 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Plus, Pencil, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { getProducts, updateProduct } from "@/services/api";
 import { formatPrice } from "@/lib/utils";
 import type { Product, ProductCategory, ProductStatus } from "@/types";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
-  const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -51,22 +33,7 @@ export default function AdminProducts() {
   }
 
   function openEdit(product: Product) {
-    setEditProduct({ ...product });
-    setDialogOpen(true);
-  }
-
-  async function handleSave() {
-    if (!editProduct) return;
-    try {
-      const updated = await updateProduct(editProduct);
-      setProducts((prev) =>
-        prev.map((p) => (p.id === updated.id ? updated : p))
-      );
-      toast.success("Product updated successfully");
-      setDialogOpen(false);
-    } catch {
-      toast.error("Failed to save product");
-    }
+    router.push(`/admin/ecommerce/products/create?productId=${product.id}`);
   }
 
   return (
@@ -152,108 +119,6 @@ export default function AdminProducts() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Product</DialogTitle>
-          </DialogHeader>
-          {editProduct && (
-            <div className="space-y-4">
-              <div>
-                <Label>Name</Label>
-                <Input
-                  value={editProduct.name}
-                  onChange={(e) =>
-                    setEditProduct({ ...editProduct, name: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Price (₹)</Label>
-                <Input
-                  type="number"
-                  value={editProduct.price}
-                  onChange={(e) =>
-                    setEditProduct({
-                      ...editProduct,
-                      price: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Select
-                  value={editProduct.category}
-                  onValueChange={(v) =>
-                    setEditProduct({
-                      ...editProduct,
-                      category: v as ProductCategory,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="candles">Candles</SelectItem>
-                    <SelectItem value="rollon">Roll-On</SelectItem>
-                    <SelectItem value="salt">Salt</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Short Description</Label>
-                <Textarea
-                  value={editProduct.shortDescription}
-                  onChange={(e) =>
-                    setEditProduct({
-                      ...editProduct,
-                      shortDescription: e.target.value,
-                    })
-                  }
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label>Image URL</Label>
-                <Input
-                  value={editProduct.image}
-                  onChange={(e) =>
-                    setEditProduct({ ...editProduct, image: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Status</Label>
-                <Select
-                  value={editProduct.status}
-                  onValueChange={(v) =>
-                    setEditProduct({
-                      ...editProduct,
-                      status: v as ProductStatus,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

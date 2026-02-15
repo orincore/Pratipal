@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Upload, X, Plus, Image as ImageIcon, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,10 +29,14 @@ interface MediaFile {
 
 export default function CreateProductPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editingProductId = searchParams.get("productId");
+  const isEditing = Boolean(editingProductId);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [initializingProduct, setInitializingProduct] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState({
@@ -74,6 +78,11 @@ export default function CreateProductPage() {
     loadCategories();
   }, []);
 
+  useEffect(() => {
+    if (!editingProductId) return;
+    loadProductForEdit(editingProductId);
+  }, [editingProductId]);
+
   async function loadCategories() {
     try {
       const res = await fetch("/api/categories");
@@ -81,6 +90,74 @@ export default function CreateProductPage() {
       setCategories(data.categories || []);
     } catch (err) {
       toast.error("Failed to load categories");
+    }
+  }
+
+  function buildMediaFilesFromProduct(product: any): MediaFile[] {
+    const files: MediaFile[] = [];
+    const seen = new Set<string>();
+    const append = (url?: string) => {
+      if (!url || seen.has(url)) return;
+      const isVideo = /\.(mp4|webm|mov)$/i.test(url);
+      files.push({
+        id: `existing-${files.length}`,
+        url,
+        type: isVideo ? "video" : "image",
+      });
+      seen.add(url);
+    };
+
+    (product.images || []).forEach((url: string) => append(url));
+    append(product.featured_image);
+    return files;
+  }
+
+  function getFormDataFromProduct(product: any) {
+    return {
+      name: product.name || "",
+      slug: product.slug || "",
+      description: product.description || "",
+      short_description: product.short_description || "",
+      price: product.price ? product.price.toString() : "",
+      sale_price: product.sale_price ? product.sale_price.toString() : "",
+      cost_price: product.cost_price ? product.cost_price.toString() : "",
+      sku: product.sku || "",
+      stock_quantity: product.stock_quantity?.toString() || "0",
+      stock_status: product.stock_status || "in_stock",
+      manage_stock: product.manage_stock ?? true,
+      category_id: product.category_id || product.category?.id || "",
+      featured_image: product.featured_image || "",
+      is_featured: product.is_featured ?? false,
+      is_active: product.is_active ?? true,
+      weight: product.weight ? product.weight.toString() : "",
+      dimensions: {
+        length: product.dimensions?.length ? product.dimensions.length.toString() : "",
+        width: product.dimensions?.width ? product.dimensions.width.toString() : "",
+        height: product.dimensions?.height ? product.dimensions.height.toString() : "",
+      },
+      tags: Array.isArray(product.tags) ? product.tags.join(", ") : product.tags || "",
+      meta_title: product.meta_title || "",
+      meta_description: product.meta_description || "",
+      homepage_section: product.homepage_section || "featured",
+    };
+  }
+
+  async function loadProductForEdit(productId: string) {
+    try {
+      setInitializingProduct(true);
+      const res = await fetch(`/api/products/${productId}`);
+      if (!res.ok) {
+        throw new Error("Failed to load product");
+      }
+      const data = await res.json();
+      const product = data.product;
+      setFormData(getFormDataFromProduct(product));
+      setMediaFiles(buildMediaFilesFromProduct(product));
+    } catch (err: any) {
+      toast.error(err.message || "Unable to load product");
+      router.push("/admin/ecommerce/products");
+    } finally {
+      setInitializingProduct(false);
     }
   }
 
@@ -240,10 +317,15 @@ export default function CreateProductPage() {
         tags: formData.tags ? formData.tags.split(",").map((t) => t.trim()) : [],
         meta_title: formData.meta_title,
         meta_description: formData.meta_description,
+        homepage_section:
+          formData.homepage_section === "none" ? null : formData.homepage_section,
       };
 
-      const res = await fetch("/api/products", {
-        method: "POST",
+      const targetUrl = isEditing ? `/api/products/${editingProductId}` : "/api/products";
+      const method = isEditing ? "PATCH" : "POST";
+
+      const res = await fetch(targetUrl, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(productData),
       });
@@ -253,13 +335,21 @@ export default function CreateProductPage() {
         throw new Error(error.error || "Failed to create product");
       }
 
-      toast.success("Product created successfully!");
+      toast.success(isEditing ? "Product updated successfully!" : "Product created successfully!");
       router.push("/admin/ecommerce/products");
     } catch (err: any) {
-      toast.error(err.message || "Failed to create product");
+      toast.error(err.message || (isEditing ? "Failed to update product" : "Failed to create product"));
     } finally {
       setLoading(false);
     }
+  }
+
+  if (isEditing && initializingProduct) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-muted-foreground">Loading product details...</div>
+      </div>
+    );
   }
 
   return (
@@ -276,9 +366,9 @@ export default function CreateProductPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold">Create New Product</h1>
+                <h1 className="text-2xl font-bold">{isEditing ? "Edit Product" : "Create New Product"}</h1>
                 <p className="text-sm text-muted-foreground">
-                  Add a new product to your store
+                  {isEditing ? "Update product details" : "Add a new product to your store"}
                 </p>
               </div>
             </div>
@@ -290,15 +380,25 @@ export default function CreateProductPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={loading}>
-                {loading ? "Creating..." : "Create Product"}
+              <Button type="submit" form="product-form" disabled={loading}>
+                {loading
+                  ? isEditing
+                    ? "Saving..."
+                    : "Creating..."
+                  : isEditing
+                    ? "Save Changes"
+                    : "Create Product"}
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <form
+        id="product-form"
+        onSubmit={handleSubmit}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      >
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card>

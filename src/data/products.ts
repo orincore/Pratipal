@@ -11,6 +11,7 @@ export const products: Product[] = [
     image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80",
     status: "active",
     landingPages: ["candles"],
+    homepageSection: "featured",
   },
   {
     id: "prod-002",
@@ -55,6 +56,7 @@ export const products: Product[] = [
     image: "https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=600&q=80",
     status: "active",
     landingPages: ["essential-oil"],
+    homepageSection: "best_sellers",
   },
   {
     id: "prod-006",
@@ -66,6 +68,7 @@ export const products: Product[] = [
     image: "https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=600&q=80",
     status: "active",
     landingPages: ["essential-oil", "mood-refresher"],
+    homepageSection: "best_sellers",
   },
   {
     id: "prod-007",
@@ -99,6 +102,7 @@ export const products: Product[] = [
     image: "https://images.unsplash.com/photo-1501004318855-fce86ee1b5d0?auto=format&fit=crop&w=600&q=80",
     status: "active",
     landingPages: ["mood-refresher"],
+    homepageSection: "new_arrivals",
   },
   {
     id: "prod-010",
@@ -132,5 +136,6 @@ export const products: Product[] = [
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80",
     status: "draft",
     landingPages: ["mood-refresher"],
+    homepageSection: "on_sale",
   },
 ];

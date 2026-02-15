@@ -27,6 +27,12 @@ export function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const navLinks = [
+    { href: "/shop", label: "Shop" },
+    { href: "/candles", label: "Healing Candles" },
+    { href: "/mood-refresher", label: "Mood Refresher" },
+  ];
+
   return (
     <>
       <div className="bg-brand-dark text-brand-support/80 text-[11px] tracking-wider text-center py-1.5 font-sans hidden sm:block">
@@ -36,14 +42,14 @@ export function Header() {
       <header
         className={`sticky top-0 z-40 w-full transition-all duration-300 ${
           scrolled
-            ? "bg-brand-secondary/95 backdrop-blur-md shadow-lg"
-            : "bg-gradient-purple"
+            ? "bg-white/95 backdrop-blur-md shadow-lg"
+            : "bg-white"
         }`}
       >
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              className="lg:hidden text-white/80 hover:text-white"
+              className="lg:hidden text-gray-600 hover:text-gray-900"
               onClick={() => setMenuOpen(!menuOpen)}
             >
               {menuOpen ? (
@@ -67,50 +73,35 @@ export function Header() {
           </div>
 
           <nav className="hidden lg:flex items-center gap-8 text-[13px] font-sans tracking-wide">
-            <Link
-              href="/shop"
-              className="text-white/80 hover:text-brand-accent transition-colors duration-200 uppercase"
-            >
-              Shop
-            </Link>
-            <Link
-              href="/candles"
-              className="text-white/80 hover:text-brand-accent transition-colors duration-200 uppercase"
-            >
-              Healing Candles
-            </Link>
-            <Link
-              href="/essential-oil"
-              className="text-white/80 hover:text-brand-accent transition-colors duration-200 uppercase"
-            >
-              Essential Oils
-            </Link>
-            <Link
-              href="/mood-refresher"
-              className="text-white/80 hover:text-brand-accent transition-colors duration-200 uppercase"
-            >
-              Intention Salts
-            </Link>
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-gray-700 hover:text-brand-secondary transition-colors duration-200 uppercase"
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
 
           <div className="flex items-center gap-1">
-            <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:text-brand-accent hover:bg-white/10 transition-all">
+            <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-50 transition-all">
               <Search className="h-4 w-4" />
             </button>
-            <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:text-brand-accent hover:bg-white/10 transition-all">
+            <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-50 transition-all">
               <Heart className="h-4 w-4" />
             </button>
             {mounted && !loading && customer ? (
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  className="h-9 px-3 rounded-full bg-white/10 text-white text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:bg-white/20 transition"
+                  className="h-9 px-3 rounded-full bg-gray-100 text-gray-800 text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:bg-gray-200 transition"
                   onClick={() => router.push("/account")}
                 >
                   <User className="h-3.5 w-3.5" />
                   {customer.first_name ? `Hi, ${customer.first_name}` : "My Account"}
                 </button>
                 <button
-                  className="h-9 w-9 flex items-center justify-center rounded-full text-white/70 hover:text-red-300 hover:bg-white/10 transition"
+                  className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:text-red-500 hover:bg-gray-100 transition"
                   onClick={async () => {
                     if (loggingOut) return;
                     setLoggingOut(true);
@@ -124,13 +115,13 @@ export function Header() {
             ) : (
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  className="h-9 px-3 rounded-full bg-white text-brand-secondary text-xs font-semibold uppercase tracking-wide hover:bg-brand-accent hover:text-white transition"
+                  className="h-9 px-3 rounded-full bg-brand-secondary text-white text-xs font-semibold uppercase tracking-wide hover:bg-brand-accent transition"
                   onClick={() => router.push("/login")}
                 >
                   Sign In
                 </button>
                 <button
-                  className="h-9 px-3 rounded-full border border-white/40 text-white text-xs font-semibold uppercase tracking-wide hover:bg-white hover:text-brand-secondary transition"
+                  className="h-9 px-3 rounded-full border border-gray-300 text-gray-700 text-xs font-semibold uppercase tracking-wide hover:bg-gray-100 transition"
                   onClick={() => router.push("/register")}
                 >
                   Join Now
@@ -138,7 +129,7 @@ export function Header() {
               </div>
             )}
             <button
-              className="relative h-9 w-9 flex items-center justify-center rounded-full text-white/70 hover:text-brand-accent hover:bg-white/10 transition-all"
+              className="relative h-9 w-9 flex items-center justify-center rounded-full text-gray-600 hover:text-brand-secondary hover:bg-gray-50 transition-all"
               onClick={() => setCartOpen(true)}
             >
               <ShoppingCart className="h-4 w-4" />
@@ -152,41 +143,23 @@ export function Header() {
         </div>
 
         {menuOpen && (
-          <div className="lg:hidden bg-brand-dark/95 backdrop-blur-md border-t border-white/10 px-6 py-5 space-y-4">
-            <Link
-              href="/shop"
-              className="block text-sm text-white/80 hover:text-brand-accent uppercase tracking-wider font-sans"
-              onClick={() => setMenuOpen(false)}
-            >
-              Shop
-            </Link>
-            <Link
-              href="/candles"
-              className="block text-sm text-white/80 hover:text-brand-accent uppercase tracking-wider font-sans"
-              onClick={() => setMenuOpen(false)}
-            >
-              Healing Candles
-            </Link>
-            <Link
-              href="/essential-oil"
-              className="block text-sm text-white/80 hover:text-brand-accent uppercase tracking-wider font-sans"
-              onClick={() => setMenuOpen(false)}
-            >
-              Essential Oils
-            </Link>
-            <Link
-              href="/mood-refresher"
-              className="block text-sm text-white/80 hover:text-brand-accent uppercase tracking-wider font-sans"
-              onClick={() => setMenuOpen(false)}
-            >
-              Intention Salts
-            </Link>
-            <div className="pt-4 border-t border-white/10 space-y-3">
+          <div className="lg:hidden bg-white border-t border-gray-100 px-6 py-5 space-y-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="block text-sm text-gray-700 hover:text-brand-secondary uppercase tracking-wider font-sans"
+                onClick={() => setMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            <div className="pt-4 border-t border-gray-100 space-y-3">
               {mounted && !loading && customer ? (
                 <>
-                  <p className="text-xs text-white/70">Signed in as {customer.email}</p>
+                  <p className="text-xs text-gray-500">Signed in as {customer.email}</p>
                   <button
-                    className="w-full flex items-center justify-center gap-2 rounded-full bg-white/10 text-white py-2 text-sm font-semibold"
+                    className="w-full flex items-center justify-center gap-2 rounded-full bg-gray-100 text-gray-900 py-2 text-sm font-semibold"
                     onClick={() => {
                       setMenuOpen(false);
                       router.push("/account");
@@ -195,7 +168,7 @@ export function Header() {
                     <User className="h-4 w-4" /> Account
                   </button>
                   <button
-                    className="w-full flex items-center justify-center gap-2 rounded-full border border-white/30 text-white py-2 text-sm"
+                    className="w-full flex items-center justify-center gap-2 rounded-full border border-gray-300 text-gray-700 py-2 text-sm"
                     onClick={async () => {
                       setMenuOpen(false);
                       await logout();
@@ -207,7 +180,7 @@ export function Header() {
               ) : (
                 <>
                   <button
-                    className="w-full rounded-full bg-white text-brand-secondary py-2 text-sm font-semibold"
+                    className="w-full rounded-full bg-brand-secondary text-white py-2 text-sm font-semibold"
                     onClick={() => {
                       setMenuOpen(false);
                       router.push("/login");
@@ -216,7 +189,7 @@ export function Header() {
                     Sign In
                   </button>
                   <button
-                    className="w-full rounded-full border border-white/30 text-white py-2 text-sm"
+                    className="w-full rounded-full border border-gray-300 text-gray-700 py-2 text-sm"
                     onClick={() => {
                       setMenuOpen(false);
                       router.push("/register");

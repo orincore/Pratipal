@@ -3,6 +3,12 @@ import type { StaticImageData } from "next/image";
 export type ProductCategory = "candles" | "rollon" | "salt";
 export type ProductStatus = "active" | "draft";
 export type LandingSlug = "essential-oil" | "candles" | "mood-refresher";
+export type HomepageSection =
+  | "featured"
+  | "best_sellers"
+  | "new_arrivals"
+  | "on_sale"
+  | "none";
 
 export interface Product {
   id: string;
@@ -14,6 +20,7 @@ export interface Product {
   image: string;
   status: ProductStatus;
   landingPages: string[];
+  homepageSection?: HomepageSection;
 }
 
 export interface Category {

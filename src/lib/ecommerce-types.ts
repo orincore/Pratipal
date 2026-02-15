@@ -30,6 +30,7 @@ export interface Product {
   featured_image?: string;
   is_featured: boolean;
   is_active: boolean;
+  homepage_section?: string | null;
   weight?: number;
   dimensions?: {
     length?: number;

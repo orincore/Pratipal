@@ -2,42 +2,22 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
-import type { Product as EcomProduct, Category } from "@/lib/ecommerce-types";
+import type { Product as EcomProduct } from "@/lib/ecommerce-types";
 
 export default function EcommerceProductsPage() {
   const [products, setProducts] = useState<EcomProduct[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
-  const [editProduct, setEditProduct] = useState<Partial<EcomProduct> | null>(null);
-  const [isNew, setIsNew] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     loadProducts();
-    loadCategories();
   }, []);
 
   async function loadProducts() {
@@ -50,16 +30,6 @@ export default function EcommerceProductsPage() {
     }
   }
 
-  async function loadCategories() {
-    try {
-      const res = await fetch("/api/categories");
-      const data = await res.json();
-      setCategories(data.categories || []);
-    } catch (err) {
-      toast.error("Failed to load categories");
-    }
-  }
-
   const filtered = products.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -67,72 +37,11 @@ export default function EcommerceProductsPage() {
   );
 
   function openNew() {
-    setEditProduct({
-      name: "",
-      slug: "",
-      description: "",
-      short_description: "",
-      price: 0,
-      stock_quantity: 0,
-      stock_status: "in_stock",
-      manage_stock: true,
-      images: [],
-      is_featured: false,
-      is_active: true,
-      tags: [],
-    });
-    setIsNew(true);
-    setDialogOpen(true);
+    router.push("/admin/ecommerce/products/create");
   }
 
   function openEdit(product: EcomProduct) {
-    setEditProduct({ ...product });
-    setIsNew(false);
-    setDialogOpen(true);
-  }
-
-  async function handleSave() {
-    if (!editProduct || !editProduct.name || !editProduct.price) {
-      toast.error("Please fill in required fields");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (isNew) {
-        const res = await fetch("/api/products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editProduct),
-        });
-
-        if (!res.ok) throw new Error("Failed to create product");
-        
-        const data = await res.json();
-        setProducts((prev) => [...prev, data.product]);
-        toast.success("Product created successfully");
-      } else {
-        const res = await fetch(`/api/products/${editProduct.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editProduct),
-        });
-
-        if (!res.ok) throw new Error("Failed to update product");
-        
-        const data = await res.json();
-        setProducts((prev) =>
-          prev.map((p) => (p.id === data.product.id ? data.product : p))
-        );
-        toast.success("Product updated successfully");
-      }
-      setDialogOpen(false);
-      setEditProduct(null);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save product");
-    } finally {
-      setLoading(false);
-    }
+    router.push(`/admin/ecommerce/products/create?productId=${product.id}`);
   }
 
   async function handleDelete(id: string) {
@@ -244,212 +153,6 @@ export default function EcommerceProductsPage() {
           </div>
         </CardContent>
       </Card>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {isNew ? "Add Product" : "Edit Product"}
-            </DialogTitle>
-          </DialogHeader>
-          {editProduct && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Name *</Label>
-                  <Input
-                    value={editProduct.name}
-                    onChange={(e) =>
-                      setEditProduct({ ...editProduct, name: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Slug *</Label>
-                  <Input
-                    value={editProduct.slug}
-                    onChange={(e) =>
-                      setEditProduct({ ...editProduct, slug: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Price (₹) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={editProduct.price}
-                    onChange={(e) =>
-                      setEditProduct({
-                        ...editProduct,
-                        price: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Sale Price (₹)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={editProduct.sale_price || ""}
-                    onChange={(e) =>
-                      setEditProduct({
-                        ...editProduct,
-                        sale_price: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>SKU</Label>
-                  <Input
-                    value={editProduct.sku || ""}
-                    onChange={(e) =>
-                      setEditProduct({ ...editProduct, sku: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Stock Quantity</Label>
-                  <Input
-                    type="number"
-                    value={editProduct.stock_quantity}
-                    onChange={(e) =>
-                      setEditProduct({
-                        ...editProduct,
-                        stock_quantity: parseInt(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>Category</Label>
-                <Select
-                  value={editProduct.category_id || ""}
-                  onValueChange={(v) =>
-                    setEditProduct({ ...editProduct, category_id: v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Short Description</Label>
-                <Textarea
-                  value={editProduct.short_description || ""}
-                  onChange={(e) =>
-                    setEditProduct({
-                      ...editProduct,
-                      short_description: e.target.value,
-                    })
-                  }
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <Label>Description</Label>
-                <Textarea
-                  value={editProduct.description || ""}
-                  onChange={(e) =>
-                    setEditProduct({
-                      ...editProduct,
-                      description: e.target.value,
-                    })
-                  }
-                  rows={4}
-                />
-              </div>
-
-              <div>
-                <Label>Featured Image URL</Label>
-                <Input
-                  value={editProduct.featured_image || ""}
-                  onChange={(e) =>
-                    setEditProduct({ ...editProduct, featured_image: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Stock Status</Label>
-                  <Select
-                    value={editProduct.stock_status}
-                    onValueChange={(v: any) =>
-                      setEditProduct({ ...editProduct, stock_status: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="in_stock">In Stock</SelectItem>
-                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                      <SelectItem value="on_backorder">On Backorder</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-4 pt-6">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={editProduct.is_featured}
-                      onChange={(e) =>
-                        setEditProduct({
-                          ...editProduct,
-                          is_featured: e.target.checked,
-                        })
-                      }
-                    />
-                    <span className="text-sm">Featured</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={editProduct.is_active}
-                      onChange={(e) =>
-                        setEditProduct({
-                          ...editProduct,
-                          is_active: e.target.checked,
-                        })
-                      }
-                    />
-                    <span className="text-sm">Active</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={loading}>
-              {loading ? "Saving..." : isNew ? "Create" : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

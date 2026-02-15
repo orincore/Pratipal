@@ -1,76 +1,187 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Plus, Star, ShoppingBag, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/utils";
-import type { Product } from "@/types";
+import type { Product, HomepageSection } from "@/types";
+
+type SectionKey = Extract<HomepageSection, "featured" | "best_sellers" | "new_arrivals" | "on_sale">;
+const SECTION_KEYS: SectionKey[] = ["featured", "best_sellers", "new_arrivals", "on_sale"];
 
 interface HomePageClientProps {
   products: Product[];
 }
 
+interface HeroSlide {
+  title: string;
+  subtitle: string;
+  image: string;
+  href: string;
+  cta: string;
+  price?: number;
+}
+
+interface HeroBannerProps {
+  products: Product[];
+}
+
+const HERO_FALLBACK_SLIDES: HeroSlide[] = [
+  {
+    title: "Most Awaited\nHavan Cups\nBack in Stock",
+    subtitle: "Handcrafted with sacred herbs & pure ghee",
+    image: "https://worldofoorja.com/cdn/shop/files/DSC0725.jpg?v=1758892916&width=610",
+    cta: "Shop Now",
+    href: "/candles",
+  },
+  {
+    title: "Healing\nEssential Oil\nRoll-Ons",
+    subtitle: "Therapeutic grade oils for everyday wellness",
+    image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=1200&h=700&fit=crop",
+    cta: "Explore",
+    href: "/essential-oil",
+  },
+  {
+    title: "Energy\nIntention\nSalts",
+    subtitle: "Cleanse your aura with crystal-infused bath salts",
+    image: "https://www.nytarra.in/cdn/shop/files/9_f34914c2-e1fa-453c-af98-4039446e9577.jpg?v=1767872410&width=823",
+    cta: "Discover",
+    href: "/mood-refresher",
+  },
+];
+
 export function HomePageClient({ products }: HomePageClientProps) {
-  const candleProducts = products.filter((p) => p.category === "candles");
-  const rollonProducts = products.filter((p) => p.category === "rollon");
-  const saltProducts = products.filter((p) => p.category === "salt");
-  const bestSellers = products.filter((p) => p.status === "active").slice(0, 6);
+  const sectionedProducts = useMemo(() => {
+    const record: Record<SectionKey, Product[]> = {
+      featured: [],
+      best_sellers: [],
+      new_arrivals: [],
+      on_sale: [],
+    };
+    products.forEach((product) => {
+      const key = product.homepageSection as SectionKey | undefined;
+      if (key && SECTION_KEYS.includes(key)) {
+        record[key].push(product);
+      }
+    });
+    return record;
+  }, [products]);
+
+  const selectSectionProducts = useCallback(
+    (key: SectionKey, fallbackPredicate: (product: Product) => boolean) => {
+      const assigned = [...sectionedProducts[key]];
+      const uniqueAssigned = assigned.filter(
+        (product, index, array) => array.findIndex((p) => p.id === product.id) === index
+      );
+
+      if (uniqueAssigned.length >= 4) {
+        return uniqueAssigned.slice(0, 4);
+      }
+
+      const result = [...uniqueAssigned];
+      const fallbackPool = products.filter(fallbackPredicate);
+      for (const candidate of fallbackPool) {
+        if (result.length >= 4) break;
+        if (!result.some((item) => item.id === candidate.id)) {
+          result.push(candidate);
+        }
+      }
+      return result.slice(0, 4);
+    },
+    [products, sectionedProducts]
+  );
+
+  const featuredProducts = useMemo(
+    () => selectSectionProducts("featured", (product) => product.category === "candles"),
+    [selectSectionProducts]
+  );
+  const bestSellers = useMemo(
+    () => selectSectionProducts("best_sellers", (product) => product.status === "active"),
+    [selectSectionProducts]
+  );
+  const newArrivals = useMemo(
+    () => selectSectionProducts("new_arrivals", () => true),
+    [selectSectionProducts]
+  );
+  const onSaleProducts = useMemo(
+    () => selectSectionProducts("on_sale", (product) => product.status === "active"),
+    [selectSectionProducts]
+  );
+
+  const heroProducts = sectionedProducts.featured;
 
   return (
     <div className="bg-white">
-      <HeroBanner />
+      <HeroBanner products={heroProducts} />
       <CategoryGrid />
       <BrandingSection />
-      <ProductSection
-        title="Our Candles"
-        subtitle="Crystal-infused healing candles handcrafted with pure essential oils and intention"
-        products={candleProducts}
-        href="/candles"
-        bgClass="bg-brand-warm"
-      />
+      {featuredProducts.length > 0 && (
+        <ProductSection
+          title="Featured Rituals"
+          subtitle="Handpicked treasures showcased across the hero experience"
+          products={featuredProducts}
+          href="/candles"
+          bgClass="bg-brand-warm"
+        />
+      )}
+      {newArrivals.length > 0 && (
+        <ProductSection
+          title="New Arrivals"
+          subtitle="Fresh drops from the studio—updated as soon as you mark them in the admin"
+          products={newArrivals}
+          href="/"
+          bgClass="bg-white"
+        />
+      )}
       <LifestyleSection />
-      <ProductSection
-        title="Best Sellers"
-        subtitle="Most loved products by our community of healers and wellness seekers"
-        products={bestSellers}
-        href="/"
-        bgClass="bg-white"
-      />
+      {bestSellers.length > 0 && (
+        <ProductSection
+          title="Best Sellers"
+          subtitle="Most loved products by our community of healers and wellness seekers"
+          products={bestSellers}
+          href="/"
+          bgClass="bg-white"
+        />
+      )}
+      {onSaleProducts.length > 0 && (
+        <ProductSection
+          title="On Sale"
+          subtitle="Limited-time offers curated through the homepage manager"
+          products={onSaleProducts}
+          href="/"
+          bgClass="bg-brand-warm"
+        />
+      )}
       <CtaBanner />
     </div>
   );
 }
 
-function HeroBanner() {
+function HeroBanner({ products }: HeroBannerProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
-    {
-      title: "Most Awaited\nHavan Cups\nBack in Stock",
-      subtitle: "Handcrafted with sacred herbs & pure ghee",
-      image: "https://worldofoorja.com/cdn/shop/files/DSC0725.jpg?v=1758892916&width=610",
+  const slides = useMemo<HeroSlide[]>(() => {
+    if (!products.length) return HERO_FALLBACK_SLIDES;
+    return products.slice(0, 3).map((product) => ({
+      title: product.name,
+      subtitle: product.shortDescription || "Handcrafted rituals for your daily practice",
+      image: product.image || "/placeholder.jpg",
+      href: `/product/${product.slug}`,
       cta: "Shop Now",
-      href: "/candles",
-    },
-    {
-      title: "Healing\nEssential Oil\nRoll-Ons",
-      subtitle: "Therapeutic grade oils for everyday wellness",
-      image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=1200&h=700&fit=crop",
-      cta: "Explore",
-      href: "/essential-oil",
-    },
-    {
-      title: "Energy\nIntention\nSalts",
-      subtitle: "Cleanse your aura with crystal-infused bath salts",
-      image: "https://www.nytarra.in/cdn/shop/files/9_f34914c2-e1fa-453c-af98-4039446e9577.jpg?v=1767872410&width=823",
-      cta: "Discover",
-      href: "/mood-refresher",
-    },
-  ];
+      price: product.price,
+    }));
+  }, [products]);
 
-  const slide = slides[currentSlide];
+  useEffect(() => {
+    setCurrentSlide((prev) => {
+      if (slides.length === 0) return 0;
+      return Math.min(prev, slides.length - 1);
+    });
+  }, [slides]);
+
+  const slide = slides[currentSlide] ?? HERO_FALLBACK_SLIDES[0];
 
   return (
     <section className="relative overflow-hidden bg-brand-cream">
@@ -287,6 +398,10 @@ function ProductSection({
   href: string;
   bgClass: string;
 }) {
+  if (products.length === 0) {
+    return null;
+  }
+
   return (
     <section className={`py-14 md:py-20 ${bgClass}`}>
       <div className="container">
@@ -303,7 +418,7 @@ function ProductSection({
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {products.slice(0, 4).map((product) => (
+          {products.map((product) => (
             <ProductGridCard key={product.id} product={product} />
           ))}
         </div>

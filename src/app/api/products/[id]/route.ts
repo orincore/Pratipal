@@ -65,6 +65,7 @@ export async function PATCH(
     if (body.tags !== undefined) updateData.tags = body.tags;
     if (body.meta_title !== undefined) updateData.meta_title = body.meta_title;
     if (body.meta_description !== undefined) updateData.meta_description = body.meta_description;
+    if (body.homepage_section !== undefined) updateData.homepage_section = body.homepage_section;
 
     const { data, error } = await supabase
       .from("products")
