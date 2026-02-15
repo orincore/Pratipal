@@ -110,6 +110,28 @@ export interface BonusSection {
   enabled: boolean;
 }
 
+export interface InvitationSection {
+  enabled: boolean;
+  badgeEmoji: string;
+  badgeText: string;
+  title: string;
+  subtitle: string;
+  dateLabel: string;
+  dateValue: string;
+  timeLabel: string;
+  timeValue: string;
+  venueLabel: string;
+  venueValue: string;
+  availabilityText: string;
+  buttonText: string;
+  formTitle: string;
+  formHighlights: string[];
+  formButtonText: string;
+  successTitle: string;
+  successDescription: string;
+  supportText: string;
+}
+
 export interface FooterCTA {
   title: string;
   subtitle: string;
@@ -124,9 +146,26 @@ export interface FooterSection {
   enabled: boolean;
 }
 
+export type FloatingButtonSource = "hero" | "program" | "invitation" | "footer";
+
+export interface FloatingButtonSettings {
+  enabled: boolean;
+  section: FloatingButtonSource;
+}
+
 // ---------------------------------------------------------------------------
 // Complete template data
 // ---------------------------------------------------------------------------
+export interface MediaFieldOptions {
+  autoplay: boolean;
+  mute: boolean;
+}
+
+export const DEFAULT_MEDIA_SETTINGS: MediaFieldOptions = {
+  autoplay: false,
+  mute: true,
+};
+
 export interface LandingTemplateData {
   colors: TemplateColors;
   hero: HeroSection;
@@ -139,13 +178,19 @@ export interface LandingTemplateData {
   testimonials: TestimonialsSection;
   program: ProgramSection;
   bonus: BonusSection;
+  invitation: InvitationSection;
   footer: FooterSection;
+  floatingButton: FloatingButtonSettings;
+  sectionOrder?: string[];
+  mediaSettings?: Record<string, MediaFieldOptions>;
 }
 
 // ---------------------------------------------------------------------------
 // Default template data (placeholder content)
 // ---------------------------------------------------------------------------
 export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
+  sectionOrder: ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'program', 'invitation', 'bonus', 'footer'],
+  mediaSettings: {},
   colors: {
     primary: "#F5A623",
     secondary: "#7B2D8E",
@@ -302,6 +347,27 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ],
     enabled: true,
   },
+  invitation: {
+    enabled: true,
+    badgeEmoji: "🔥",
+    badgeText: "Filling Fast",
+    title: "Request Your Invitation",
+    subtitle: "Secure your spot for the next live experience",
+    dateLabel: "Date",
+    dateValue: "15 Feb 2026",
+    timeLabel: "Time",
+    timeValue: "03:00 PM",
+    venueLabel: "Venue",
+    venueValue: "Live on Zoom (Private Link)",
+    availabilityText: "Live • Limited spots available.",
+    buttonText: "Request Your Invitation",
+    formTitle: "Request Your Invitation",
+    formHighlights: ["Free", "Live", "Limited Seats"],
+    formButtonText: "Request My Invitation",
+    successTitle: "You're on the list!",
+    successDescription: "We'll send your private invitation link via email and WhatsApp shortly.",
+    supportText: "Join 200,000+ women shifting their state.",
+  },
   footer: {
     cta: {
       title: "Ready to Transform Your Life?",
@@ -317,4 +383,30 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ],
     enabled: true,
   },
+  floatingButton: {
+    enabled: false,
+    section: "invitation",
+  },
 };
+
+export function normalizeTemplateData(data?: Partial<LandingTemplateData>): LandingTemplateData {
+  if (!data) return DEFAULT_TEMPLATE_DATA;
+  return {
+    colors: { ...DEFAULT_TEMPLATE_DATA.colors, ...data.colors },
+    hero: { ...DEFAULT_TEMPLATE_DATA.hero, ...data.hero },
+    marquee: { ...DEFAULT_TEMPLATE_DATA.marquee, ...data.marquee },
+    why: { ...DEFAULT_TEMPLATE_DATA.why, ...data.why },
+    about: { ...DEFAULT_TEMPLATE_DATA.about, ...data.about },
+    logos: { ...DEFAULT_TEMPLATE_DATA.logos, ...data.logos },
+    gallery: { ...DEFAULT_TEMPLATE_DATA.gallery, ...data.gallery },
+    stats: { ...DEFAULT_TEMPLATE_DATA.stats, ...data.stats },
+    testimonials: { ...DEFAULT_TEMPLATE_DATA.testimonials, ...data.testimonials },
+    program: { ...DEFAULT_TEMPLATE_DATA.program, ...data.program },
+    bonus: { ...DEFAULT_TEMPLATE_DATA.bonus, ...data.bonus },
+    invitation: { ...DEFAULT_TEMPLATE_DATA.invitation, ...data.invitation },
+    footer: { ...DEFAULT_TEMPLATE_DATA.footer, ...data.footer },
+    floatingButton: { ...DEFAULT_TEMPLATE_DATA.floatingButton, ...data.floatingButton },
+    sectionOrder: data.sectionOrder || DEFAULT_TEMPLATE_DATA.sectionOrder,
+    mediaSettings: data.mediaSettings || DEFAULT_TEMPLATE_DATA.mediaSettings,
+  };
+}

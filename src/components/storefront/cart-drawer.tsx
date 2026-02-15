@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { X, Plus, Minus, Trash2 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatPrice } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface CartDrawerProps {
   open: boolean;
@@ -14,10 +15,109 @@ interface CartDrawerProps {
 }
 
 export function CartDrawer({ open, onClose }: CartDrawerProps) {
-  const { items, updateQuantity, removeItem, getTotal, clearCart } =
+  const { items, updateQuantity, removeItem, getTotal, clearCart, setItems } =
     useCartStore();
+  const [fetching, setFetching] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    async function syncCart() {
+      setFetching(true);
+      try {
+        const res = await fetch("/api/cart", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (Array.isArray(data.cart)) {
+          const mapped = data.cart.map((entry: any) => ({
+            id: entry.id,
+            product: {
+              id: entry.product?.id || entry.product_id,
+              name: entry.product?.name || "Product",
+              slug: entry.product?.slug || entry.product_id,
+              category: "candles",
+              price: entry.product?.sale_price || entry.product?.price || entry.price,
+              shortDescription:
+                entry.product?.short_description || entry.product?.description || "",
+              image:
+                entry.product?.featured_image || entry.product?.images?.[0] ||
+                "https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=600&q=80",
+              status: "active",
+              landingPages: [],
+            },
+            quantity: entry.quantity || 1,
+          }));
+          setItems(mapped);
+        }
+      } finally {
+        if (!cancelled) setFetching(false);
+      }
+    }
+    syncCart();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, setItems]);
 
   if (!open) return null;
+
+  const getIdentifier = (itemId?: string, productId?: string) => itemId || productId || "";
+
+  const patchQuantity = async (id: string, quantity: number) => {
+    const res = await fetch(`/api/cart/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || "Failed to update cart");
+    }
+  };
+
+  const deleteItem = async (id: string) => {
+    const res = await fetch(`/api/cart/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || "Failed to remove item");
+    }
+  };
+
+  const handleQuantityChange = async (item: any, delta: number) => {
+    const identifier = getIdentifier(item.id, item.product.id);
+    if (!identifier) return;
+    const nextQty = item.quantity + delta;
+    setUpdatingId(identifier);
+    try {
+      if (nextQty <= 0) {
+        await deleteItem(identifier);
+        removeItem(identifier);
+      } else {
+        await patchQuantity(identifier, nextQty);
+        updateQuantity(identifier, nextQty);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Unable to update cart");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRemove = async (item: any) => {
+    const identifier = getIdentifier(item.id, item.product.id);
+    if (!identifier) return;
+    setUpdatingId(identifier);
+    try {
+      await deleteItem(identifier);
+      removeItem(identifier);
+    } catch (err: any) {
+      toast.error(err.message || "Unable to remove item");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50">
@@ -33,7 +133,9 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
         {items.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <p className="text-muted-foreground text-center">
-              Your cart is empty. Start shopping to add items.
+              {fetching
+                ? "Loading your cart..."
+                : "Your cart is empty. Start shopping to add items."}
             </p>
           </div>
         ) : (
@@ -61,9 +163,8 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                         variant="outline"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() =>
-                          updateQuantity(item.product.id, item.quantity - 1)
-                        }
+                        disabled={updatingId === getIdentifier(item.id, item.product.id)}
+                        onClick={() => handleQuantityChange(item, -1)}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
@@ -74,9 +175,8 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                         variant="outline"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() =>
-                          updateQuantity(item.product.id, item.quantity + 1)
-                        }
+                        disabled={updatingId === getIdentifier(item.id, item.product.id)}
+                        onClick={() => handleQuantityChange(item, 1)}
                       >
                         <Plus className="h-3 w-3" />
                       </Button>
@@ -84,7 +184,8 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 ml-auto text-destructive"
-                        onClick={() => removeItem(item.product.id)}
+                        disabled={updatingId === getIdentifier(item.id, item.product.id)}
+                        onClick={() => handleRemove(item)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

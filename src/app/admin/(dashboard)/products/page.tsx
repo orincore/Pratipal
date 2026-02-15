@@ -23,17 +23,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getProducts, updateProduct, createProduct } from "@/services/api";
+import { getProducts, updateProduct } from "@/services/api";
 import { formatPrice } from "@/lib/utils";
 import type { Product, ProductCategory, ProductStatus } from "@/types";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [isNew, setIsNew] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     getProducts().then(setProducts);
@@ -46,42 +47,22 @@ export default function AdminProducts() {
   );
 
   function openNew() {
-    setEditProduct({
-      id: "",
-      name: "",
-      slug: "",
-      category: "candles",
-      price: 0,
-      shortDescription: "",
-      image: "https://images.unsplash.com/photo-1602607616907-0c8ba6845ef1?w=400&h=400&fit=crop",
-      status: "draft",
-      landingPages: [],
-    });
-    setIsNew(true);
-    setDialogOpen(true);
+    router.push("/admin/ecommerce/products/create");
   }
 
   function openEdit(product: Product) {
     setEditProduct({ ...product });
-    setIsNew(false);
     setDialogOpen(true);
   }
 
   async function handleSave() {
     if (!editProduct) return;
     try {
-      if (isNew) {
-        const { id, ...rest } = editProduct;
-        const created = await createProduct(rest);
-        setProducts((prev) => [...prev, created]);
-        toast.success("Product created successfully");
-      } else {
-        const updated = await updateProduct(editProduct);
-        setProducts((prev) =>
-          prev.map((p) => (p.id === updated.id ? updated : p))
-        );
-        toast.success("Product updated successfully");
-      }
+      const updated = await updateProduct(editProduct);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p))
+      );
+      toast.success("Product updated successfully");
       setDialogOpen(false);
     } catch {
       toast.error("Failed to save product");
@@ -174,9 +155,7 @@ export default function AdminProducts() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {isNew ? "Add Product" : "Edit Product"}
-            </DialogTitle>
+            <DialogTitle>Edit Product</DialogTitle>
           </DialogHeader>
           {editProduct && (
             <div className="space-y-4">
@@ -271,9 +250,7 @@ export default function AdminProducts() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              {isNew ? "Create" : "Save Changes"}
-            </Button>
+            <Button onClick={handleSave}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

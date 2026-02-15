@@ -87,6 +87,7 @@ export interface MediaItem {
 }
 
 export interface CartItem {
+  id?: string;
   product: Product;
   quantity: number;
 }

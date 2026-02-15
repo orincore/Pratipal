@@ -9,9 +9,11 @@ const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 export interface AuthUser {
   id: string;
   email: string;
-  full_name: string | null;
+  full_name?: string | null;
+  first_name?: string;
+  last_name?: string;
   role: string;
-  status: string;
+  status?: string;
 }
 
 export interface JwtPayload {

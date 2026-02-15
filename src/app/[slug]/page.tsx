@@ -26,7 +26,7 @@ async function getPublishedPage(slug: string) {
   const supabase = await createServerSupabaseClient();
   const { data } = await supabase
     .from("landing_pages")
-    .select("title, seo_title, seo_description, content, theme")
+    .select("id, title, slug, seo_title, seo_description, content, theme")
     .eq("slug", slug)
     .eq("status", "published")
     .single();
@@ -61,7 +61,13 @@ export default async function DynamicLandingPage({ params }: Props) {
   const hasTemplate = content?.templateData != null;
 
   if (hasTemplate) {
-    return <LandingTemplate data={content.templateData} />;
+    return (
+      <LandingTemplate
+        data={content.templateData}
+        landingPageId={page!.id}
+        pageSlug={page!.slug || slug}
+      />
+    );
   }
 
   return (

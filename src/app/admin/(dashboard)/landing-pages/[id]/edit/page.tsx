@@ -16,6 +16,10 @@ import {
   X,
   LayoutTemplate,
   Code2,
+  PanelRightClose,
+  PanelRightOpen,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +37,12 @@ import {
 import type { LandingTemplateData } from "@/lib/template-types";
 import { DEFAULT_TEMPLATE_DATA } from "@/lib/template-types";
 import { toast } from "sonner";
+import { useDashboardLayout } from "@/components/admin/dashboard-layout-context";
+import { cn } from "@/lib/utils";
+
+const TEMPLATE_PREVIEW_ZOOM = 0.55;
+const TEMPLATE_PREVIEW_WIDTH = 1300;
+const TEMPLATE_PREVIEW_SCALED_WIDTH = TEMPLATE_PREVIEW_WIDTH * TEMPLATE_PREVIEW_ZOOM;
 
 type EditorMode = "template" | "richtext";
 
@@ -58,6 +68,7 @@ export default function LandingPageEditorPage() {
   const params = useParams();
   const router = useRouter();
   const pageId = params.id as string;
+  const { setSidebarCollapsed } = useDashboardLayout();
 
   const [page, setPage] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +76,43 @@ export default function LandingPageEditorPage() {
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>("template");
   const [templateData, setTemplateData] = useState<LandingTemplateData>(DEFAULT_TEMPLATE_DATA);
+  const [templatePanelCollapsed, setTemplatePanelCollapsed] = useState(false);
+  const [previewFocused, setPreviewFocused] = useState(false);
+
+  const scaledPreviewWidth = Math.min(TEMPLATE_PREVIEW_SCALED_WIDTH, 900);
+  const previewOuterStyle: React.CSSProperties = previewFocused
+    ? { width: "100%", maxWidth: "1400px" }
+    : { width: scaledPreviewWidth, maxWidth: "100%" };
+  const previewInnerStyle: React.CSSProperties = previewFocused
+    ? { transform: "none", width: "100%" }
+    : {
+        transform: `scale(${TEMPLATE_PREVIEW_ZOOM})`,
+        transformOrigin: "top left",
+        width: TEMPLATE_PREVIEW_WIDTH,
+      };
+
+  useEffect(() => {
+    setSidebarCollapsed(previewFocused);
+    return () => setSidebarCollapsed(false);
+  }, [previewFocused, setSidebarCollapsed]);
+
+  const toggleTemplatePanel = useCallback(() => {
+    setTemplatePanelCollapsed((prev) => {
+      const next = !prev;
+      if (!next && previewFocused) {
+        setPreviewFocused(false);
+      }
+      return next;
+    });
+  }, [previewFocused]);
+
+  const togglePreviewFocus = useCallback(() => {
+    setPreviewFocused((prev) => {
+      const next = !prev;
+      setTemplatePanelCollapsed(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -270,13 +318,41 @@ export default function LandingPageEditorPage() {
             Settings
           </Button>
 
-          {page.status === "published" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs text-gray-600"
+            onClick={togglePreviewFocus}
+          >
+            {previewFocused ? (
+              <>
+                <Minimize2 className="h-3.5 w-3.5 mr-1" /> Exit Preview
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-3.5 w-3.5 mr-1" /> Preview
+              </>
+            )}
+          </Button>
+
+          {page?.slug && (
             <Button variant="ghost" size="sm" className="h-8 text-xs text-gray-600" asChild>
               <Link href={`/${page.slug}`} target="_blank">
-                <Eye className="h-3.5 w-3.5 mr-1" /> Preview
+                <Eye className="h-3.5 w-3.5 mr-1" /> Live Page
               </Link>
             </Button>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            asChild
+          >
+            <Link href={`/admin/landing-pages/${page.id}/invitations`}>
+              Invitations
+            </Link>
+          </Button>
 
           <Button
             onClick={handleSave}
@@ -292,27 +368,61 @@ export default function LandingPageEditorPage() {
 
       {/* ===== Main Editor Area ===== */}
       <div className="relative flex-1 flex overflow-hidden">
+        {templatePanelCollapsed && editorMode === "template" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden lg:flex items-center gap-1 text-xs absolute top-4 left-4 z-30"
+            onClick={toggleTemplatePanel}
+          >
+            <PanelRightOpen className="h-3.5 w-3.5" /> Show Editor
+          </Button>
+        )}
         {editorMode === "template" ? (
           /* ===== TEMPLATE MODE: Left editor panel + Right live preview ===== */
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
             {/* Left: Template Editor Form */}
-            <div className="w-[360px] min-w-[360px] bg-white border-r border-gray-200 flex flex-col h-full overflow-hidden">
-              <div className="border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white px-4 py-3">
-                <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                  <LayoutTemplate className="h-4 w-4 text-violet-500" />
-                  Template Content
-                </h3>
-                <p className="text-[10px] text-gray-400 mt-0.5">Edit content below — preview updates live</p>
+            <div
+              className={cn(
+                "w-full lg:w-[380px] lg:min-w-[380px] xl:w-[420px] xl:min-w-[420px] bg-white border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col h-64 lg:h-full overflow-hidden",
+                templatePanelCollapsed ? "hidden lg:hidden" : ""
+              )}
+            >
+              <div className="border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white px-4 py-3 flex-shrink-0 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    <LayoutTemplate className="h-4 w-4 text-violet-500" />
+                    Template Content
+                  </h3>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Drag sections to reorder • Edit content below</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={toggleTemplatePanel}>
+                  {templatePanelCollapsed ? (
+                    <PanelRightOpen className="h-4 w-4" />
+                  ) : (
+                    <PanelRightClose className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
               <div className="flex-1 overflow-y-auto p-3">
                 <TemplateEditor data={templateData} onChange={setTemplateData} />
               </div>
             </div>
             {/* Right: Live Preview */}
-            <div className="flex-1 bg-gray-100 overflow-y-auto">
-              <div className="min-h-full">
-                <div className="bg-white mx-auto shadow-sm border-x border-gray-200 max-w-[1400px]">
-                  <LandingTemplate data={templateData} />
+            <div className={cn("flex-1 bg-gray-100 overflow-y-auto transition-colors", previewFocused && "bg-white")}
+            >
+              <div className={cn("min-h-full flex justify-center py-6 px-4", previewFocused && "py-0 px-0")}
+              >
+                <div
+                  className={cn("overflow-hidden transition-all", previewFocused && "rounded-none shadow-none border-0")}
+                  style={previewOuterStyle}
+                >
+                  <div className="[perspective:2000px]" style={previewInnerStyle}>
+                    <div className={cn("bg-white shadow-sm border border-gray-200 rounded-[32px]", previewFocused && "rounded-none border-0 shadow-none")}
+                    >
+                      <LandingTemplate data={templateData} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -366,7 +476,7 @@ export default function LandingPageEditorPage() {
                   <div>
                     <Label className="text-[11px] text-gray-500">URL Slug</Label>
                     <div className="flex items-center gap-1 mt-1">
-                      <span className="text-[11px] text-gray-400">/p/</span>
+                      <span className="text-[11px] text-gray-400">/</span>
                       <Input
                         value={page.slug}
                         onChange={(e) => setPage({ ...page, slug: e.target.value })}

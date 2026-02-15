@@ -247,7 +247,7 @@ export default function AdminLandingPages() {
               <div>
                 <Label className="text-sm font-medium">URL Slug</Label>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-sm text-gray-400 font-mono">/p/</span>
+                  <span className="text-sm text-gray-400 font-mono">/</span>
                   <Input
                     placeholder="salt-magic-webinar"
                     value={newSlug}
@@ -351,7 +351,7 @@ export default function AdminLandingPages() {
                         {page.title}
                       </h3>
                       <p className="text-xs text-gray-400 font-mono mt-1 truncate">
-                        /p/{page.slug}
+                        /{page.slug}
                       </p>
                     </div>
                     <Badge
@@ -431,7 +431,7 @@ export default function AdminLandingPages() {
                         className="h-9 w-9 p-0"
                         title="View live page"
                       >
-                        <Link href={`/p/${page.slug}`} target="_blank">
+                        <Link href={`/${page.slug}`} target="_blank">
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Link>
                       </Button>

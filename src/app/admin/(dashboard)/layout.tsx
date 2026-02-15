@@ -14,12 +14,15 @@ import {
   X,
   Store,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/supabase/auth-context";
 import LogoMark from "@/app/assets/logo.png";
+import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-context";
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -36,6 +39,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, loading, logout } = useAuth();
 
   if (loading) {
@@ -54,6 +58,7 @@ export default function DashboardLayout({
   }
 
   return (
+    <DashboardLayoutProvider value={{ sidebarCollapsed, setSidebarCollapsed }}>
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-white px-4 lg:px-6">
         <Button
@@ -67,6 +72,15 @@ export default function DashboardLayout({
           ) : (
             <Menu className="h-5 w-5" />
           )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden lg:inline-flex"
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </Button>
         <div className="flex items-center gap-3">
           <div className="relative h-9 w-9">
@@ -112,8 +126,9 @@ export default function DashboardLayout({
 
         <aside
           className={cn(
-            "fixed left-0 top-14 z-30 h-[calc(100vh-3.5rem)] w-64 border-r bg-white transition-transform lg:translate-x-0 lg:static",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            "fixed left-0 top-14 z-30 h-[calc(100vh-3.5rem)] w-64 border-r bg-white transition-transform lg:static",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+            sidebarCollapsed ? "lg:hidden" : "lg:block"
           )}
         >
           <nav className="flex flex-col gap-1 p-4">
@@ -150,5 +165,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </DashboardLayoutProvider>
   );
 }
