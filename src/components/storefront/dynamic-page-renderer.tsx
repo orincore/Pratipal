@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import type { JSONContent } from "@tiptap/core";
 import { generateHTML } from "@tiptap/html";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -73,6 +74,41 @@ const extensions = [
   PageSection,
 ];
 
+const FALLBACK_DOC: JSONContent = {
+  type: "doc",
+  content: [
+    {
+      type: "paragraph",
+      content: [{ type: "text", text: "\u00A0" }],
+    },
+  ],
+};
+
+function sanitizeEmptyTextNodes(node?: JSONContent | null): JSONContent | null {
+  if (!node) return null;
+
+  if (node.type === "text") {
+    const textValue =
+      typeof node.text === "string" && node.text.length > 0
+        ? node.text
+        : "\u00A0";
+    return { ...node, text: textValue };
+  }
+
+  if (Array.isArray(node.content)) {
+    const cleanedContent = (node.content ?? [])
+      .map((child) => sanitizeEmptyTextNodes(child))
+      .filter((child): child is JSONContent => Boolean(child));
+
+    return {
+      ...node,
+      content: cleanedContent,
+    };
+  }
+
+  return node;
+}
+
 export function DynamicPageRenderer({
   content,
   theme,
@@ -92,11 +128,21 @@ export function DynamicPageRenderer({
   };
   const doc = normalized.doc;
 
+  const sanitizedDoc = useMemo(() => {
+    if (doc && typeof doc === "object") {
+      const cleaned = sanitizeEmptyTextNodes(doc);
+      if (cleaned?.type === "doc") {
+        return cleaned;
+      }
+    }
+    return FALLBACK_DOC;
+  }, [doc]);
+
   const html = useMemo(() => {
     if (!isClient) return "";
     try {
-      if (doc && typeof doc === "object" && doc.type === "doc") {
-        return generateHTML(doc, extensions);
+      if (sanitizedDoc && typeof sanitizedDoc === "object" && sanitizedDoc.type === "doc") {
+        return generateHTML(sanitizedDoc, extensions);
       }
       if (typeof content === "string") {
         return content;
@@ -105,7 +151,7 @@ export function DynamicPageRenderer({
       console.error("Failed to render page content:", e);
     }
     return "<p>Failed to load page content.</p>";
-  }, [doc, content, isClient]);
+  }, [sanitizedDoc, content, isClient]);
 
   const safeHtml = html || "<p>Failed to load page content.</p>";
 

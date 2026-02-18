@@ -227,6 +227,14 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     return <img src={url} alt={options.alt || ""} className={options.className} />;
   };
 
+  const withWrapper = (
+    element: React.ReactNode,
+    wrapperClassName?: string
+  ) => {
+    if (!wrapperClassName) return element;
+    return <div className={wrapperClassName}>{element}</div>;
+  };
+
   const renderSection = (sectionKey: string) => {
     switch (sectionKey) {
       case 'hero':
@@ -360,7 +368,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                   style={{ backgroundColor: c.secondary }}
                 />
                 {renderMedia(t.about.image, mediaKey("about", "image"), {
-                  className: "relative rounded-3xl shadow-xl w-full h-auto object-cover max-h-[500px]",
+                  className: "relative rounded-3xl shadow-xl w-full h-full object-cover",
+                  wrapperClassName:
+                    "relative w-full max-w-sm mx-auto aspect-square rounded-3xl overflow-hidden",
                   alt: t.about.name,
                 })}
               </div>
