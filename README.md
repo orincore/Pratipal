@@ -52,7 +52,9 @@ fix done\ 22/02
        /proper session for adding price/weight 
        /auto calculation through out the products 
 
-
+ui changing to morden look on grident theme 
+turbo pack failed and work pause 
+out
 
 
 https://connect82451.wixstudio.com/pratipal?rc=test-site
