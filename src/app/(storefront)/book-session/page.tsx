@@ -200,8 +200,7 @@ export default function BookSessionPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-warm">
-      <Header />
+    
       
       <main className="flex-1 container py-12">
         <div className="max-w-3xl mx-auto">
@@ -434,8 +433,5 @@ export default function BookSessionPage() {
           </form>
         </div>
       </main>
-
-      <Footer />
-    </div>
   );
 }

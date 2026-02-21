@@ -143,58 +143,61 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
         ) : (
           <>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {items.map((item) => (
-                <div key={item.product.id} className="flex gap-3">
-                  <div className="relative h-20 w-20 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                    <Image
-                      src={item.product.image}
-                      alt={item.product.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium truncate">
-                      {item.product.name}
-                    </h3>
-                    <p className="text-sm text-brand-primary font-semibold mt-1">
-                      {formatPrice(item.product.price)}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={updatingId === getIdentifier(item.id, item.product.id)}
-                        onClick={() => handleQuantityChange(item, -1)}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="text-sm w-6 text-center">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={updatingId === getIdentifier(item.id, item.product.id)}
-                        onClick={() => handleQuantityChange(item, 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 ml-auto text-destructive"
-                        disabled={updatingId === getIdentifier(item.id, item.product.id)}
-                        onClick={() => handleRemove(item)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+              {items.map((item) => {
+                const identifier = getIdentifier(item.id, item.product.id);
+                return (
+                  <div key={identifier} className="flex gap-3">
+                    <div className="relative h-20 w-20 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                      <Image
+                        src={item.product.image}
+                        alt={item.product.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium truncate">
+                        {item.product.name}
+                      </h3>
+                      <p className="text-sm text-brand-primary font-semibold mt-1">
+                        {formatPrice(item.product.price)}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={updatingId === identifier}
+                          onClick={() => handleQuantityChange(item, -1)}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm w-6 text-center">
+                          {item.quantity}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={updatingId === identifier}
+                          onClick={() => handleQuantityChange(item, 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 ml-auto text-destructive"
+                          disabled={updatingId === identifier}
+                          onClick={() => handleRemove(item)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="border-t p-4 space-y-3">

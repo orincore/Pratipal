@@ -337,47 +337,54 @@ function CategoryGrid() {
 
 function BrandingSection() {
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden bg-gradient-brand">
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-white/20 blur-3xl" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-white/30 blur-3xl" />
+    <section className="relative py-20 md:py-28 overflow-hidden">
+      <div className="absolute inset-0">
+        <Image
+          src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&h=800&fit=crop"
+          alt="Forest"
+          fill
+          className="object-cover"
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 bg-brand-dark/70" />
       </div>
 
       <div className="relative z-10 container text-center">
-        <p className="text-white/80 text-xs font-sans uppercase tracking-[0.4em] mb-4">
+        <p className="text-brand-support/80 text-xs font-sans uppercase tracking-[0.4em] mb-6">
           Rooted in Ancient Wisdom
         </p>
-        <h2 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-6 leading-none">
-          प्रतिपल
+        <h2 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-6 leading-[1.4]" style={{ paddingTop: '0.75rem', paddingBottom: '0.5rem', overflow: 'visible' }}>
+          प्रतिपाल
         </h2>
-        <p className="text-lg md:text-xl text-white/90 font-serif italic max-w-xl mx-auto mb-3">
+        <p className="text-lg md:text-xl text-white/70 font-serif italic max-w-xl mx-auto mb-3">
           &ldquo;To nurture, to protect, to heal&rdquo;
         </p>
-        <p className="text-sm text-white/70 font-sans max-w-md mx-auto leading-relaxed">
+        <p className="text-sm text-white/50 font-sans max-w-md mx-auto leading-relaxed">
           Every product is crafted with sacred intention, pure ingredients, and
           the ancient healing wisdom of Ayurveda and crystal therapy.
         </p>
 
         <div className="flex items-center justify-center gap-8 mt-10">
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-white">100%</div>
-            <div className="text-[11px] text-white/70 font-sans uppercase tracking-wider mt-1">Natural</div>
+            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">100%</div>
+            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Natural</div>
           </div>
-          <div className="w-px h-10 bg-white/30" />
+          <div className="w-px h-10 bg-white/20" />
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-white">500+</div>
-            <div className="text-[11px] text-white/70 font-sans uppercase tracking-wider mt-1">Happy Souls</div>
+            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">500+</div>
+            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Happy Souls</div>
           </div>
-          <div className="w-px h-10 bg-white/30" />
+          <div className="w-px h-10 bg-white/20" />
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-white">50+</div>
-            <div className="text-[11px] text-white/70 font-sans uppercase tracking-wider mt-1">Products</div>
+            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">50+</div>
+            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Products</div>
           </div>
         </div>
       </div>
     </section>
   );
 }
+
 
 function ProductSection({
   title,

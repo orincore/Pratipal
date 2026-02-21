@@ -21,6 +21,7 @@ export interface Product {
   status: ProductStatus;
   landingPages: string[];
   homepageSection?: HomepageSection;
+  weight?: number;
 }
 
 export interface Category {

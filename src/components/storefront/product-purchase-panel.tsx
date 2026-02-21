@@ -81,7 +81,7 @@ export function ProductPurchasePanel({
   }
 
   return (
-    <div className="space-y-6 rounded-3xl border-2 border-transparent bg-gradient-brand-light p-6 shadow-lg backdrop-blur-sm">
+    <div className="space-y-6 rounded-3xl border border-gray-200 bg-[#fff9f6] p-6 shadow-sm">
       <div>
         <div className="flex items-baseline gap-3">
           <p className="text-3xl font-semibold text-[#c2554f]">₹{displayPrice.toFixed(2)}</p>

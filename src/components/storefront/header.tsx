@@ -100,7 +100,7 @@ export function Header() {
 
   return (
     <>
-      <div className="bg-gradient-brand text-white text-[11px] tracking-wider text-center py-1.5 font-sans hidden sm:block">
+      <div className="bg-brand-dark text-brand-support/80 text-[11px] tracking-wider text-center py-1.5 font-sans hidden sm:block">
         FREE SHIPPING ON ORDERS ABOVE ₹999 &nbsp;|&nbsp; HANDCRAFTED WITH LOVE & INTENTION
       </div>
 
@@ -142,17 +142,16 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-gray-700 hover:text-brand-teal transition-colors duration-200 uppercase relative group"
+                className="text-gray-700 hover:text-brand-secondary transition-colors duration-200 uppercase"
               >
                 {link.label}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-brand group-hover:w-full transition-all duration-300"></span>
               </Link>
             ))}
           </nav>
 
           <div className="flex items-center gap-1">
             <button
-              className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-teal hover:bg-gradient-brand-light transition-all"
+              className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-50 transition-all"
               onClick={() => setSearchVisible((prev) => !prev)}
             >
               <Search className="h-4 w-4" />
@@ -160,14 +159,14 @@ export function Header() {
             {mounted && !loading && customer ? (
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  className="h-9 px-3 rounded-full bg-gradient-brand-light text-brand-teal text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:bg-gradient-brand hover:text-white transition-all"
+                  className="h-9 px-3 rounded-full bg-gray-100 text-gray-800 text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:bg-gray-200 transition"
                   onClick={() => router.push("/account")}
                 >
                   <User className="h-3.5 w-3.5" />
                   {customer.first_name ? `Hi, ${customer.first_name}` : "My Account"}
                 </button>
                 <button
-                  className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:text-red-500 hover:bg-red-50 transition"
+                  className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:text-red-500 hover:bg-gray-100 transition"
                   onClick={async () => {
                     if (loggingOut) return;
                     setLoggingOut(true);
@@ -181,13 +180,13 @@ export function Header() {
             ) : (
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  className="h-9 px-3 rounded-full bg-gradient-brand text-white text-xs font-semibold uppercase tracking-wide hover:bg-gradient-brand-hover transition-all shadow-md"
+                  className="h-9 px-3 rounded-full bg-brand-secondary text-white text-xs font-semibold uppercase tracking-wide hover:bg-brand-accent transition"
                   onClick={() => router.push("/login")}
                 >
                   Sign In
                 </button>
                 <button
-                  className="h-9 px-3 rounded-full border-2 border-brand-teal text-brand-teal text-xs font-semibold uppercase tracking-wide hover:bg-gradient-brand-light transition-all"
+                  className="h-9 px-3 rounded-full border border-gray-300 text-gray-700 text-xs font-semibold uppercase tracking-wide hover:bg-gray-100 transition"
                   onClick={() => router.push("/register")}
                 >
                   Join Now
@@ -195,12 +194,12 @@ export function Header() {
               </div>
             )}
             <button
-              className="relative h-9 w-9 flex items-center justify-center rounded-full text-gray-600 hover:text-brand-teal hover:bg-gradient-brand-light transition-all"
+              className="relative h-9 w-9 flex items-center justify-center rounded-full text-gray-600 hover:text-brand-secondary hover:bg-gray-50 transition-all"
               onClick={() => setCartOpen(true)}
             >
               <ShoppingCart className="h-4 w-4" />
               {mounted && itemCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-gradient-brand text-[9px] font-bold text-white flex items-center justify-center shadow-md">
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-brand-cta text-[9px] font-bold text-white flex items-center justify-center">
                   {itemCount}
                 </span>
               )}
@@ -214,7 +213,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="block text-sm text-gray-700 hover:text-brand-teal uppercase tracking-wider font-sans"
+                className="block text-sm text-gray-700 hover:text-brand-secondary uppercase tracking-wider font-sans"
                 onClick={() => setMenuOpen(false)}
               >
                 {link.label}
@@ -246,7 +245,7 @@ export function Header() {
               ) : (
                 <>
                   <button
-                    className="w-full rounded-full bg-gradient-brand text-white py-2 text-sm font-semibold shadow-md"
+                    className="w-full rounded-full bg-brand-secondary text-white py-2 text-sm font-semibold"
                     onClick={() => {
                       setMenuOpen(false);
                       router.push("/login");
@@ -255,7 +254,7 @@ export function Header() {
                     Sign In
                   </button>
                   <button
-                    className="w-full rounded-full border-2 border-brand-teal text-brand-teal py-2 text-sm hover:bg-gradient-brand-light transition"
+                    className="w-full rounded-full border border-gray-300 text-gray-700 py-2 text-sm"
                     onClick={() => {
                       setMenuOpen(false);
                       router.push("/register");
@@ -285,7 +284,7 @@ export function Header() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="flex items-center justify-center rounded-full bg-gradient-brand px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-gradient-brand-hover transition shadow-md"
+                  className="flex items-center justify-center rounded-full bg-brand-secondary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-brand-accent transition"
                   disabled={searchLoading}
                 >
                   {searchLoading ? (

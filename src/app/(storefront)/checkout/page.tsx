@@ -55,6 +55,13 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [creatingAddress, setCreatingAddress] = useState(false);
+  const [shippingInfo, setShippingInfo] = useState({
+    totalWeight: 0,
+    shippingCost: 0,
+    costPerKg: 50,
+    freeShippingThreshold: 500,
+    isFreeShipping: false,
+  });
   const [addressForm, setAddressForm] = useState<AddressFormState>(() => ({
     first_name: customer?.first_name || "",
     last_name: customer?.last_name || "",
@@ -101,6 +108,12 @@ export default function CheckoutPage() {
     loadCart();
     loadRazorpayScript();
   }, []);
+
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      calculateShipping();
+    }
+  }, [cartItems]);
 
   useEffect(() => {
     if (customer) {
@@ -198,6 +211,23 @@ export default function CheckoutPage() {
       toast.error("Failed to load cart");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function calculateShipping() {
+    try {
+      const res = await fetch("/api/cart/calculate-shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cartItems }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setShippingInfo(data);
+      }
+    } catch (err) {
+      console.error("Failed to calculate shipping:", err);
     }
   }
 
@@ -332,7 +362,7 @@ export default function CheckoutPage() {
   }, 0);
 
   const tax = subtotal * 0.18;
-  const shipping = subtotal > 500 ? 0 : 50;
+  const shipping = shippingInfo.shippingCost;
   const total = subtotal + tax + shipping;
 
   async function handlePlaceOrder() {
@@ -999,15 +1029,22 @@ export default function CheckoutPage() {
                     <span>₹{tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="text-muted-foreground">
+                      Shipping ({shippingInfo.totalWeight.toFixed(2)} kg)
+                    </span>
                     <span>
-                      {shipping === 0 ? (
-                        <span className="text-green-600">FREE</span>
+                      {shippingInfo.isFreeShipping ? (
+                        <span className="text-green-600 font-semibold">FREE</span>
                       ) : (
                         `₹${shipping.toFixed(2)}`
                       )}
                     </span>
                   </div>
+                  {shippingInfo.isFreeShipping && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-700">
+                      🎉 You've qualified for FREE shipping!
+                    </div>
+                  )}
                   <div className="border-t pt-2">
                     <div className="flex justify-between font-bold text-lg">
                       <span>Total</span>

@@ -15,10 +15,23 @@ export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [shippingInfo, setShippingInfo] = useState({
+    totalWeight: 0,
+    shippingCost: 0,
+    costPerKg: 50,
+    freeShippingThreshold: 500,
+    isFreeShipping: false,
+  });
 
   useEffect(() => {
     loadCart();
   }, []);
+
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      calculateShipping();
+    }
+  }, [cartItems]);
 
   async function loadCart() {
     try {
@@ -29,6 +42,23 @@ export default function CartPage() {
       toast.error("Failed to load cart");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function calculateShipping() {
+    try {
+      const res = await fetch("/api/cart/calculate-shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cartItems }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setShippingInfo(data);
+      }
+    } catch (err) {
+      console.error("Failed to calculate shipping:", err);
     }
   }
 
@@ -82,7 +112,7 @@ export default function CartPage() {
   }, 0);
 
   const tax = subtotal * 0.18;
-  const shipping = subtotal > 500 ? 0 : 50;
+  const shipping = shippingInfo.shippingCost;
   const total = subtotal + tax + shipping;
 
   if (loading) {
@@ -240,19 +270,30 @@ export default function CartPage() {
                     <span className="font-medium">₹{tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="text-muted-foreground">
+                      Shipping ({shippingInfo.totalWeight.toFixed(2)} kg)
+                    </span>
                     <span className="font-medium">
-                      {shipping === 0 ? (
-                        <span className="text-green-600">FREE</span>
+                      {shippingInfo.isFreeShipping ? (
+                        <span className="text-green-600 font-semibold">FREE</span>
                       ) : (
                         `₹${shipping.toFixed(2)}`
                       )}
                     </span>
                   </div>
-                  {subtotal < 500 && (
-                    <p className="text-xs text-muted-foreground">
-                      Add ₹{(500 - subtotal).toFixed(2)} more for free shipping
-                    </p>
+                  {!shippingInfo.isFreeShipping && subtotal < shippingInfo.freeShippingThreshold && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-xs text-green-700 font-medium">
+                        Add ₹{(shippingInfo.freeShippingThreshold - subtotal).toFixed(2)} more for FREE shipping!
+                      </p>
+                    </div>
+                  )}
+                  {shippingInfo.isFreeShipping && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-xs text-green-700 font-medium">
+                        🎉 You've qualified for FREE shipping!
+                      </p>
+                    </div>
                   )}
                   <div className="border-t pt-3">
                     <div className="flex justify-between">
