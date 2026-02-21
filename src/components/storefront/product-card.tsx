@@ -36,13 +36,13 @@ export function ProductCard({ product }: ProductCardProps) {
           </p>
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className="text-sm font-semibold text-brand-primary">
+          <span className="text-sm font-semibold text-gradient-brand">
             {formatPrice(product.price)}
           </span>
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8 rounded-full border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white"
+            className="h-8 w-8 rounded-full border-2 border-brand-teal text-brand-teal hover:bg-gradient-brand hover:text-white hover:border-transparent transition-all"
             onClick={() => addItem(product)}
           >
             <Plus className="h-4 w-4" />

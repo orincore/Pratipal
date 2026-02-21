@@ -6,39 +6,39 @@
 
 @layer base {
   :root {
-    --background: 43 21% 91%;
-    --foreground: 223 24% 14%;
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 234 46% 25%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 230 32% 45%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 43 21% 91%;
-    --muted-foreground: 223 16% 30%;
-    --accent: 28 65% 80%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 155 93% 31%;
-    --radius: 0.5rem;
+    --popover-foreground: 222 47% 11%;
+    --primary: 170 50% 35%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 30% 50%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 160 60% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 170 50% 35%;
+    --radius: 0.75rem;
   }
 }
 
 @layer base {
   html {
-    background-color: #edeae3;
+    background: linear-gradient(135deg, rgba(59,89,152,0.03) 0%, rgba(16,185,129,0.03) 100%);
   }
   * {
     @apply border-border;
   }
   body {
     @apply text-foreground;
-    background-color: #edeae3;
+    background: linear-gradient(135deg, rgba(59,89,152,0.03) 0%, rgba(16,185,129,0.03) 100%);
     font-family: 'Inter', sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
@@ -53,20 +53,38 @@
   .font-sans {
     font-family: 'Inter', sans-serif;
   }
+  .text-gradient-brand {
+    background: linear-gradient(135deg, #3B5998 0%, #1B7F79 50%, #10B981 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
   .text-gradient-gold {
-    background: linear-gradient(135deg, #1E88E5 0%, #18A999 50%, #0F8A5F 100%);
+    background: linear-gradient(135deg, #3B5998 0%, #1B7F79 50%, #10B981 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .bg-gradient-purple {
-    background: linear-gradient(135deg, #052A32 0%, #0B4F6C 40%, #0F8A5F 100%);
+    background: linear-gradient(135deg, #3B5998 0%, #1B7F79 50%, #10B981 100%);
+  }
+  .bg-gradient-brand {
+    background: linear-gradient(135deg, #3B5998 0%, #1B7F79 50%, #10B981 100%);
+  }
+  .bg-gradient-brand-hover {
+    background: linear-gradient(135deg, #2D4373 0%, #156963 50%, #0D9668 100%);
+  }
+  .bg-gradient-brand-light {
+    background: linear-gradient(135deg, rgba(59,89,152,0.1) 0%, rgba(27,127,121,0.1) 50%, rgba(16,185,129,0.1) 100%);
   }
   .bg-gradient-warm {
-    background: linear-gradient(180deg, #E6F4FF 0%, #F2FFF7 100%);
+    background: linear-gradient(180deg, rgba(59,89,152,0.05) 0%, rgba(16,185,129,0.05) 100%);
+  }
+  .border-gradient {
+    border-image: linear-gradient(135deg, #3B5998 0%, #1B7F79 50%, #10B981 100%) 1;
   }
   .shimmer {
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    background: linear-gradient(90deg, transparent, rgba(59,89,152,0.1), transparent);
     background-size: 200% 100%;
     animation: shimmer 2s infinite;
   }

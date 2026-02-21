@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import LogoMark from "@/app/assets/logo.png";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'),
   title: "Pratipal | Healing & Wellness Store",
   description:
     "Discover crystal-infused healing candles, therapeutic essential oil roll-ons, and energy intention salts crafted with love and intention.",

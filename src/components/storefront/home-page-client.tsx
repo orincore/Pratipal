@@ -197,13 +197,13 @@ function HeroBanner({ products }: HeroBannerProps) {
             <div className="mt-6 flex items-center gap-4">
               <Link
                 href={slide.href}
-                className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white px-8 py-3.5 rounded-full text-sm font-sans font-medium tracking-wide transition-all duration-300 hover:shadow-xl hover:shadow-brand-primary/30"
+                className="inline-flex items-center gap-2 bg-gradient-brand hover:bg-gradient-brand-hover text-white px-8 py-3.5 rounded-full text-sm font-sans font-medium tracking-wide transition-all duration-300 hover:shadow-xl shadow-md"
               >
                 {slide.cta} <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/"
-                className="text-sm font-sans text-brand-secondary/70 hover:text-brand-secondary underline underline-offset-4 transition-colors"
+                className="text-sm font-sans text-brand-teal hover:text-brand-green underline underline-offset-4 transition-colors"
               >
                 View All Products
               </Link>
@@ -216,8 +216,8 @@ function HeroBanner({ products }: HeroBannerProps) {
                   onClick={() => setCurrentSlide(i)}
                   className={`h-2 rounded-full transition-all duration-300 ${
                     i === currentSlide
-                      ? "w-8 bg-brand-primary"
-                      : "w-2 bg-brand-primary/20 hover:bg-brand-primary/40"
+                      ? "w-8 bg-gradient-brand"
+                      : "w-2 bg-gray-300 hover:bg-brand-teal"
                   }`}
                 />
               ))}
@@ -296,10 +296,10 @@ function CategoryGrid() {
     <section className="py-14 md:py-20">
       <div className="container">
         <div className="text-center mb-10">
-          <p className="text-xs font-sans uppercase tracking-[0.3em] text-brand-support mb-3">
+          <p className="text-xs font-sans uppercase tracking-[0.3em] text-brand-teal mb-3">
             Explore Our World
           </p>
-          <h2 className="text-3xl md:text-4xl font-serif font-bold text-brand-primary">
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-gradient-brand">
             Shop by Category
           </h2>
         </div>
@@ -323,7 +323,7 @@ function CategoryGrid() {
                 <h3 className="text-white font-serif text-lg md:text-xl font-semibold drop-shadow-lg">
                   {cat.name}
                 </h3>
-                <span className="inline-flex items-center gap-1 text-white/80 text-xs font-sans mt-1 group-hover:text-brand-support transition-colors">
+                <span className="inline-flex items-center gap-1 text-white/80 text-xs font-sans mt-1 group-hover:text-brand-green transition-colors">
                   Shop Now <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
@@ -337,47 +337,41 @@ function CategoryGrid() {
 
 function BrandingSection() {
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden">
-      <div className="absolute inset-0">
-        <Image
-          src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&h=800&fit=crop"
-          alt="Forest"
-          fill
-          className="object-cover"
-          sizes="100vw"
-        />
-        <div className="absolute inset-0 bg-brand-dark/70" />
+    <section className="relative py-20 md:py-28 overflow-hidden bg-gradient-brand">
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-white/20 blur-3xl" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-white/30 blur-3xl" />
       </div>
 
       <div className="relative z-10 container text-center">
-        <p className="text-brand-support/80 text-xs font-sans uppercase tracking-[0.4em] mb-6">
+        <p className="text-white/80 text-xs font-sans uppercase tracking-[0.4em] mb-4">
           Rooted in Ancient Wisdom
         </p>
         <h2 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-6 leading-none">
-          प्रतिपाल
+          प्रतिपल
         </h2>
-        <p className="text-lg md:text-xl text-white/70 font-serif italic max-w-xl mx-auto mb-3">
+        <p className="text-lg md:text-xl text-white/90 font-serif italic max-w-xl mx-auto mb-3">
           &ldquo;To nurture, to protect, to heal&rdquo;
         </p>
-        <p className="text-sm text-white/50 font-sans max-w-md mx-auto leading-relaxed">
+        <p className="text-sm text-white/70 font-sans max-w-md mx-auto leading-relaxed">
           Every product is crafted with sacred intention, pure ingredients, and
           the ancient healing wisdom of Ayurveda and crystal therapy.
         </p>
 
         <div className="flex items-center justify-center gap-8 mt-10">
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">100%</div>
-            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Natural</div>
+            <div className="text-2xl md:text-3xl font-serif font-bold text-white">100%</div>
+            <div className="text-[11px] text-white/70 font-sans uppercase tracking-wider mt-1">Natural</div>
           </div>
-          <div className="w-px h-10 bg-white/20" />
+          <div className="w-px h-10 bg-white/30" />
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">500+</div>
-            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Happy Souls</div>
+            <div className="text-2xl md:text-3xl font-serif font-bold text-white">500+</div>
+            <div className="text-[11px] text-white/70 font-sans uppercase tracking-wider mt-1">Happy Souls</div>
           </div>
-          <div className="w-px h-10 bg-white/20" />
+          <div className="w-px h-10 bg-white/30" />
           <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">50+</div>
-            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Products</div>
+            <div className="text-2xl md:text-3xl font-serif font-bold text-white">50+</div>
+            <div className="text-[11px] text-white/70 font-sans uppercase tracking-wider mt-1">Products</div>
           </div>
         </div>
       </div>
@@ -406,13 +400,13 @@ function ProductSection({
     <section className={`py-14 md:py-20 ${bgClass}`}>
       <div className="container">
         <div className="text-center mb-10">
-          <p className="text-xs font-sans uppercase tracking-[0.3em] text-brand-support mb-3">
+          <p className="text-xs font-sans uppercase tracking-[0.3em] text-brand-teal mb-3">
             Handcrafted Collection
           </p>
-          <h2 className="text-3xl md:text-4xl font-serif font-bold text-brand-primary mb-3">
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-gradient-brand mb-3">
             {title}
           </h2>
-          <p className="text-sm text-brand-primary/60 font-sans max-w-lg mx-auto">
+          <p className="text-sm text-gray-600 font-sans max-w-lg mx-auto">
             {subtitle}
           </p>
         </div>
@@ -426,7 +420,7 @@ function ProductSection({
         <div className="text-center mt-10">
           <Link
             href={href}
-            className="inline-flex items-center gap-2 border-2 border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white px-8 py-3 rounded-full text-sm font-sans font-medium tracking-wide transition-all duration-300"
+            className="inline-flex items-center gap-2 border-2 border-brand-teal text-brand-teal hover:bg-gradient-brand hover:text-white hover:border-transparent px-8 py-3 rounded-full text-sm font-sans font-medium tracking-wide transition-all duration-300 shadow-md"
           >
             View All Products <ArrowRight className="h-4 w-4" />
           </Link>
@@ -453,14 +447,14 @@ function ProductGridCard({ product }: { product: Product }) {
 
         <button
           onClick={() => addItem(product)}
-          className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-brand-primary hover:text-white"
+          className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-gradient-brand hover:text-white"
         >
           <Plus className="h-4 w-4" />
         </button>
 
         {product.status === "active" && (
           <div className="absolute top-3 left-3">
-            <span className="bg-brand-purple text-white text-[10px] font-sans font-medium px-2.5 py-1 rounded-full uppercase tracking-wider">
+            <span className="bg-gradient-brand text-white text-[10px] font-sans font-medium px-2.5 py-1 rounded-full uppercase tracking-wider shadow-md">
               Popular
             </span>
           </div>
@@ -483,12 +477,12 @@ function ProductGridCard({ product }: { product: Product }) {
         </h3>
 
         <div className="flex items-center justify-between mt-3">
-          <span className="text-base font-serif font-bold text-brand-primary">
+          <span className="text-base font-serif font-bold text-gradient-brand">
             {formatPrice(product.price)}
           </span>
           <button
             onClick={() => addItem(product)}
-            className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-brand-primary hover:text-white bg-brand-primary/5 hover:bg-brand-primary px-3 py-1.5 rounded-full transition-all duration-300"
+            className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-white bg-gradient-brand hover:bg-gradient-brand-hover px-3 py-1.5 rounded-full transition-all duration-300 shadow-md"
           >
             <ShoppingBag className="h-3 w-3" /> Add
           </button>
@@ -533,16 +527,16 @@ function LifestyleSection() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/80 via-brand-dark/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                <p className="text-brand-gold text-[10px] font-sans uppercase tracking-[0.3em] mb-2">
+                <p className="text-white/90 text-[10px] font-sans uppercase tracking-[0.3em] mb-2">
                   Featured Collection
                 </p>
                 <h3 className="text-2xl md:text-3xl font-serif font-bold text-white mb-2">
                   {item.title}
                 </h3>
-                <p className="text-white/60 text-sm font-sans mb-4 max-w-xs">
+                <p className="text-white/70 text-sm font-sans mb-4 max-w-xs">
                   {item.description}
                 </p>
-                <span className="inline-flex items-center gap-2 text-white text-sm font-sans font-medium group-hover:text-brand-gold transition-colors">
+                <span className="inline-flex items-center gap-2 text-white text-sm font-sans font-medium group-hover:text-brand-green transition-colors">
                   Explore Collection <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </span>
               </div>
@@ -556,34 +550,34 @@ function LifestyleSection() {
 
 function CtaBanner() {
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden bg-gradient-purple">
+    <section className="relative py-20 md:py-28 overflow-hidden bg-gradient-brand">
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-brand-gold/20 blur-3xl" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-brand-maroon/30 blur-3xl" />
+        <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-white/20 blur-3xl" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-white/30 blur-3xl" />
       </div>
 
       <div className="relative z-10 container text-center">
-        <p className="text-brand-gold/80 text-xs font-sans uppercase tracking-[0.4em] mb-4">
+        <p className="text-white/80 text-xs font-sans uppercase tracking-[0.4em] mb-4">
           Begin Your Healing Journey
         </p>
         <h2 className="text-3xl md:text-5xl font-serif font-bold text-white mb-4 leading-tight">
           Discover the Power of<br />
-          <span className="text-gradient-gold">Intentional Healing</span>
+          <span className="text-white drop-shadow-lg">Intentional Healing</span>
         </h2>
-        <p className="text-white/50 text-sm font-sans max-w-md mx-auto mb-8 leading-relaxed">
+        <p className="text-white/70 text-sm font-sans max-w-md mx-auto mb-8 leading-relaxed">
           Join thousands who have transformed their wellness journey with our
           handcrafted healing products.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/candles"
-            className="inline-flex items-center gap-2 bg-brand-gold hover:bg-brand-gold/90 text-brand-dark px-8 py-3.5 rounded-full text-sm font-sans font-semibold tracking-wide transition-all duration-300 hover:shadow-xl hover:shadow-brand-gold/20"
+            className="inline-flex items-center gap-2 bg-white hover:bg-white/90 text-brand-teal px-8 py-3.5 rounded-full text-sm font-sans font-semibold tracking-wide transition-all duration-300 hover:shadow-xl shadow-lg"
           >
             Shop Candles <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/essential-oil"
-            className="inline-flex items-center gap-2 border border-white/30 text-white hover:bg-white/10 px-8 py-3.5 rounded-full text-sm font-sans font-medium tracking-wide transition-all duration-300"
+            className="inline-flex items-center gap-2 border-2 border-white text-white hover:bg-white hover:text-brand-teal px-8 py-3.5 rounded-full text-sm font-sans font-medium tracking-wide transition-all duration-300"
           >
             Explore Essential Oils
           </Link>
