@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { getServiceSupabase } from "@/lib/auth";
 
-const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -18,6 +13,23 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Initialize Razorpay inside the function
+    const razorpayKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      console.error("Razorpay credentials not configured");
+      return NextResponse.json(
+        { error: "Payment gateway not configured" },
+        { status: 500 }
+      );
+    }
+
+    const razorpay = new Razorpay({
+      key_id: razorpayKeyId,
+      key_secret: razorpayKeySecret,
+    });
 
     const supabase = getServiceSupabase();
 
