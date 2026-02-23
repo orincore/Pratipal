@@ -4,11 +4,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 // GET single hero section
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { id } = params;
+    const { id } = await context.params;
 
     const { data, error } = await supabase
       .from("hero_sections")
@@ -37,11 +37,11 @@ export async function GET(
 // PUT update hero section
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
 
     const { data, error } = await supabase
@@ -72,11 +72,11 @@ export async function PUT(
 // DELETE hero section
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerSupabaseClient();
-    const { id } = params;
+    const { id } = await context.params;
 
     const { error } = await supabase
       .from("hero_sections")

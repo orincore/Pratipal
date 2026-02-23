@@ -14,10 +14,9 @@ Run SQL files in Supabase SQL Editor (in order):
 4. `database/migrations/004_session_bookings.sql`
 
 ## Environment
-Copy `.env.example` to `.env` and add:
-- Supabase URL & Keys
-- Razorpay Keys (for payments)
-
+new fix keys chsngee create by claw anon -> publishable 1:20
+better error handling and more to cmd line debug  1:35
+build version fix creating check point --  1:43
 ## Key Features
 - Product catalog with variants
 - Session booking with Razorpay payment
