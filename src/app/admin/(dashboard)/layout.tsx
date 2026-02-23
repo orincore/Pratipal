@@ -19,6 +19,7 @@ import {
   Home,
   ShoppingBag,
   Truck,
+  Presentation,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-con
 const sidebarItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Homepage", href: "/admin/homepage", icon: Home },
+  { label: "Hero Sections", href: "/admin/hero-sections", icon: Presentation },
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Orders", href: "/admin/ecommerce/orders", icon: ShoppingBag },
   { label: "Shipping Settings", href: "/admin/shipping", icon: Truck },

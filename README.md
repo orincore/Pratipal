@@ -1,7 +1,10 @@
 q
 
 New UI id r@1[ frame bone structure ]
-up work rx0w [animation / skin front] xc [dazy grident on blue shades] br [build version final out put] dT 23/02/26 22:30 🈸 
+up work rx0w [animation / skin front]
+xc [dazy grident on blue shades] 
+br [build version final out put] 
+dT 23/02/26 22:30 🈸 
 
 ❄️key on req on demand 
    razor (need on demand for testing )
@@ -37,6 +40,12 @@ out
 manual out 
 
 1 ui theme change to a landng page 
+2 all hero on dynamic 
+
+
+cmd for db set up 
+npm run db:setup    # Setup database
+npm run db:verify   # Verify setup
 
 
 https://connect82451.wixstudio.com/pratipal?rc=test-site
