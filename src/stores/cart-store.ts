@@ -15,64 +15,178 @@ interface CartStore {
   getItemCount: () => number;
 }
 
+// Helper to ensure product has all required fields
+function sanitizeProduct(product: Product): Product {
+  try {
+    return {
+      id: product.id || '',
+      name: product.name || 'Unknown Product',
+      slug: product.slug || '',
+      category: product.category || 'candles',
+      price: typeof product.price === 'number' ? product.price : 0,
+      shortDescription: product.shortDescription || '',
+      image: product.image || '/placeholder.jpg',
+      status: product.status || 'active',
+      landingPages: Array.isArray(product.landingPages) ? product.landingPages : [],
+      homepageSection: product.homepageSection,
+      weight: product.weight,
+    };
+  } catch (error) {
+    console.error('Error sanitizing product:', error, product);
+    return {
+      id: '',
+      name: 'Unknown Product',
+      slug: '',
+      category: 'candles',
+      price: 0,
+      shortDescription: '',
+      image: '/placeholder.jpg',
+      status: 'active',
+      landingPages: [],
+    };
+  }
+}
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
       addItem: (product, id) => {
-        set((state) => {
-          const existing = state.items.find(
-            (item) => item.id === id || item.product.id === product.id
-          );
-          if (existing) {
-            return {
-              items: state.items.map((item) =>
-                item === existing
-                  ? { ...item, quantity: item.quantity + 1 }
-                  : item
-              ),
-            };
-          }
-          return {
-            items: [...state.items, { id, product, quantity: 1 }],
-          };
-        });
+        try {
+          console.log('Adding item to cart:', product);
+          const sanitized = sanitizeProduct(product);
+          console.log('Sanitized product:', sanitized);
+          
+          set((state) => {
+            const existing = state.items.find(
+              (item) => item.product.id === sanitized.id
+            );
+            
+            if (existing) {
+              console.log('Item exists, incrementing quantity');
+              return {
+                items: state.items.map((item) =>
+                  item.product.id === sanitized.id
+                    ? { ...item, quantity: item.quantity + 1 }
+                    : item
+                ),
+              };
+            }
+            
+            console.log('Adding new item to cart');
+            const newItems = [...state.items, { id: id || sanitized.id, product: sanitized, quantity: 1 }];
+            console.log('New cart items:', newItems);
+            return { items: newItems };
+          });
+          
+          // Log cart state after update
+          setTimeout(() => {
+            console.log('Cart state after add:', get().items);
+          }, 100);
+        } catch (error) {
+          console.error('Error adding item to cart:', error);
+        }
       },
       removeItem: (identifier) => {
-        set((state) => ({
-          items: state.items.filter(
-            (item) => item.id !== identifier && item.product.id !== identifier
-          ),
-        }));
+        try {
+          console.log('Removing item:', identifier);
+          set((state) => ({
+            items: state.items.filter(
+              (item) => item.id !== identifier && item.product.id !== identifier
+            ),
+          }));
+        } catch (error) {
+          console.error('Error removing item:', error);
+        }
       },
       updateQuantity: (identifier, quantity) => {
-        if (quantity <= 0) {
-          get().removeItem(identifier);
-          return;
+        try {
+          if (quantity <= 0) {
+            get().removeItem(identifier);
+            return;
+          }
+          set((state) => ({
+            items: state.items.map((item) =>
+              item.id === identifier || item.product.id === identifier
+                ? { ...item, quantity }
+                : item
+            ),
+          }));
+        } catch (error) {
+          console.error('Error updating quantity:', error);
         }
-        set((state) => ({
-          items: state.items.map((item) =>
-            item.id === identifier || item.product.id === identifier
-              ? { ...item, quantity }
-              : item
-          ),
-        }));
       },
-      clearCart: () => set({ items: [] }),
-      setItems: (items) => set({ items }),
+      clearCart: () => {
+        try {
+          console.log('Clearing cart');
+          set({ items: [] });
+        } catch (error) {
+          console.error('Error clearing cart:', error);
+        }
+      },
+      setItems: (items) => {
+        try {
+          console.log('Setting cart items:', items);
+          const sanitizedItems = items.map(item => ({
+            ...item,
+            product: sanitizeProduct(item.product)
+          }));
+          set({ items: sanitizedItems });
+        } catch (error) {
+          console.error('Error setting items:', error);
+        }
+      },
       getTotal: () => {
-        return get().items.reduce(
-          (total, item) => total + item.product.price * item.quantity,
-          0
-        );
+        try {
+          return get().items.reduce(
+            (total, item) => total + (item.product.price || 0) * item.quantity,
+            0
+          );
+        } catch (error) {
+          console.error('Error calculating total:', error);
+          return 0;
+        }
       },
       getItemCount: () => {
-        return get().items.reduce((count, item) => count + item.quantity, 0);
+        try {
+          return get().items.reduce((count, item) => count + item.quantity, 0);
+        } catch (error) {
+          console.error('Error counting items:', error);
+          return 0;
+        }
       },
     }),
     {
       name: "pratipal-cart",
       storage: createJSONStorage(() => localStorage),
+      version: 2,
+      migrate: (persistedState: any, version: number) => {
+        console.log('Migrating cart from version:', version);
+        try {
+          if (version < 2) {
+            const items = (persistedState?.items || []).map((item: any) => ({
+              ...item,
+              product: sanitizeProduct(item.product)
+            }));
+            console.log('Migrated items:', items);
+            return { items };
+          }
+          return persistedState;
+        } catch (error) {
+          console.error('Error migrating cart:', error);
+          return { items: [] };
+        }
+      },
+      onRehydrateStorage: () => {
+        console.log('Rehydrating cart from localStorage');
+        return (state, error) => {
+          if (error) {
+            console.error('Error rehydrating cart:', error);
+          } else {
+            console.log('Cart rehydrated successfully:', state?.items);
+          }
+        };
+      },
     }
   )
 );

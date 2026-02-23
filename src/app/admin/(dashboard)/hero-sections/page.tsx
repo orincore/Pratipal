@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ interface HeroSection {
   display_order: number;
   is_active: boolean;
 }
+
 
 export default function HeroSectionsPage() {
   const [sections, setSections] = useState<HeroSection[]>([]);
@@ -59,6 +60,8 @@ export default function HeroSectionsPage() {
       setLoading(false);
     }
   }
+
+
 
   async function handleCreate() {
     try {

@@ -92,12 +92,11 @@ export function Header() {
   }
 
   const navLinks = [
-    { href: "/shop", label: "Shop" },
+    { href: "/shop", label: "Products" },
+    { href: "/about", label: "About" },
     { href: "/candles", label: "Healing Candles" },
-    { href: "/mood-refresher", label: "Mood Refresher" },
-    { href: "/book-session", label: "Book Session" },
+    { href: "/mood-refresher", label: "Explore-refreshness" },
   ];
-
   return (
     <>
       <div className="bg-brand-dark text-brand-support/80 text-[11px] tracking-wider text-center py-1.5 font-sans hidden sm:block">

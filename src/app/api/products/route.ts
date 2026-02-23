@@ -48,12 +48,23 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Check authentication
     const user = getUserFromRequest(req);
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    console.log("User from request:", user);
+    
+    if (!user) {
+      console.error("No user found in request");
+      return NextResponse.json({ error: "Not authenticated. Please login first." }, { status: 401 });
+    }
+    
+    if (user.role !== "admin") {
+      console.error("User is not admin:", user.role);
+      return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 403 });
     }
 
     const body = await req.json();
+    console.log("Creating product with data:", JSON.stringify(body, null, 2));
+
     const supabase = getServiceSupabase();
 
     const { data, error } = await supabase
@@ -86,11 +97,23 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Supabase error creating product:", JSON.stringify(error, null, 2));
+      return NextResponse.json({ 
+        error: error.message, 
+        code: error.code,
+        details: error.details,
+        hint: error.hint 
+      }, { status: 500 });
     }
 
+    console.log("Product created successfully:", data);
     return NextResponse.json({ product: data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Exception creating product:", err);
+    return NextResponse.json({ 
+      error: err.message, 
+      type: err.constructor.name,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    }, { status: 500 });
   }
 }

@@ -10,16 +10,12 @@ import { getProducts } from "@/services/api";
 import type { HomepageSection, Product } from "@/types";
 import { Loader2, RefreshCcw, Save, Trash2 } from "lucide-react";
 
-const SECTION_KEYS = ["featured", "best_sellers", "new_arrivals", "on_sale"] as const;
+const SECTION_KEYS = ["best_sellers", "new_arrivals", "on_sale"] as const;
 type SectionKey = typeof SECTION_KEYS[number];
 const SLOTS_PER_SECTION = 4;
 type SectionAssignments = Record<SectionKey, (string | null)[]>;
 
 const SECTION_COPY: Record<SectionKey, { title: string; description: string }> = {
-  featured: {
-    title: "Hero & Featured",
-    description: "Products highlighted in the hero layout on the homepage.",
-  },
   best_sellers: {
     title: "Best Sellers",
     description: "Customer favourites surfaced in the carousel collection.",

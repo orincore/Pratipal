@@ -16,54 +16,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { SESSION_TYPES } from "@/lib/session-types";
 
-type SectionKey = Extract<HomepageSection, "featured" | "best_sellers" | "new_arrivals" | "on_sale">;
-const SECTION_KEYS: SectionKey[] = ["featured", "best_sellers", "new_arrivals", "on_sale"];
+type SectionKey = Extract<HomepageSection, "best_sellers" | "new_arrivals" | "on_sale">;
+const SECTION_KEYS: SectionKey[] = ["best_sellers", "new_arrivals", "on_sale"];
 
 interface HomePageClientProps {
   products: Product[];
 }
 
-interface HeroSlide {
+interface HeroSection {
+  id: string;
   title: string;
-  subtitle: string;
-  image: string;
-  href: string;
-  cta: string;
-  price?: number;
+  subtitle: string | null;
+  description: string | null;
+  cta_text: string;
+  cta_link: string | null;
+  background_type: string;
+  background_image_url: string | null;
+  background_video_url: string | null;
+  card_type: string;
+  card_image_url: string | null;
+  card_video_url: string | null;
+  display_order: number;
+  is_active: boolean;
 }
-
-interface HeroBannerProps {
-  products: Product[];
-}
-
-const HERO_FALLBACK_SLIDES: HeroSlide[] = [
-  {
-    title: "Most Awaited\nHavan Cups\nBack in Stock",
-    subtitle: "Handcrafted with sacred herbs & pure ghee",
-    image: "https://worldofoorja.com/cdn/shop/files/DSC0725.jpg?v=1758892916&width=610",
-    cta: "Shop Now",
-    href: "/candles",
-  },
-  {
-    title: "Healing\nEssential Oil\nRoll-Ons",
-    subtitle: "Therapeutic grade oils for everyday wellness",
-    image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=1200&h=700&fit=crop",
-    cta: "Explore",
-    href: "/essential-oil",
-  },
-  {
-    title: "Energy\nIntention\nSalts",
-    subtitle: "Cleanse your aura with crystal-infused bath salts",
-    image: "https://www.nytarra.in/cdn/shop/files/9_f34914c2-e1fa-453c-af98-4039446e9577.jpg?v=1767872410&width=823",
-    cta: "Discover",
-    href: "/mood-refresher",
-  },
-];
 
 export function HomePageClient({ products }: HomePageClientProps) {
+  const [heroSections, setHeroSections] = useState<HeroSection[]>([]);
+  const [loadingHero, setLoadingHero] = useState(true);
+
+  useEffect(() => {
+    const fetchHeroSections = async () => {
+      try {
+        const res = await fetch("/api/hero-sections");
+        if (res.ok) {
+          const data = await res.json();
+          setHeroSections(data.heroSections || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch hero sections:", error);
+      } finally {
+        setLoadingHero(false);
+      }
+    };
+    fetchHeroSections();
+  }, []);
+
   const sectionedProducts = useMemo(() => {
     const record: Record<SectionKey, Product[]> = {
-      featured: [],
       best_sellers: [],
       new_arrivals: [],
       on_sale: [],
@@ -102,15 +101,13 @@ export function HomePageClient({ products }: HomePageClientProps) {
   );
 
   const featuredProducts = useMemo(
-    () => selectSectionProducts("featured", (product) => product.category === "candles"),
+    () => selectSectionProducts("best_sellers", (product) => product.category === "candles"),
     [selectSectionProducts]
   );
 
-  const heroProducts = sectionedProducts.featured;
-
   return (
     <div className="bg-white">
-      <HeroSection products={heroProducts} />
+      <HeroSection heroSections={heroSections} loading={loadingHero} />
       <BrandingSection />
       <BookingSection />
       <FeaturedProducts products={featuredProducts} />
@@ -121,30 +118,180 @@ export function HomePageClient({ products }: HomePageClientProps) {
   );
 }
 
-function HeroSection({ products }: HeroBannerProps) {
+function HeroSection({ heroSections, loading }: { heroSections: HeroSection[]; loading: boolean }) {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = useMemo<HeroSlide[]>(() => {
-    if (!products.length) return HERO_FALLBACK_SLIDES;
-    return products.slice(0, 3).map((product) => ({
-      title: product.name,
-      subtitle: product.shortDescription || "Handcrafted rituals for your daily practice",
-      image: product.image || "/placeholder.jpg",
-      href: `/product/${product.slug}`,
-      cta: "Shop Now",
-      price: product.price,
-    }));
-  }, [products]);
-
   useEffect(() => {
-    setCurrentSlide((prev) => {
-      if (slides.length === 0) return 0;
-      return Math.min(prev, slides.length - 1);
-    });
-  }, [slides]);
+    if (heroSections.length === 0) return;
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroSections.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [heroSections.length]);
 
-  const slide = slides[currentSlide] ?? HERO_FALLBACK_SLIDES[0];
+  if (loading) {
+    return (
+      <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 min-h-[90vh] flex items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-brand-teal" />
+      </section>
+    );
+  }
 
+  if (heroSections.length === 0) {
+    return <DefaultHeroSection />;
+  }
+
+  const currentHero = heroSections[currentSlide];
+
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 min-h-[90vh] flex items-center">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        {currentHero.background_type === 'image' && currentHero.background_image_url && (
+          <Image
+            src={currentHero.background_image_url}
+            alt="Background"
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority
+          />
+        )}
+        {currentHero.background_type === 'video' && currentHero.background_video_url && (
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={currentHero.background_video_url} type="video/mp4" />
+          </video>
+        )}
+        {currentHero.background_type === 'default' && (
+          <>
+            <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-purple-300/30 to-pink-300/30 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-br from-blue-300/30 to-teal-300/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          </>
+        )}
+      </div>
+
+      <div className="container relative z-10">
+        <div className="grid lg:grid-cols-2 gap-12 items-center py-20">
+          {/* Left Content */}
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg">
+              <Sparkles className="h-4 w-4 text-brand-teal" />
+              <span className="text-sm font-medium text-gradient-brand">Ancient Wisdom, Modern Healing</span>
+            </div>
+
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-bold leading-tight text-gradient-brand whitespace-pre-line">
+              {currentHero.title}
+            </h1>
+
+            {currentHero.subtitle && (
+              <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gradient-brand">
+                {currentHero.subtitle}
+              </h2>
+            )}
+
+            {currentHero.description && (
+              <p className="text-lg md:text-xl text-gray-600 max-w-xl leading-relaxed">
+                {currentHero.description}
+              </p>
+            )}
+
+            <div className="flex flex-wrap gap-4">
+              <Link
+                href={currentHero.cta_link || "/shop"}
+                className="group inline-flex items-center gap-2 bg-gradient-brand hover:shadow-2xl text-white px-8 py-4 rounded-full text-base font-medium tracking-wide transition-all duration-300 shadow-xl"
+              >
+                {currentHero.cta_text}
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+
+            {/* Trust Indicators */}
+            <div className="flex items-center gap-8 pt-4">
+              <div className="flex items-center gap-2">
+                <div className="flex -space-x-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="w-10 h-10 rounded-full bg-gradient-brand border-2 border-white"></div>
+                  ))}
+                </div>
+                <div className="text-sm">
+                  <div className="font-semibold text-gray-800">1000+ Families</div>
+                  <div className="text-gray-500">Medicine Free Life</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Image/Video */}
+          <div className="relative">
+            <div className="relative w-full aspect-square max-w-lg mx-auto">
+              {/* Floating Elements */}
+              <div className="absolute -top-6 -left-6 w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl rotate-12 animate-float shadow-2xl"></div>
+              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-blue-400 to-teal-400 rounded-2xl -rotate-12 animate-float-delayed shadow-2xl"></div>
+              
+              {/* Main Media */}
+              <div className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl">
+                {currentHero.card_type === 'video' && currentHero.card_video_url ? (
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  >
+                    <source src={currentHero.card_video_url} type="video/mp4" />
+                  </video>
+                ) : (
+                  <Image
+                    src={currentHero.card_image_url || "/placeholder.jpg"}
+                    alt={currentHero.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+              </div>
+
+              {/* Floating Badge */}
+              <div className="absolute top-8 right-8 bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-xl">
+                <div className="flex items-center gap-2 mb-1">
+                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                  <span className="font-bold text-gray-800">4.9</span>
+                </div>
+                <div className="text-xs text-gray-600">500+ Reviews</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Slide Indicators */}
+        {heroSections.length > 1 && (
+          <div className="flex justify-center gap-2 mt-8">
+            {heroSections.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentSlide(index)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  index === currentSlide ? "w-8 bg-brand-teal" : "w-2 bg-gray-300"
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DefaultHeroSection() {
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 min-h-[90vh] flex items-center">
       {/* Animated Background Elements */}
@@ -163,12 +310,12 @@ function HeroSection({ products }: HeroBannerProps) {
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-bold leading-tight">
-              <span className="text-gray-800">EVERY MOMENT</span>
+              <span className="text-gradient-brand">EVERY MOMENT</span>
               <br />
               <span className="text-gradient-brand">"PRATIPAL"</span>
             </h1>
 
-            <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gray-700 mb-4">
+            <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gradient-brand mb-4">
               Do you need healing?
             </h2>
 
@@ -219,8 +366,8 @@ function HeroSection({ products }: HeroBannerProps) {
               {/* Main Image */}
               <div className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl">
                 <Image
-                  src={slide.image}
-                  alt={slide.title}
+                  src="https://worldofoorja.com/cdn/shop/files/DSC0725.jpg?v=1758892916&width=610"
+                  alt="Pratipal Healing"
                   fill
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 50vw"
@@ -296,7 +443,7 @@ function BrandingSection() {
 }
 
 function BookingSection() {
-  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [step, setStep] = useState<'selection' | 'details'>('selection');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
@@ -341,6 +488,18 @@ function BookingSection() {
 
   const handleGroupHealingSelect = () => {
     setSelectedAmount(SESSION_TYPES.group_healing.price);
+  };
+
+  const handleContinueToDetails = () => {
+    if (!formData.sessionType) {
+      toast.error("Please select a session type");
+      return;
+    }
+    if (selectedAmount === 0) {
+      toast.error("Please select a session option");
+      return;
+    }
+    setStep('details');
   };
 
   const loadRazorpayScript = () => {
@@ -480,92 +639,339 @@ function BookingSection() {
           </p>
         </div>
 
-        {!showBookingForm ? (
-          <>
-            <div className="grid md:grid-cols-3 gap-8 mb-12">
-              {[
-                {
-                  title: "One to One Healing",
-                  description: "Personalized healing sessions tailored to your frequency needs - daily, weekly, or custom schedules",
-                  icon: Heart,
-                  gradient: "from-purple-500 to-pink-500",
-                },
-                {
-                  title: "Need Based Healing",
-                  description: "Specialized healing including Tarot, EFT, Reiki, Acupressure, and personalized wellness routines",
-                  icon: Sparkles,
-                  gradient: "from-blue-500 to-teal-500",
-                },
-                {
-                  title: "Group Healing & Training",
-                  description: "Collective healing circles, spiritual guidance, and transformative learning courses",
-                  icon: Leaf,
-                  gradient: "from-green-500 to-emerald-500",
-                },
-              ].map((session, index) => (
-                <div
-                  key={index}
-                  className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border-2 border-gray-100 hover:border-transparent overflow-hidden"
-                >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${session.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
-                  
-                  <div className="relative z-10">
-                    <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br ${session.gradient} mb-6 shadow-lg`}>
-                      <session.icon className="h-8 w-8 text-white" />
+        {step === 'selection' ? (
+          // Step 1: Session Selection - Enhanced Card Grid Layout
+          <div className="max-w-7xl mx-auto">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+              {/* One to One Card */}
+              <div 
+                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
+                  formData.sessionType === 'one_to_one' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-purple-200'
+                }`}
+                onClick={() => handleSessionTypeChange('one_to_one')}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Heart className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
+                    One to One
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
+                    Personalized healing sessions tailored to your unique needs and journey
+                  </p>
+                  {formData.sessionType === 'one_to_one' && (
+                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
                     </div>
-                    <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3">
-                      {session.title}
-                    </h3>
-                    <p className="text-gray-600 mb-6 leading-relaxed text-sm">
-                      {session.description}
-                    </p>
+                  )}
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">Starting from</span>
+                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.one_to_one.frequencies[0].price.toLocaleString()}</div>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div className="text-center">
-              <button
-                onClick={() => setShowBookingForm(true)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-brand-teal to-brand-green text-white px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+              {/* Need Based Card */}
+              <div 
+                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
+                  formData.sessionType === 'need_based' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-blue-200'
+                }`}
+                onClick={() => handleSessionTypeChange('need_based')}
               >
-                Book Your Session Now
-                <ArrowRight className="h-5 w-5" />
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="max-w-4xl mx-auto">
-            <button
-              onClick={() => setShowBookingForm(false)}
-              className="mb-6 text-gray-600 hover:text-brand-teal flex items-center gap-2 transition-colors"
-            >
-              <ArrowRight className="h-4 w-4 rotate-180" />
-              Back to Services
-            </button>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-blue-400/20 to-teal-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-teal-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
+                    Need Based
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
+                    Specialized healing including Tarot, EFT, Reiki & more
+                  </p>
+                  {formData.sessionType === 'need_based' && (
+                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">Starting from</span>
+                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.need_based.types[0].price.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
 
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-2xl p-8 md:p-10 space-y-8">
-              <div className="space-y-6">
-                <h3 className="text-2xl font-serif font-bold text-gradient-brand flex items-center gap-2">
-                  <User className="h-6 w-6" />
-                  Your Information
-                </h3>
+              {/* Group Healing Card */}
+              <div 
+                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
+                  formData.sessionType === 'group_healing' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-green-200'
+                }`}
+                onClick={() => {
+                  handleSessionTypeChange('group_healing');
+                  handleGroupHealingSelect();
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Leaf className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
+                    Group Healing
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
+                    Collective healing circles & spiritual guidance
+                  </p>
+                  {formData.sessionType === 'group_healing' && (
+                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">Fixed Price</span>
+                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.group_healing.price.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Learning Curve Card */}
+              <div 
+                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
+                  formData.sessionType === 'learning_curve' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-orange-200'
+                }`}
+                onClick={() => handleSessionTypeChange('learning_curve')}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-orange-400/20 to-amber-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <User className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
+                    Learning Curve
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
+                    Transformative training courses & workshops
+                  </p>
+                  {formData.sessionType === 'learning_curve' && (
+                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">Starting from</span>
+                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.learning_curve.courses[0].price.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Options Selection */}
+            {formData.sessionType && formData.sessionType !== 'group_healing' && (
+              <div className="max-w-3xl mx-auto mb-12">
+                <div className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl p-10 border border-gray-100">
+                  {formData.sessionType === 'one_to_one' && (
+                    <div className="space-y-6">
+                      <div className="text-center mb-8">
+                        <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Frequency</h3>
+                        <p className="text-gray-600">Select the session frequency that works best for you</p>
+                      </div>
+                      <div className="grid gap-4">
+                        {SESSION_TYPES.one_to_one.frequencies.map((freq) => (
+                          <button
+                            key={freq.value}
+                            type="button"
+                            onClick={() => handleFrequencyChange(freq.value)}
+                            className={`group text-left p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
+                              formData.frequency === freq.value
+                                ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg'
+                                : 'border-gray-200 hover:border-purple-300 hover:shadow-md bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                {formData.frequency === freq.value && (
+                                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                )}
+                                <span className="font-semibold text-gray-800 text-lg">{freq.label}</span>
+                              </div>
+                              <span className="text-gradient-brand font-bold text-xl">₹{freq.price.toLocaleString()}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.sessionType === 'need_based' && (
+                    <div className="space-y-6">
+                      <div className="text-center mb-8">
+                        <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Healing</h3>
+                        <p className="text-gray-600">Select the specialized healing modality you need</p>
+                      </div>
+                      <div className="grid gap-4">
+                        {SESSION_TYPES.need_based.types.map((type) => (
+                          <button
+                            key={type.value}
+                            type="button"
+                            onClick={() => handleHealingTypeChange(type.value)}
+                            className={`group text-left p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
+                              formData.healingType === type.value
+                                ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-teal-50 shadow-lg'
+                                : 'border-gray-200 hover:border-blue-300 hover:shadow-md bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                {formData.healingType === type.value && (
+                                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                )}
+                                <span className="font-semibold text-gray-800 text-lg">{type.label}</span>
+                              </div>
+                              <span className="text-gradient-brand font-bold text-xl">₹{type.price.toLocaleString()}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.sessionType === 'learning_curve' && (
+                    <div className="space-y-6">
+                      <div className="text-center mb-8">
+                        <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Course</h3>
+                        <p className="text-gray-600">Select the transformative training that resonates with you</p>
+                      </div>
+                      <div className="grid gap-4">
+                        {SESSION_TYPES.learning_curve.courses.map((course) => (
+                          <button
+                            key={course.value}
+                            type="button"
+                            onClick={() => handleCourseTypeChange(course.value)}
+                            className={`group text-left p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
+                              formData.courseType === course.value
+                                ? 'border-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 shadow-lg'
+                                : 'border-gray-200 hover:border-orange-300 hover:shadow-md bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                {formData.courseType === course.value && (
+                                  <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                )}
+                                <span className="font-semibold text-gray-800 text-lg">{course.label}</span>
+                              </div>
+                              <span className="text-gradient-brand font-bold text-xl">₹{course.price.toLocaleString()}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Continue Button */}
+            {selectedAmount > 0 && (
+              <div className="max-w-3xl mx-auto space-y-6">
+                <div className="relative overflow-hidden bg-gradient-to-r from-brand-teal via-brand-green to-brand-teal rounded-3xl p-8 shadow-2xl">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 animate-pulse"></div>
+                  <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                      <span className="text-white/80 text-sm font-medium uppercase tracking-wider block mb-1">Session Amount</span>
+                      <span className="text-5xl font-bold text-white">
+                        ₹{selectedAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white/90 text-sm">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>Secure Payment</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleContinueToDetails}
+                  className="w-full h-16 text-lg font-semibold shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all duration-300"
+                  variant="cta"
+                >
+                  Continue to Details
+                  <ArrowRight className="ml-2 h-6 w-6" />
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Step 2: Personal Details & Payment
+          <div className="max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl p-10 md:p-12 space-y-8 border border-gray-100">
+              <button
+                type="button"
+                onClick={() => setStep('selection')}
+                className="mb-6 text-gray-600 hover:text-brand-teal flex items-center gap-2 transition-colors font-medium group"
+              >
+                <ArrowRight className="h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
+                Back to Session Selection
+              </button>
+
+              <div className="space-y-8">
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-brand mb-4 shadow-lg">
+                    <User className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-3xl font-serif font-bold text-gradient-brand mb-2">
+                    Your Information
+                  </h3>
+                  <p className="text-gray-600">We'll use this to confirm your booking and send you details</p>
+                </div>
                 
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name *</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="name" className="text-base font-semibold text-gray-700">Full Name *</Label>
                     <Input
                       id="name"
                       placeholder="Enter your full name"
                       value={formData.customerName}
                       onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                       required
-                      className="h-12"
+                      className="h-14 text-base border-2 focus:border-brand-teal rounded-xl"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number *</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="phone" className="text-base font-semibold text-gray-700">Phone Number *</Label>
                     <Input
                       id="phone"
                       type="tel"
@@ -573,13 +979,13 @@ function BookingSection() {
                       value={formData.customerPhone}
                       onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
                       required
-                      className="h-12"
+                      className="h-14 text-base border-2 focus:border-brand-teal rounded-xl"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address *</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="email" className="text-base font-semibold text-gray-700">Email Address *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -587,152 +993,27 @@ function BookingSection() {
                     value={formData.customerEmail}
                     onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
                     required
-                    className="h-12"
+                    className="h-14 text-base border-2 focus:border-brand-teal rounded-xl"
                   />
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <h3 className="text-2xl font-serif font-bold text-gradient-brand flex items-center gap-2">
-                  <Calendar className="h-6 w-6" />
-                  Choose Your Session
-                </h3>
-
-                <RadioGroup value={formData.sessionType} onValueChange={handleSessionTypeChange}>
-                  <div className="space-y-4">
-                    <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-brand-teal transition-all">
-                      <div className="flex items-start gap-3">
-                        <RadioGroupItem value="one_to_one" id="one_to_one" className="mt-1" />
-                        <div className="flex-1">
-                          <Label htmlFor="one_to_one" className="text-lg font-semibold cursor-pointer">
-                            {SESSION_TYPES.one_to_one.label}
-                          </Label>
-                          <p className="text-sm text-gray-600 mt-1">{SESSION_TYPES.one_to_one.description}</p>
-                          
-                          {formData.sessionType === "one_to_one" && (
-                            <div className="mt-4 space-y-2">
-                              <Label>Select Frequency *</Label>
-                              <Select value={formData.frequency} onValueChange={handleFrequencyChange}>
-                                <SelectTrigger className="h-12">
-                                  <SelectValue placeholder="Choose frequency" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {SESSION_TYPES.one_to_one.frequencies.map((freq) => (
-                                    <SelectItem key={freq.value} value={freq.value}>
-                                      {freq.label} - ₹{freq.price.toLocaleString()}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-brand-teal transition-all">
-                      <div className="flex items-start gap-3">
-                        <RadioGroupItem value="need_based" id="need_based" className="mt-1" />
-                        <div className="flex-1">
-                          <Label htmlFor="need_based" className="text-lg font-semibold cursor-pointer">
-                            {SESSION_TYPES.need_based.label}
-                          </Label>
-                          <p className="text-sm text-gray-600 mt-1">{SESSION_TYPES.need_based.description}</p>
-                          
-                          {formData.sessionType === "need_based" && (
-                            <div className="mt-4 space-y-2">
-                              <Label>Select Healing Type *</Label>
-                              <Select value={formData.healingType} onValueChange={handleHealingTypeChange}>
-                                <SelectTrigger className="h-12">
-                                  <SelectValue placeholder="Choose healing type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {SESSION_TYPES.need_based.types.map((type) => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                      {type.label} - ₹{type.price.toLocaleString()}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-brand-teal transition-all">
-                      <div className="flex items-start gap-3">
-                        <RadioGroupItem 
-                          value="group_healing" 
-                          id="group_healing" 
-                          className="mt-1"
-                          onClick={handleGroupHealingSelect}
-                        />
-                        <div className="flex-1">
-                          <Label htmlFor="group_healing" className="text-lg font-semibold cursor-pointer">
-                            {SESSION_TYPES.group_healing.label}
-                          </Label>
-                          <p className="text-sm text-gray-600 mt-1">{SESSION_TYPES.group_healing.description}</p>
-                          <p className="text-brand-teal font-semibold mt-2">₹{SESSION_TYPES.group_healing.price.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-brand-teal transition-all">
-                      <div className="flex items-start gap-3">
-                        <RadioGroupItem value="learning_curve" id="learning_curve" className="mt-1" />
-                        <div className="flex-1">
-                          <Label htmlFor="learning_curve" className="text-lg font-semibold cursor-pointer">
-                            {SESSION_TYPES.learning_curve.label}
-                          </Label>
-                          <p className="text-sm text-gray-600 mt-1">{SESSION_TYPES.learning_curve.description}</p>
-                          
-                          {formData.sessionType === "learning_curve" && (
-                            <div className="mt-4 space-y-2">
-                              <Label>Select Course *</Label>
-                              <Select value={formData.courseType} onValueChange={handleCourseTypeChange}>
-                                <SelectTrigger className="h-12">
-                                  <SelectValue placeholder="Choose course" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {SESSION_TYPES.learning_curve.courses.map((course) => (
-                                    <SelectItem key={course.value} value={course.value}>
-                                      {course.label} - ₹{course.price.toLocaleString()}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  Additional Notes (Optional)
-                </Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Share any specific concerns or questions..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
-
               {selectedAmount > 0 && (
-                <div className="bg-gradient-to-r from-brand-teal/10 to-brand-green/10 rounded-xl p-6 border-2 border-brand-teal">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-gray-700">Total Amount:</span>
-                    <span className="text-3xl font-bold text-gradient-brand">
-                      ₹{selectedAmount.toLocaleString()}
-                    </span>
+                <div className="relative overflow-hidden bg-gradient-to-r from-brand-teal via-brand-green to-brand-teal rounded-2xl p-8 shadow-xl">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 animate-pulse"></div>
+                  <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                      <span className="text-white/80 text-sm font-medium uppercase tracking-wider block mb-1">Total Amount</span>
+                      <span className="text-4xl font-bold text-white">
+                        ₹{selectedAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white/90 text-sm">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>Secure Payment</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -740,25 +1021,28 @@ function BookingSection() {
               <Button
                 type="submit"
                 disabled={loading || selectedAmount === 0}
-                className="w-full h-14 text-lg font-semibold"
+                className="w-full h-16 text-lg font-semibold shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all duration-300"
                 variant="cta"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                     Processing...
                   </>
                 ) : (
                   <>
                     Proceed to Payment
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <ArrowRight className="ml-2 h-6 w-6" />
                   </>
                 )}
               </Button>
 
-              <p className="text-center text-sm text-gray-500">
-                Secure payment powered by Razorpay. You'll receive a confirmation email and WhatsApp message after booking.
-              </p>
+              <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
+                <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Secure payment powered by Razorpay. You'll receive confirmation via email & WhatsApp.</span>
+              </div>
             </form>
           </div>
         )}
@@ -830,7 +1114,7 @@ function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="p-4">
-        <h3 className="text-sm font-medium text-gray-800 leading-tight line-clamp-2 min-h-[2.5rem] mb-2">
+        <h3 className="text-sm font-medium text-gradient-brand leading-tight line-clamp-2 min-h-[2.5rem] mb-2">
           {product.name}
         </h3>
 
@@ -878,7 +1162,7 @@ function BenefitsSection() {
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-brand mb-6 shadow-xl">
                 <benefit.icon className="h-10 w-10 text-white" />
               </div>
-              <h3 className="text-xl font-serif font-bold text-gray-800 mb-3">
+              <h3 className="text-xl font-serif font-bold text-gradient-brand mb-3">
                 {benefit.title}
               </h3>
               <p className="text-gray-600 leading-relaxed">
@@ -937,7 +1221,7 @@ function TestimonialsSection() {
               <p className="text-gray-700 mb-6 leading-relaxed text-sm italic">
                 &ldquo;{testimonial.text}&rdquo;
               </p>
-              <div className="font-semibold text-gray-800 text-sm">{testimonial.name}</div>
+              <div className="font-semibold text-gradient-brand text-sm">{testimonial.name}</div>
             </div>
           ))}
         </div>
@@ -963,7 +1247,7 @@ function CtaBanner() {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/book-session"
+            href="/#booking"
             className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-brand-teal px-8 py-4 rounded-full text-base font-semibold tracking-wide transition-all duration-300 hover:shadow-xl shadow-lg"
           >
             <Calendar className="h-5 w-5" />

@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS products (
   featured_image TEXT,
   is_featured BOOLEAN DEFAULT false,
   is_active BOOLEAN DEFAULT true,
+  homepage_section TEXT CHECK (homepage_section IN ('featured', 'best_sellers', 'new_arrivals', 'on_sale')),
   weight DECIMAL(10,2),
   dimensions JSONB DEFAULT '{}',
   tags TEXT[],
@@ -332,6 +333,7 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug);
 CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
 CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active);
+CREATE INDEX IF NOT EXISTS idx_products_homepage_section ON products(homepage_section);
 CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug);
 CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);

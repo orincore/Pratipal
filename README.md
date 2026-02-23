@@ -16,7 +16,14 @@ Run SQL files in Supabase SQL Editor (in order):
 ## Environment
 new fix keys chsngee create by claw anon -> publishable 1:20
 better error handling and more to cmd line debug  1:35
-build version fix creating check point --  1:43
+build version fix creating check point --  1:43 rx0w@#
+admin feetch to dynamic hero and remove old claw work's admin hero and features section  : 1:53
+fix the db schemas to workproperly with the admin dynamycs products and routes on landing page : 2:08
+fix the change razor pay processing and clawd crafted cart fix  : 2:30 
+new minimal and look of booking section : 2:46
+theme set to grident fucking peacook color in all ui component : 2:50 
+header and all thing changes as per landing page cleaning up the code and format it  :  3:10
+today final checkpoint : 3:10 rx0w/xc/br  [good night]
 ## Key Features
 - Product catalog with variants
 - Session booking with Razorpay payment
