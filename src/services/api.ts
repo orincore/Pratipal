@@ -61,11 +61,24 @@ function mapEcomCategoryToCategory(ecomCategory: EcomCategory): Category {
 
 export async function getProducts(): Promise<Product[]> {
   try {
-    const res = await fetch(buildApiUrl(`/api/products?limit=100`), {
+    const url = buildApiUrl(`/api/products?limit=100`);
+    console.log("Fetching products from:", url);
+    
+    const res = await fetch(url, {
       cache: "no-store",
     });
-    if (!res.ok) throw new Error("Failed to fetch products");
+    
+    console.log("Products API response status:", res.status);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("Failed to fetch products:", errorText);
+      throw new Error("Failed to fetch products");
+    }
+    
     const data = await res.json();
+    console.log(`Received ${data.products?.length || 0} products from API`);
+    
     return data.products.map(mapEcomProductToProduct);
   } catch (err) {
     console.error("Error fetching products:", err);

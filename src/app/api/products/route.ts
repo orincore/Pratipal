@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
+    console.log("Fetching products with params:", { categoryId, featured, search, limit, offset });
+
     let query = supabase
       .from("products")
       .select(`
@@ -37,11 +39,14 @@ export async function GET(req: NextRequest) {
     const { data, error, count } = await query;
 
     if (error) {
+      console.error("Supabase error fetching products:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log(`Successfully fetched ${data?.length || 0} products`);
     return NextResponse.json({ products: data || [], total: count || 0 });
   } catch (err: any) {
+    console.error("Exception in GET /api/products:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
