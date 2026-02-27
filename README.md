@@ -41,3 +41,23 @@ today final checkpoint : 3:10 rx0w/xc/br  [good night]
 - Book Session: `/book-session`
 - Admin: `/admin`
 - Custom Landing Pages: `/{slug}`  
+
+## query to fix rls of hero section 
+ `-- Enable Row Level Security on hero_sections
+ALTER TABLE hero_sections ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "Anyone can view active hero sections" ON hero_sections;
+DROP POLICY IF EXISTS "Service role can manage hero sections" ON hero_sections;
+
+-- Create policy to allow anyone to view active hero sections
+CREATE POLICY "Anyone can view active hero sections"
+  ON hero_sections FOR SELECT
+  USING (is_active = true);
+
+-- Create policy for service role to manage all hero sections
+CREATE POLICY "Service role can manage hero sections"
+  ON hero_sections FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+`

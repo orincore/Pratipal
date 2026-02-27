@@ -31,6 +31,19 @@ CREATE TABLE IF NOT EXISTS hero_sections (
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_hero_sections_active_order ON hero_sections(is_active, display_order);
 
+-- Enable Row Level Security
+ALTER TABLE hero_sections ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "Anyone can view active hero sections"
+  ON hero_sections FOR SELECT
+  USING (is_active = true);
+
+CREATE POLICY "Service role can manage hero sections"
+  ON hero_sections FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
 -- Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_hero_sections_updated_at()
 RETURNS TRIGGER AS $$

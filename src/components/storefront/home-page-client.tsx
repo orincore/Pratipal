@@ -3,18 +3,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Plus, Star, ShoppingBag, Sparkles, Heart, Leaf, Calendar, User, MessageSquare, Loader2 } from "lucide-react";
+import { ArrowRight, Plus, Star, ShoppingBag, Sparkles, Heart, Leaf, Calendar, User, Loader2 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/utils";
 import type { Product, HomepageSection } from "@/types";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { SESSION_TYPES } from "@/lib/session-types";
+import { BookingSection } from "@/components/booking/booking-section";
 
 type SectionKey = Extract<HomepageSection, "best_sellers" | "new_arrivals" | "on_sale">;
 const SECTION_KEYS: SectionKey[] = ["best_sellers", "new_arrivals", "on_sale"];
@@ -109,6 +102,9 @@ export function HomePageClient({ products }: HomePageClientProps) {
     <div className="bg-white">
       <HeroSection heroSections={heroSections} loading={loadingHero} />
       <BrandingSection />
+      <AboutFounderSection />
+      <AboutPratipalSection />
+      <ApproachSection />
       <BookingSection />
       <FeaturedProducts products={featuredProducts} />
       <BenefitsSection />
@@ -442,610 +438,186 @@ function BrandingSection() {
   );
 }
 
-function BookingSection() {
-  const [step, setStep] = useState<'selection' | 'details'>('selection');
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    customerName: "",
-    customerEmail: "",
-    customerPhone: "",
-    sessionType: "",
-    frequency: "",
-    healingType: "",
-    courseType: "",
-    notes: "",
-  });
-  const [selectedAmount, setSelectedAmount] = useState(0);
-
-  const handleSessionTypeChange = (value: string) => {
-    setFormData({
-      ...formData,
-      sessionType: value,
-      frequency: "",
-      healingType: "",
-      courseType: "",
-    });
-    setSelectedAmount(0);
-  };
-
-  const handleFrequencyChange = (value: string) => {
-    setFormData({ ...formData, frequency: value });
-    const freq = SESSION_TYPES.one_to_one.frequencies.find((f) => f.value === value);
-    setSelectedAmount(freq?.price || 0);
-  };
-
-  const handleHealingTypeChange = (value: string) => {
-    setFormData({ ...formData, healingType: value });
-    const type = SESSION_TYPES.need_based.types.find((t) => t.value === value);
-    setSelectedAmount(type?.price || 0);
-  };
-
-  const handleCourseTypeChange = (value: string) => {
-    setFormData({ ...formData, courseType: value });
-    const course = SESSION_TYPES.learning_curve.courses.find((c) => c.value === value);
-    setSelectedAmount(course?.price || 0);
-  };
-
-  const handleGroupHealingSelect = () => {
-    setSelectedAmount(SESSION_TYPES.group_healing.price);
-  };
-
-  const handleContinueToDetails = () => {
-    if (!formData.sessionType) {
-      toast.error("Please select a session type");
-      return;
-    }
-    if (selectedAmount === 0) {
-      toast.error("Please select a session option");
-      return;
-    }
-    setStep('details');
-  };
-
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.customerName || !formData.customerEmail || !formData.customerPhone || !formData.sessionType) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    if (selectedAmount === 0) {
-      toast.error("Please select a session option");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const bookingRes = await fetch("/api/sessions/create-booking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          amount: selectedAmount,
-        }),
-      });
-
-      if (!bookingRes.ok) {
-        throw new Error("Failed to create booking");
-      }
-
-      const { booking } = await bookingRes.json();
-
-      const paymentRes = await fetch("/api/sessions/create-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          amount: selectedAmount,
-        }),
-      });
-
-      if (!paymentRes.ok) {
-        throw new Error("Failed to create payment order");
-      }
-
-      const { orderId } = await paymentRes.json();
-
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        throw new Error("Failed to load payment gateway");
-      }
-
-      const whatsappMessage = `Hi! I've booked a session (${booking.booking_number}). Looking forward to connecting!`;
-      const whatsappNumber = "919876543210";
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: selectedAmount * 100,
-        currency: "INR",
-        name: "Pratipal Healing",
-        description: `Session Booking - ${booking.booking_number}`,
-        order_id: orderId,
-        handler: async function (response: any) {
-          try {
-            const verifyRes = await fetch("/api/sessions/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                bookingId: booking.id,
-              }),
-            });
-
-            if (!verifyRes.ok) {
-              throw new Error("Payment verification failed");
-            }
-
-            window.open(whatsappUrl, "_blank");
-            window.location.href = `/booking-success?bookingId=${booking.id}`;
-          } catch (error) {
-            console.error("Payment verification error:", error);
-            toast.error("Payment verification failed. Please contact support.");
-          }
-        },
-        prefill: {
-          name: formData.customerName,
-          email: formData.customerEmail,
-          contact: formData.customerPhone,
-        },
-        theme: {
-          color: "#1B7F79",
-        },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-            toast.info("Payment cancelled");
-          },
-        },
-      };
-
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.open();
-    } catch (error) {
-      console.error("Booking error:", error);
-      toast.error("Failed to process booking. Please try again.");
-      setLoading(false);
-    }
-  };
-
+function AboutFounderSection() {
   return (
-    <section id="booking" className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-white">
+    <section className="py-20 md:py-28 bg-white">
       <div className="container">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
-            <Calendar className="h-4 w-4 text-brand-teal" />
-            <span className="text-sm font-medium text-brand-teal">Book Your Healing Journey</span>
+            <User className="h-4 w-4 text-brand-teal" />
+            <span className="text-sm font-medium text-brand-teal">Meet the Founder</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
-            Services
+            About the Founder
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Learn to cure yourself and many. Points of transformation & training courses
-          </p>
         </div>
 
-        {step === 'selection' ? (
-          // Step 1: Session Selection - Enhanced Card Grid Layout
-          <div className="max-w-7xl mx-auto">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-              {/* One to One Card */}
-              <div 
-                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
-                  formData.sessionType === 'one_to_one' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-purple-200'
-                }`}
-                onClick={() => handleSessionTypeChange('one_to_one')}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
-                
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <Heart className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
-                    One to One
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
-                    Personalized healing sessions tailored to your unique needs and journey
-                  </p>
-                  {formData.sessionType === 'one_to_one' && (
-                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="mt-6 pt-4 border-t border-gray-100">
-                    <span className="text-xs text-gray-500 uppercase tracking-wider">Starting from</span>
-                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.one_to_one.frequencies[0].price.toLocaleString()}</div>
-                  </div>
-                </div>
-              </div>
+        <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
+          <div className="relative">
+            <div className="relative w-full aspect-[4/5] max-w-md mx-auto rounded-3xl overflow-hidden shadow-2xl">
+              <Image
+                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&h=1000&fit=crop"
+                alt="Dr. Aparnaa Singh"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+            </div>
+            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl -rotate-12 blur-xl opacity-50"></div>
+          </div>
 
-              {/* Need Based Card */}
-              <div 
-                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
-                  formData.sessionType === 'need_based' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-blue-200'
-                }`}
-                onClick={() => handleSessionTypeChange('need_based')}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-blue-400/20 to-teal-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
-                
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-teal-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <Sparkles className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
-                    Need Based
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
-                    Specialized healing including Tarot, EFT, Reiki & more
-                  </p>
-                  {formData.sessionType === 'need_based' && (
-                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="mt-6 pt-4 border-t border-gray-100">
-                    <span className="text-xs text-gray-500 uppercase tracking-wider">Starting from</span>
-                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.need_based.types[0].price.toLocaleString()}</div>
-                  </div>
-                </div>
-              </div>
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-3xl font-serif font-bold text-gradient-brand mb-2">
+                Dr. Aparnaa Singh
+              </h3>
+              <p className="text-lg text-gray-600 font-medium mb-6">
+                Founder & Chief Executive Officer
+              </p>
+            </div>
 
-              {/* Group Healing Card */}
-              <div 
-                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
-                  formData.sessionType === 'group_healing' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-green-200'
-                }`}
-                onClick={() => {
-                  handleSessionTypeChange('group_healing');
-                  handleGroupHealingSelect();
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
-                
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <Leaf className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
-                    Group Healing
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
-                    Collective healing circles & spiritual guidance
-                  </p>
-                  {formData.sessionType === 'group_healing' && (
-                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="mt-6 pt-4 border-t border-gray-100">
-                    <span className="text-xs text-gray-500 uppercase tracking-wider">Fixed Price</span>
-                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.group_healing.price.toLocaleString()}</div>
-                  </div>
-                </div>
-              </div>
+            <p className="text-gray-700 leading-relaxed">
+              Dr. Aparnaa Singh is an Integrative Healing & Consciousness Coach and certified Naturopathy Practitioner with over 9 years of experience in holistic and energy-based healing. Her work seamlessly blends science, spirituality, and natural therapies to help individuals restore harmony across body, mind, and soul.
+            </p>
 
-              {/* Learning Curve Card */}
-              <div 
-                className={`group relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all duration-500 border-2 cursor-pointer overflow-hidden transform hover:-translate-y-2 ${
-                  formData.sessionType === 'learning_curve' ? 'border-brand-teal ring-4 ring-brand-teal/20 scale-105' : 'border-transparent hover:border-orange-200'
-                }`}
-                onClick={() => handleSessionTypeChange('learning_curve')}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-orange-400/20 to-amber-400/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
-                
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <User className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-serif font-bold text-gray-800 mb-3 group-hover:text-gradient-brand transition-colors">
-                    Learning Curve
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed flex-grow">
-                    Transformative training courses & workshops
-                  </p>
-                  {formData.sessionType === 'learning_curve' && (
-                    <div className="absolute top-6 right-6 w-8 h-8 bg-brand-teal rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="mt-6 pt-4 border-t border-gray-100">
-                    <span className="text-xs text-gray-500 uppercase tracking-wider">Starting from</span>
-                    <div className="text-gradient-brand font-bold text-lg mt-1">₹{SESSION_TYPES.learning_curve.courses[0].price.toLocaleString()}</div>
-                  </div>
+            <p className="text-gray-700 leading-relaxed">
+              With doctorate in Naturopathy & Yoga, qualified practitioner & trainer of Acupressure (Ayurvedic & Chinese), Reiki Grand Master, Fertility Coach & a healer of 15 various healing techniques, having treated & trained many, she is on a mission to reform & revolutionise the costly, non-affordable wellness industry.
+            </p>
+
+            <p className="text-gray-700 leading-relaxed">
+              She is deeply committed to self-healing, preventive health, and conscious living, drawing wisdom from the elements of nature to guide transformation. As the founder of Reiki Magic and Pratipal, Dr. Aparnaa creates safe, nurturing spaces where clients can realign their energy, deepen self-awareness, and manifest a more empowered life.
+            </p>
+
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-6 space-y-3">
+              <h4 className="font-semibold text-gray-800 mb-3">Key Achievements:</h4>
+              <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-2 flex-shrink-0"></div>
+                  <span>Successful assistance to women in overcoming health & infertility challenges</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-2 flex-shrink-0"></div>
+                  <span>Empowering 500+ healers in launching spiritual business</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-2 flex-shrink-0"></div>
+                  <span>Mentored 1000+ families towards medicine free life</span>
                 </div>
               </div>
             </div>
-
-            {/* Options Selection */}
-            {formData.sessionType && formData.sessionType !== 'group_healing' && (
-              <div className="max-w-3xl mx-auto mb-12">
-                <div className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl p-10 border border-gray-100">
-                  {formData.sessionType === 'one_to_one' && (
-                    <div className="space-y-6">
-                      <div className="text-center mb-8">
-                        <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Frequency</h3>
-                        <p className="text-gray-600">Select the session frequency that works best for you</p>
-                      </div>
-                      <div className="grid gap-4">
-                        {SESSION_TYPES.one_to_one.frequencies.map((freq) => (
-                          <button
-                            key={freq.value}
-                            type="button"
-                            onClick={() => handleFrequencyChange(freq.value)}
-                            className={`group text-left p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
-                              formData.frequency === freq.value
-                                ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg'
-                                : 'border-gray-200 hover:border-purple-300 hover:shadow-md bg-white'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                {formData.frequency === freq.value && (
-                                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                )}
-                                <span className="font-semibold text-gray-800 text-lg">{freq.label}</span>
-                              </div>
-                              <span className="text-gradient-brand font-bold text-xl">₹{freq.price.toLocaleString()}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.sessionType === 'need_based' && (
-                    <div className="space-y-6">
-                      <div className="text-center mb-8">
-                        <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Healing</h3>
-                        <p className="text-gray-600">Select the specialized healing modality you need</p>
-                      </div>
-                      <div className="grid gap-4">
-                        {SESSION_TYPES.need_based.types.map((type) => (
-                          <button
-                            key={type.value}
-                            type="button"
-                            onClick={() => handleHealingTypeChange(type.value)}
-                            className={`group text-left p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
-                              formData.healingType === type.value
-                                ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-teal-50 shadow-lg'
-                                : 'border-gray-200 hover:border-blue-300 hover:shadow-md bg-white'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                {formData.healingType === type.value && (
-                                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                )}
-                                <span className="font-semibold text-gray-800 text-lg">{type.label}</span>
-                              </div>
-                              <span className="text-gradient-brand font-bold text-xl">₹{type.price.toLocaleString()}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.sessionType === 'learning_curve' && (
-                    <div className="space-y-6">
-                      <div className="text-center mb-8">
-                        <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Course</h3>
-                        <p className="text-gray-600">Select the transformative training that resonates with you</p>
-                      </div>
-                      <div className="grid gap-4">
-                        {SESSION_TYPES.learning_curve.courses.map((course) => (
-                          <button
-                            key={course.value}
-                            type="button"
-                            onClick={() => handleCourseTypeChange(course.value)}
-                            className={`group text-left p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${
-                              formData.courseType === course.value
-                                ? 'border-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 shadow-lg'
-                                : 'border-gray-200 hover:border-orange-300 hover:shadow-md bg-white'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                {formData.courseType === course.value && (
-                                  <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                )}
-                                <span className="font-semibold text-gray-800 text-lg">{course.label}</span>
-                              </div>
-                              <span className="text-gradient-brand font-bold text-xl">₹{course.price.toLocaleString()}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Continue Button */}
-            {selectedAmount > 0 && (
-              <div className="max-w-3xl mx-auto space-y-6">
-                <div className="relative overflow-hidden bg-gradient-to-r from-brand-teal via-brand-green to-brand-teal rounded-3xl p-8 shadow-2xl">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 animate-pulse"></div>
-                  <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div>
-                      <span className="text-white/80 text-sm font-medium uppercase tracking-wider block mb-1">Session Amount</span>
-                      <span className="text-5xl font-bold text-white">
-                        ₹{selectedAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-white/90 text-sm">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      <span>Secure Payment</span>
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleContinueToDetails}
-                  className="w-full h-16 text-lg font-semibold shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all duration-300"
-                  variant="cta"
-                >
-                  Continue to Details
-                  <ArrowRight className="ml-2 h-6 w-6" />
-                </Button>
-              </div>
-            )}
           </div>
-        ) : (
-          // Step 2: Personal Details & Payment
-          <div className="max-w-3xl mx-auto">
-            <form onSubmit={handleSubmit} className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl p-10 md:p-12 space-y-8 border border-gray-100">
-              <button
-                type="button"
-                onClick={() => setStep('selection')}
-                className="mb-6 text-gray-600 hover:text-brand-teal flex items-center gap-2 transition-colors font-medium group"
-              >
-                <ArrowRight className="h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
-                Back to Session Selection
-              </button>
+        </div>
+      </div>
+    </section>
+  );
+}
 
-              <div className="space-y-8">
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-brand mb-4 shadow-lg">
-                    <User className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-3xl font-serif font-bold text-gradient-brand mb-2">
-                    Your Information
-                  </h3>
-                  <p className="text-gray-600">We'll use this to confirm your booking and send you details</p>
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label htmlFor="name" className="text-base font-semibold text-gray-700">Full Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter your full name"
-                      value={formData.customerName}
-                      onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                      required
-                      className="h-14 text-base border-2 focus:border-brand-teal rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label htmlFor="phone" className="text-base font-semibold text-gray-700">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+91 98765 43210"
-                      value={formData.customerPhone}
-                      onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                      required
-                      className="h-14 text-base border-2 focus:border-brand-teal rounded-xl"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="email" className="text-base font-semibold text-gray-700">Email Address *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={formData.customerEmail}
-                    onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
-                    required
-                    className="h-14 text-base border-2 focus:border-brand-teal rounded-xl"
-                  />
-                </div>
-              </div>
-
-              {selectedAmount > 0 && (
-                <div className="relative overflow-hidden bg-gradient-to-r from-brand-teal via-brand-green to-brand-teal rounded-2xl p-8 shadow-xl">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 animate-pulse"></div>
-                  <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div>
-                      <span className="text-white/80 text-sm font-medium uppercase tracking-wider block mb-1">Total Amount</span>
-                      <span className="text-4xl font-bold text-white">
-                        ₹{selectedAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-white/90 text-sm">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      <span>Secure Payment</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={loading || selectedAmount === 0}
-                className="w-full h-16 text-lg font-semibold shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all duration-300"
-                variant="cta"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    Proceed to Payment
-                    <ArrowRight className="ml-2 h-6 w-6" />
-                  </>
-                )}
-              </Button>
-
-              <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
-                <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span>Secure payment powered by Razorpay. You'll receive confirmation via email & WhatsApp.</span>
-              </div>
-            </form>
+function AboutPratipalSection() {
+  return (
+    <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-white">
+      <div className="container">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
+            <Sparkles className="h-4 w-4 text-brand-teal" />
+            <span className="text-sm font-medium text-brand-teal">Our Story</span>
           </div>
-        )}
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
+            About Pratipal
+          </h2>
+        </div>
+
+        <div className="max-w-4xl mx-auto space-y-6 text-gray-700 leading-relaxed">
+          <p>
+            In an ever-evolving and hyper-dynamic world, one vital aspect that has quietly receded to the background—both in thought and action—is our physical and mental well-being. The modern individual, perpetually short on time, finds quick fixes in near-perfect allopathic medicines, while the ancient wisdom of practices like meditation gathers dust, dismissed for lack of time—even for sleep itself. This, perhaps, is the unintended consequence of modern life.
+          </p>
+
+          <p>
+            The irony runs deep: we understand the need for change, we've heard echoes of the solution—through our elders, in books, or across the internet—but a truly holistic, accessible, and enduring approach remains elusive. What we do find are fragments: an acupressure center here, an Ayurveda clinic there, a naturopathy retreat somewhere—all existing in isolation and often beyond the reach of ordinary affordability.
+          </p>
+
+          <p>
+            And so, the cynical question returns, "What's new about this? I already know all this. Why pay for it?" But do we really use what we "already know"? Or does our pata hai gyaan—our so-called knowledge—remain just another unlit lamp in the chaos of modern living?
+          </p>
+
+          <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 rounded-3xl p-8 my-8">
+            <p className="text-gray-800 font-medium">
+              Before founding Pratipal, I spent six years immersed in diverse courses of study, followed by three years of practical experience—treating patients and mentoring aspiring healers. During this time, I registered my MSME and began producing healing candles and salts tailored to specific ailments, crafted in response to user needs. The growing and sustained demand for these products and related services eventually compelled me to take the next step—launching this platform to reach and serve many more.
+            </p>
+          </div>
+
+          <p>
+            At Pratipal, our vision is to nurture a community of healers and seekers alike. We aim to provide structured training for those aspiring to become healers, offer collective and individual treatments, organize retreat-based healing camps, and extend personalized guidance for day-to-day challenges. Our approach emphasizes simplicity—introducing daily rituals that can be seamlessly integrated into one's existing lifestyle, without disrupting its rhythm, yet gently transforming it from within.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ApproachSection() {
+  const approaches = [
+    {
+      icon: Sparkles,
+      title: "Simple",
+      description: "No complexity, no overwhelm — just intuitive tools and easy-to-follow guidance.",
+    },
+    {
+      icon: Calendar,
+      title: "Practical",
+      description: "Designed to integrate seamlessly into busy modern lives.",
+    },
+    {
+      icon: Heart,
+      title: "Accessible",
+      description: "Affordable, understandable, and available to anyone seeking inner growth.",
+    },
+    {
+      icon: Leaf,
+      title: "Energy-Driven",
+      description: "Every product, session, and course is intentionally charged to support specific emotional and spiritual outcomes.",
+    },
+    {
+      icon: User,
+      title: "Holistic",
+      description: "We address the root — not just symptoms — across emotional, mental, physical, and spiritual layers.",
+    },
+  ];
+
+  return (
+    <section className="py-20 md:py-28 bg-white">
+      <div className="container">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
+            <Leaf className="h-4 w-4 text-brand-teal" />
+            <span className="text-sm font-medium text-brand-teal">The Pratipal Way</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
+            Approach
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            We believe healing should be simple, practical, and accessible to everyone
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {approaches.map((approach, index) => (
+            <div
+              key={index}
+              className="group bg-gradient-to-br from-white to-gray-50 rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-brand-teal/30"
+            >
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-brand mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <approach.icon className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-3">
+                {approach.title}
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                {approach.description}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
