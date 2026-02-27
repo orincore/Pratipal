@@ -24,6 +24,24 @@ new minimal and look of booking section : 2:46
 theme set to grident fucking peacook color in all ui component : 2:50 
 header and all thing changes as per landing page cleaning up the code and format it  :  3:10
 today final checkpoint : 3:10 rx0w/xc/br  [good night]
+
+
+| Time | Checkpoint | Details |
+|------|-----------|---------|
+| 1:20 | New fix keys change | Create publishable fix |
+| 1:35 | Error handling | Better error handling and more CLI debug |
+| 1:43 | Build version fix | Creating checkpoint `rx0w@#` |
+| 1:53 | Admin feature | Remove old claw work's admin hero and features section |
+| 2:08 | DB schemas | Fix schemas for admin dynamics, products, and routes on landing page |
+| 2:30 | Payment processing | Fix Razorpay processing and cart fixes |
+| 2:46 | UI update | New minimal look for booking section |
+| 2:50 | Theme update | Gradient peacock color theme in all UI components |
+| 3:10 | Final polish | Header changes, landing page cleanup, code formatting |
+| 3:10 | Final checkpoint | `rx0w/xc/br` [Good night] |
+|----  | checkpoint er fix| home page change |
+|--:-- | // |home page /view deatil route handel|| and error handel |
+| 0:56 |all ui done | about page |
+
 ## Key Features
 - Product catalog with variants
 - Session booking with Razorpay payment
@@ -41,6 +59,7 @@ today final checkpoint : 3:10 rx0w/xc/br  [good night]
 - Book Session: `/book-session`
 - Admin: `/admin`
 - Custom Landing Pages: `/{slug}`  
+
 
 ## query to fix rls of hero section 
  `-- Enable Row Level Security on hero_sections
@@ -61,3 +80,6 @@ CREATE POLICY "Service role can manage hero sections"
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
 `
+
+
+Invoke-RestMethod -Uri "http://localhost:3000/api/auth/seed" -Method POST -ContentType "application/json" -Body '{"email":"admin@pratipal.in","password":"Admin@123","full_name":"Admin User","secret":"pratipal7094"}'
