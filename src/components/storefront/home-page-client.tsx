@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -16,6 +16,14 @@ import {
   Stethoscope,
   Calendar,
   User,
+  Zap,
+  Crown,
+  Gem,
+  Flower,
+  Sun,
+  Moon,
+  Feather,
+  Waves,
 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/utils";
@@ -30,6 +38,12 @@ interface HomePageClientProps {
 }
 
 export function HomePageClient({ products }: HomePageClientProps) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
   const sectionedProducts = useMemo(() => {
     const record: Record<SectionKey, Product[]> = {
       best_sellers: [],
@@ -75,7 +89,7 @@ export function HomePageClient({ products }: HomePageClientProps) {
   );
 
   return (
-    <div className="bg-white">
+    <div className={`bg-white transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       <HeroSection />
       <BrandingSection />
       <AboutFounderSection />
@@ -92,48 +106,76 @@ export function HomePageClient({ products }: HomePageClientProps) {
 
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-[#f5f5f0] min-h-[85vh] flex items-center py-12">
+    <section className="relative overflow-hidden min-h-screen flex items-center py-16 bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600">
+      {/* Subtle Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
+        <div className="absolute top-20 left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-20 right-20 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl animate-float-delayed"></div>
+      </div>
+
       <div className="container relative z-10">
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left Content */}
-          <div className="space-y-6 lg:pr-8">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight">
-              <span className="block text-[#1e3a5f] font-bold">EVERY MOMENT</span>
-              <span className="block text-[#1e3a5f] font-bold">"PRATIPAL"</span>
-            </h1>
+          <div className="space-y-8 animate-slide-up">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30">
+                <Crown className="h-4 w-4 text-white" />
+                <span className="text-sm font-medium text-white">Sacred Healing Journey</span>
+              </div>
+              
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight">
+                <span className="block text-white font-bold mb-2">EVERY MOMENT</span>
+                <span className="block text-white font-bold text-5xl md:text-6xl lg:text-7xl">"प्रतिपल"</span>
+              </h1>
 
-            <h2 className="text-3xl md:text-4xl font-serif text-[#2d9b9b] font-semibold">
-              Do you need healing?
-            </h2>
+              <h2 className="text-2xl md:text-3xl font-serif text-emerald-100 font-medium">
+                Do you need healing?
+              </h2>
 
-            <p className="text-base md:text-lg text-[#2d9b9b] italic leading-relaxed">
-              Healing is not merely cure, it is weaving smile in routine.
-            </p>
-
-            <div className="space-y-4 text-sm md:text-base text-gray-700 leading-relaxed">
-              <p>
-                At Pratipal, I am your personal healing assistant, to integrate the methodology of ancient healing rituals, into your modern lifestyle in a seamless, natural & progressive manner, without disturbing your routine.
-              </p>
-              <p className="text-sm text-gray-600">
-                - Founder & Chief Executive Officer<br />
-                Dr. Aparnaa Singh
+              <p className="text-lg text-emerald-100 leading-relaxed italic">
+                "Healing is not merely cure, it is weaving smile in routine."
               </p>
             </div>
 
-            <div className="pt-4">
+            <div className="space-y-4 text-base text-white/90 leading-relaxed">
+              <p>
+                At Pratipal, I am your personal healing assistant, to integrate the methodology of ancient healing rituals, into your modern lifestyle in a seamless, natural & progressive manner, without disturbing your routine.
+              </p>
+              <div className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <User className="h-5 w-5 text-emerald-300 flex-shrink-0 mt-1" />
+                <div>
+                  <p className="text-sm text-white/80">
+                    - Founder & Chief Executive Officer
+                  </p>
+                  <p className="font-semibold text-white">
+                    Dr. Aparnaa Singh
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Link
                 href="/shop"
-                className="inline-flex items-center gap-2 bg-[#1e3a5f] hover:bg-[#2d9b9b] text-white px-8 py-3 rounded-md text-base font-medium transition-all duration-300"
+                className="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-600 px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:shadow-lg"
               >
+                <Zap className="h-4 w-4" />
                 Start Your Journey
+              </Link>
+              <Link
+                href="/courses"
+                className="inline-flex items-center gap-2 border-2 border-white text-white hover:bg-white hover:text-emerald-600 px-6 py-3 rounded-lg font-medium transition-all duration-300"
+              >
+                <Gem className="h-4 w-4" />
+                Explore Courses
               </Link>
             </div>
           </div>
 
           {/* Right Image */}
-          <div className="relative flex justify-center">
-            <div className="inline-block max-w-xl w-full">
-              <div className="rounded-lg border-4 border-[#2d9b9b] shadow-2xl bg-white overflow-hidden">
+          <div className="relative flex justify-center animate-fade-in">
+            <div className="relative max-w-lg w-full">
+              <div className="relative rounded-2xl border-2 border-white/30 shadow-2xl bg-white/10 backdrop-blur-sm overflow-hidden">
                 <Image
                   src="/assets/image1.jpeg"
                   alt="Dr. Aparnaa Singh - Pratipal Healing"
@@ -142,22 +184,28 @@ function HeroSection() {
                   className="w-full h-auto object-contain"
                   priority
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-emerald-600/20 to-transparent"></div>
               </div>
 
               {/* Bottom Info Card */}
-              <div className="mt-6 bg-white rounded-lg p-6 shadow-lg border border-gray-200">
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  With doctorate in Naturopathy & Yoga, qualified practitioner & trainer of Acupressure (Ayurvedic & Chinese), Reiki Grand Master, Fertility Coach & a healer of 15 various healing techniques, having treated & trained many, she is on a mission to reform & revolutionise the costly, non-affordable wellness industry.
-                </p>
-                <p className="text-sm text-gray-600 mt-3">
-                  Making both physical & mental health accessible to everyone with personal attention at a cost that you can afford.
-                </p>
-                <Link
-                  href="#about"
-                  className="inline-flex items-center gap-2 bg-[#2d9b9b] hover:bg-[#1e3a5f] text-white px-6 py-2 rounded-md text-sm font-medium transition-all duration-300 mt-4"
-                >
-                  Know more
-                </Link>
+              <div className="mt-6 bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/30">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Stethoscope className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-700 leading-relaxed mb-3">
+                      With doctorate in Naturopathy & Yoga, qualified practitioner & trainer of Acupressure, Reiki Grand Master, Fertility Coach & a healer of 15 various healing techniques.
+                    </p>
+                    <Link
+                      href="#about"
+                      className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Know more
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -169,47 +217,56 @@ function HeroSection() {
 
 function BrandingSection() {
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden">
+    <section className="relative py-20 overflow-hidden bg-gradient-to-br from-slate-900 via-emerald-900 to-teal-900">
       <div className="absolute inset-0">
         <Image
           src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&h=800&fit=crop"
           alt="Forest"
           fill
-          className="object-cover"
+          className="object-cover opacity-90"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-brand-dark/70" />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/80 via-teal-900/70 to-blue-900/80" />
       </div>
 
       <div className="relative z-10 container text-center">
-        <p className="text-brand-support/80 text-xs font-sans uppercase tracking-[0.4em] mb-6">
-          Rooted in Ancient Wisdom
-        </p>
-        <h2 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-6 leading-[1.4] overflow-visible" style={{ paddingTop: '0.75rem', paddingBottom: '0.5rem' }}>
-          प्रतिपल
-        </h2>
-        <p className="text-lg md:text-xl text-white/70 font-serif italic max-w-xl mx-auto mb-3">
-          &ldquo;To nurture, to protect, to heal&rdquo;
-        </p>
-        <p className="text-sm text-white/50 font-sans max-w-md mx-auto leading-relaxed">
-          Every product is crafted with sacred intention, pure ingredients, and
-          the ancient healing wisdom of Ayurveda and crystal therapy.
-        </p>
+        <div className="animate-slide-up">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg mb-8">
+            <Waves className="h-4 w-4 text-emerald-300" />
+            <span className="text-emerald-100 text-sm font-medium tracking-wider">Rooted in Ancient Wisdom</span>
+          </div>
+          
+          <h2 className="text-5xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-6 leading-tight">
+            प्रतिपल
+          </h2>
+          
+          <p className="text-xl text-emerald-200 italic max-w-2xl mx-auto mb-4">
+            &ldquo;To nurture, to protect, to heal&rdquo;
+          </p>
+          
+          <p className="text-base text-white/70 max-w-3xl mx-auto leading-relaxed mb-12">
+            Every product is crafted with sacred intention, pure ingredients, and the ancient healing wisdom of Ayurveda and crystal therapy.
+          </p>
 
-        <div className="flex items-center justify-center gap-8 mt-10">
-          <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">100%</div>
-            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Natural</div>
-          </div>
-          <div className="w-px h-10 bg-white/20" />
-          <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">500+</div>
-            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Healers Empowered</div>
-          </div>
-          <div className="w-px h-10 bg-white/20" />
-          <div className="text-center">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-brand-support">1000+</div>
-            <div className="text-[11px] text-white/50 font-sans uppercase tracking-wider mt-1">Families Guided</div>
+          <div className="flex flex-wrap items-center justify-center gap-12">
+            <div className="text-center">
+              <div className="text-3xl font-serif font-bold text-gradient-peacock mb-2">100%</div>
+              <div className="text-sm text-white/60 uppercase tracking-wider">Natural</div>
+            </div>
+            
+            <div className="w-px h-12 bg-gradient-to-b from-transparent via-white/30 to-transparent"></div>
+            
+            <div className="text-center">
+              <div className="text-3xl font-serif font-bold text-gradient-peacock mb-2">500+</div>
+              <div className="text-sm text-white/60 uppercase tracking-wider">Healers Empowered</div>
+            </div>
+            
+            <div className="w-px h-12 bg-gradient-to-b from-transparent via-white/30 to-transparent"></div>
+            
+            <div className="text-center">
+              <div className="text-3xl font-serif font-bold text-gradient-peacock mb-2">1000+</div>
+              <div className="text-sm text-white/60 uppercase tracking-wider">Families Guided</div>
+            </div>
           </div>
         </div>
       </div>
@@ -219,21 +276,28 @@ function BrandingSection() {
 
 function AboutFounderSection() {
   return (
-    <section className="py-20 md:py-28 bg-white">
-      <div className="container">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
-            <User className="h-4 w-4 text-brand-teal" />
-            <span className="text-sm font-medium text-brand-teal">Meet the Founder</span>
+    <section className="py-20 bg-white relative overflow-hidden">
+      {/* Subtle background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+        <div className="absolute top-20 left-20 w-64 h-64 bg-emerald-100 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-20 right-20 w-80 h-80 bg-teal-100 rounded-full blur-3xl animate-float-delayed"></div>
+      </div>
+
+      <div className="container relative z-10">
+        <div className="text-center mb-16 animate-slide-up">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg mb-6">
+            <User className="h-4 w-4 text-emerald-600" />
+            <span className="text-emerald-700 font-medium">Meet the Visionary</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-peacock mb-4">
             About the Founder
           </h2>
+          <div className="w-16 h-0.5 bg-gradient-brand mx-auto"></div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
-          <div className="relative">
-            <div className="relative w-full aspect-[4/5] max-w-md mx-auto rounded-3xl overflow-hidden shadow-2xl">
+        <div className="grid lg:grid-cols-2 gap-16 items-center max-w-6xl mx-auto">
+          <div className="relative animate-fade-in">
+            <div className="relative w-full aspect-[4/5] max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl">
               <Image
                 src="/assets/image2.jpg"
                 alt="Dr. Aparnaa Singh"
@@ -241,49 +305,78 @@ function AboutFounderSection() {
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/30 via-transparent to-transparent"></div>
+              
+              {/* Professional badge */}
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Crown className="h-4 w-4 text-emerald-600" />
+                  <span className="text-xs font-semibold text-emerald-800">Healing Expert</span>
+                </div>
+              </div>
             </div>
-            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl -rotate-12 blur-xl opacity-50"></div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 animate-slide-up">
             <div>
-              <h3 className="text-3xl font-serif font-bold text-gradient-brand mb-2">
+              <h3 className="text-3xl font-serif font-bold text-gradient-peacock mb-2">
                 Dr. Aparnaa Singh
               </h3>
-              <p className="text-lg text-gray-600 font-medium mb-6">
+              <p className="text-lg text-emerald-600 font-medium mb-4">
                 Founder & Chief Executive Officer
               </p>
             </div>
 
-            <p className="text-gray-700 leading-relaxed">
-              Dr. Aparnaa Singh is an Integrative Healing & Consciousness Coach and certified Naturopathy Practitioner with over 9 years of experience in holistic and energy-based healing. Her work seamlessly blends science, spirituality, and natural therapies to help individuals restore harmony across body, mind, and soul.
-            </p>
+            <div className="space-y-4 text-slate-700 leading-relaxed">
+              <p>
+                Dr. Aparnaa Singh is an <span className="font-semibold text-emerald-600">Integrative Healing & Consciousness Coach</span> and certified Naturopathy Practitioner with over <span className="font-bold text-teal-600">9 years of experience</span> in holistic and energy-based healing.
+              </p>
 
-            <p className="text-gray-700 leading-relaxed">
-              With doctorate in Naturopathy & Yoga, qualified practitioner & trainer of Acupressure (Ayurvedic & Chinese), Reiki Grand Master, Fertility Coach & a healer of 15 various healing techniques, having treated & trained many, she is on a mission to reform & revolutionise the costly, non-affordable wellness industry.
-            </p>
+              <p>
+                Her work seamlessly blends science, spirituality, and natural therapies to help individuals restore harmony across body, mind, and soul. With doctorate in Naturopathy & Yoga, she is a qualified practitioner & trainer of Acupressure, Reiki Grand Master, and Fertility Coach.
+              </p>
 
-            <p className="text-gray-700 leading-relaxed">
-              She is deeply committed to self-healing, preventive health, and conscious living, drawing wisdom from the elements of nature to guide transformation. As the founder of Reiki Magic and Pratipal, Dr. Aparnaa creates safe, nurturing spaces where clients can realign their energy, deepen self-awareness, and manifest a more empowered life.
-            </p>
+              <p>
+                As a healer of <span className="font-bold text-blue-600">15 various healing techniques</span>, having treated & trained many, she is on a mission to reform & revolutionise the costly, non-affordable wellness industry.
+              </p>
+            </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-6 space-y-3">
-              <h4 className="font-semibold text-gray-800 mb-3">Key Achievements:</h4>
-              <div className="space-y-2 text-sm text-gray-700">
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-100">
+              <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-emerald-500" />
+                Key Achievements:
+              </h4>
+              <div className="space-y-2 text-sm text-slate-700">
                 <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-2 flex-shrink-0"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0"></div>
                   <span>Successful assistance to women in overcoming health & infertility challenges</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-2 flex-shrink-0"></div>
-                  <span>Empowering 500+ healers in launching spiritual business</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-2 flex-shrink-0"></div>
+                  <span>Empowering <span className="font-semibold">500+ healers</span> in launching spiritual business</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-teal mt-2 flex-shrink-0"></div>
-                  <span>Mentored 1000+ families towards medicine free life</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
+                  <span>Mentored <span className="font-semibold">1000+ families</span> towards medicine free life</span>
                 </div>
               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              <Link
+                href="/about"
+                className="inline-flex items-center gap-2 bg-gradient-brand hover:shadow-lg text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
+              >
+                <Heart className="h-4 w-4" />
+                Learn More
+              </Link>
+              <Link
+                href="/booking"
+                className="inline-flex items-center gap-2 border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-500 hover:text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
+              >
+                <Calendar className="h-4 w-4" />
+                Book Session
+              </Link>
             </div>
           </div>
         </div>
@@ -504,34 +597,38 @@ function FeaturedProducts({ products }: { products: Product[] }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="py-20 md:py-28 bg-white">
-      <div className="container">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
-            <ShoppingBag className="h-4 w-4 text-brand-teal" />
-            <span className="text-sm font-medium text-brand-teal">Handcrafted Collection</span>
+    <section className="py-20 bg-gradient-to-br from-slate-50 to-emerald-50/30 relative overflow-hidden">
+      <div className="container relative z-10">
+        <div className="text-center mb-16 animate-slide-up">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg mb-6">
+            <ShoppingBag className="h-4 w-4 text-emerald-600" />
+            <span className="text-emerald-700 font-medium">Handcrafted Collection</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-peacock mb-4">
             Sacred Rituals
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
             Discover our curated collection of healing products, each crafted with intention and infused with positive energy
           </p>
+          <div className="w-16 h-0.5 bg-gradient-brand mx-auto mt-4"></div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {products.map((product, index) => (
+            <div key={product.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+              <ProductCard product={product} />
+            </div>
           ))}
         </div>
 
-        <div className="text-center mt-12">
+        <div className="text-center animate-slide-up">
           <Link
             href="/shop"
-            className="inline-flex items-center gap-2 bg-gradient-brand text-white px-8 py-4 rounded-full font-medium hover:shadow-xl transition-all duration-300"
+            className="inline-flex items-center gap-2 bg-gradient-brand hover:shadow-lg text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
           >
+            <Sparkles className="h-4 w-4" />
             Explore All Products
-            <ArrowRight className="h-5 w-5" />
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
@@ -543,39 +640,41 @@ function ProductCard({ product }: { product: Product }) {
   const addItem = useCartStore((s) => s.addItem);
 
   return (
-    <div className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100">
-      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="group bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 hover:border-emerald-200">
+      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50">
         <Image
           src={product.image}
           alt={product.name}
           fill
-          className="object-cover transition-transform duration-700 group-hover:scale-110"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 768px) 50vw, 25vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
+        {/* Add button */}
         <button
           onClick={() => addItem(product)}
-          className="absolute bottom-4 right-4 h-12 w-12 rounded-full bg-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-gradient-brand hover:text-white"
+          className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-gradient-brand hover:text-white border border-white/30"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
 
       <div className="p-4">
-        <h3 className="text-sm font-medium text-gradient-brand leading-tight line-clamp-2 min-h-[2.5rem] mb-2">
+        <h3 className="text-sm font-medium text-slate-800 leading-tight line-clamp-2 min-h-[2.5rem] mb-3 group-hover:text-emerald-600 transition-colors duration-300">
           {product.name}
         </h3>
 
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold text-gradient-brand">
+          <span className="text-lg font-bold text-gradient-peacock">
             {formatPrice(product.price)}
           </span>
           <button
             onClick={() => addItem(product)}
-            className="flex items-center gap-1.5 text-xs font-medium text-white bg-gradient-brand hover:shadow-lg px-4 py-2 rounded-full transition-all duration-300"
+            className="flex items-center gap-1.5 text-xs font-medium text-white bg-gradient-brand hover:shadow-md px-3 py-2 rounded-lg transition-all duration-300"
           >
-            <ShoppingBag className="h-3 w-3" /> Add
+            <ShoppingBag className="h-3 w-3" /> 
+            Add
           </button>
         </div>
       </div>
@@ -629,50 +728,86 @@ function TestimonialsSection() {
   const testimonials = [
     {
       name: "Shweta, Jaipur",
-      text: "I approached Dr. Aparnaa Singh feeling emotionally drained and energetically imbalanced, unsure of what was truly affecting my well-being. Through one-to-one, tailored Reiki energy healing sessions, she gently guided me through a process of deep release and realignment. Each session felt thoughtfully customized, and the continuity of care helped me feel supported at every stage. Over time, I noticed deep relaxation, emotional release, improved sleep, and a renewed sense of inner balance. Her intuitive yet grounded approach has made Reiki an essential part of my long-term wellness journey.",
+      text: "I approached Dr. Aparnaa Singh feeling emotionally drained and energetically imbalanced. Through tailored Reiki energy healing sessions, she guided me through deep release and realignment. Over time, I noticed deep relaxation, emotional release, improved sleep, and renewed inner balance.",
       rating: 5,
+      role: "Wellness Seeker",
     },
     {
       name: "Reshma Sharma, Dibrugarh",
-      text: "I underwent one-to-one, tailored healing sessions with daily frequency under the guidance of Dr. Aparnaa Singh. Her consistent support, combined with mental, psychological, and emotional therapy through multiple holistic healing methodologies, helped open my consciousness and restore deep trust in my body. With her guidance, I was able to conceive naturally and later deliver a healthy baby. The transformation has been life-changing, and I will be continuing with her and for life long.",
+      text: "Her consistent support, combined with mental, psychological, and emotional therapy through multiple holistic healing methodologies, helped open my consciousness and restore deep trust in my body. I was able to conceive naturally and deliver a healthy baby.",
       rating: 5,
+      role: "New Mother",
     },
     {
       name: "Mithlesh Mittal, Jamnagar",
-      text: "Joining the Intention & Ritual Salt Course with Dr. Aparnaa Singh gave me clear, step-by-step knowledge on creating intention-based salts and building a salt business with confidence. As I applied the remedies and protocols, I experienced powerful shifts—old blockages cleared, my thinking sharpened, and my business flow and finances improved. This course brought clarity, direction, and real results in both my personal and professional life.",
+      text: "The Intention & Ritual Salt Course gave me clear knowledge on creating intention-based salts and building a salt business. As I applied the remedies, I experienced powerful shifts—old blockages cleared, thinking sharpened, and business flow improved.",
       rating: 5,
+      role: "Spiritual Entrepreneur",
     },
   ];
 
   return (
-    <section className="py-20 md:py-28 bg-white">
-      <div className="container">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
-            What Our Clients Are Saying
+    <section className="py-20 bg-white relative overflow-hidden">
+      <div className="container relative z-10">
+        <div className="text-center mb-16 animate-slide-up">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg mb-6">
+            <Heart className="h-4 w-4 text-emerald-600" />
+            <span className="text-emerald-700 font-medium">Healing Stories</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-peacock mb-4">
+            What Our Clients Say
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Real experiences from our community
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Real experiences from our healing community
           </p>
+          <div className="w-16 h-0.5 bg-gradient-brand mx-auto mt-4"></div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {testimonials.map((testimonial, index) => (
             <div
               key={index}
-              className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-8 shadow-lg border border-gray-100"
+              className="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 animate-fade-in"
+              style={{ animationDelay: `${index * 0.2}s` }}
             >
+              {/* Stars */}
               <div className="flex gap-1 mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                  <Star 
+                    key={i} 
+                    className="h-4 w-4 fill-yellow-400 text-yellow-400" 
+                  />
                 ))}
               </div>
-              <p className="text-gray-700 mb-6 leading-relaxed text-sm italic">
-                &ldquo;{testimonial.text}&rdquo;
-              </p>
-              <div className="font-semibold text-gradient-brand text-sm">{testimonial.name}</div>
+
+              {/* Quote */}
+              <blockquote className="text-slate-700 mb-4 leading-relaxed text-sm italic relative">
+                <span className="text-4xl text-emerald-200 absolute -top-2 -left-1 font-serif">"</span>
+                <span className="relative z-10">{testimonial.text}</span>
+              </blockquote>
+
+              {/* Author */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0">
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-800">{testimonial.name}</div>
+                  <div className="text-sm text-emerald-600">{testimonial.role}</div>
+                </div>
+              </div>
             </div>
           ))}
+        </div>
+
+        <div className="text-center mt-12 animate-slide-up">
+          <Link
+            href="/testimonials"
+            className="inline-flex items-center gap-2 border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-500 hover:text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
+          >
+            <Heart className="h-4 w-4" />
+            Read More Stories
+          </Link>
         </div>
       </div>
     </section>
@@ -681,34 +816,45 @@ function TestimonialsSection() {
 
 function CtaBanner() {
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden bg-gradient-brand">
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-white/20 blur-3xl" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-white/30 blur-3xl" />
+    <section className="relative py-20 overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600">
+      {/* Subtle background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+        <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-white/20 blur-3xl animate-float" />
+        <div className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-white/30 blur-3xl animate-float-delayed" />
       </div>
 
       <div className="relative z-10 container text-center">
-        <h2 className="text-3xl md:text-5xl font-serif font-bold text-white mb-6 leading-tight">
-          Begin Your Healing Journey Today
-        </h2>
-        <p className="text-white/80 text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
-          Join thousands who have transformed their lives through our sacred rituals and healing sessions
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/#booking"
-            className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-brand-teal px-8 py-4 rounded-full text-base font-semibold tracking-wide transition-all duration-300 hover:shadow-xl shadow-lg"
-          >
-            <Calendar className="h-5 w-5" />
-            Book a Session
-          </Link>
-          <Link
-            href="/shop"
-            className="inline-flex items-center gap-2 border-2 border-white text-white hover:bg-white hover:text-brand-teal px-8 py-4 rounded-full text-base font-medium tracking-wide transition-all duration-300"
-          >
-            Shop Products
-            <ArrowRight className="h-5 w-5" />
-          </Link>
+        <div className="animate-slide-up">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg mb-8">
+            <Zap className="h-4 w-4 text-white" />
+            <span className="text-white font-medium">Transform Your Life</span>
+          </div>
+          
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-white mb-6 leading-tight">
+            Begin Your Healing Journey Today
+          </h2>
+          
+          <p className="text-white/90 text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
+            Join thousands who have transformed their lives through our sacred rituals and healing sessions
+          </p>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/#booking"
+              className="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-600 px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:shadow-lg"
+            >
+              <Calendar className="h-4 w-4" />
+              Book a Session
+            </Link>
+            <Link
+              href="/shop"
+              className="inline-flex items-center gap-2 border-2 border-white text-white hover:bg-white hover:text-emerald-600 px-6 py-3 rounded-lg font-medium transition-all duration-300"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Shop Products
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </section>

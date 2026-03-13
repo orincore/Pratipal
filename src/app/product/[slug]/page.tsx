@@ -11,9 +11,19 @@ import { CustomerAuthProvider } from "@/lib/customer-auth-context";
 import { formatPrice } from "@/lib/utils";
 
 function resolveBaseUrl() {
+  // During build time, always use localhost to avoid external authentication issues
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SITE_URL) {
+    return "http://localhost:3000";
+  }
+  
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  
+  // Only use VERCEL_URL in runtime, not during build
+  if (typeof window !== 'undefined' && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
   return "http://localhost:3000";
 }
 

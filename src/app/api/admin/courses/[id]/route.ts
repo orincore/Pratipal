@@ -1,72 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDB from "@/lib/db";
-import { getUserFromRequest } from "@/lib/auth";
+import { connectDB } from "@/lib/mongodb";
+import Course from "@/models/Course";
 
-function slugify(text: string): string {
-  return text
+function generateSlug(title: string): string {
+  return title
     .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
 }
 
-type RouteContext = { params: Promise<{ id: string }> };
-
 export async function GET(
-  req: NextRequest,
-  { params }: RouteContext
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await connectDB();
     const { id } = await params;
-    const authUser = getUserFromRequest(req);
-    if (!authUser || authUser.role !== "admin") {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
 
-    const { Course } = await getDB();
     const course = await Course.findById(id).lean();
-
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    const transformedCourse = {
-      ...course,
-      id: course._id.toString(),
-      _id: undefined,
-    };
-
-    return NextResponse.json({ course: transformedCourse });
+    return NextResponse.json({ course });
   } catch (error: any) {
-    console.error("Fetch course error:", error);
+    console.error("Error fetching course:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch course" },
+      { error: "Failed to fetch course" },
       { status: 500 }
     );
   }
 }
 
 export async function PUT(
-  req: NextRequest,
-  { params }: RouteContext
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await connectDB();
     const { id } = await params;
-    const authUser = getUserFromRequest(req);
-    if (!authUser || authUser.role !== "admin") {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
 
-    const body = await req.json();
-    const { Course } = await getDB();
-
+    const data = await request.json();
+    
     // Generate new slug if title changed
-    const slug = slugify(body.title);
-
-    // Check if slug already exists (excluding current course)
+    const newSlug = generateSlug(data.title);
+    
+    // Check if new slug conflicts with another course
     const existingCourse = await Course.findOne({ 
-      slug, 
+      slug: newSlug, 
       _id: { $ne: id } 
     });
     
@@ -79,7 +62,7 @@ export async function PUT(
 
     const course = await Course.findByIdAndUpdate(
       id,
-      { ...body, slug },
+      { ...data, slug: newSlug },
       { new: true, runValidators: true }
     );
 
@@ -87,39 +70,34 @@ export async function PUT(
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ course: course.toJSON() });
+    return NextResponse.json({ course });
   } catch (error: any) {
-    console.error("Update course error:", error);
+    console.error("Error updating course:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to update course" },
+      { error: "Failed to update course" },
       { status: 500 }
     );
   }
 }
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: RouteContext
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await connectDB();
     const { id } = await params;
-    const authUser = getUserFromRequest(req);
-    if (!authUser || authUser.role !== "admin") {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
 
-    const { Course } = await getDB();
     const course = await Course.findByIdAndDelete(id);
-
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
     return NextResponse.json({ message: "Course deleted successfully" });
   } catch (error: any) {
-    console.error("Delete course error:", error);
+    console.error("Error deleting course:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to delete course" },
+      { error: "Failed to delete course" },
       { status: 500 }
     );
   }

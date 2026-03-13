@@ -17,9 +17,13 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function getApiBaseUrl() {
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SITE_URL;
   if (envUrl) return envUrl.replace(/\/$/, "");
-  if (typeof window !== "undefined") {
-    return "";
+  
+  // During build time or server-side, always use localhost to avoid external authentication
+  if (typeof window === "undefined") {
+    return "http://localhost:3000";
   }
+  
+  // Only use VERCEL_URL in client-side runtime
   const vercelUrl = process.env.VERCEL_URL?.startsWith("http")
     ? process.env.VERCEL_URL
     : process.env.VERCEL_URL
@@ -67,6 +71,8 @@ export async function getProducts(): Promise<Product[]> {
     
     const res = await fetch(url, {
       next: { revalidate: 300 },
+      // Add timeout to prevent hanging during build
+      signal: AbortSignal.timeout(10000), // 10 second timeout
     });
     
     console.log("Products API response status:", res.status);
@@ -83,6 +89,7 @@ export async function getProducts(): Promise<Product[]> {
     return data.products.map(mapEcomProductToProduct);
   } catch (err) {
     console.error("Error fetching products:", err);
+    // Return empty array instead of throwing to prevent build failures
     return [];
   }
 }

@@ -83,8 +83,11 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-secondary" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+          <p className="text-sm text-slate-600">Loading course...</p>
+        </div>
       </div>
     );
   }
@@ -94,13 +97,20 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <section className="bg-gradient-to-br from-brand-dark via-brand-secondary to-brand-accent text-white py-12">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
+      <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600 text-white py-12 relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
+          <div className="absolute top-40 right-20 w-48 h-48 bg-emerald-400/20 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-teal-400/15 rounded-full blur-xl"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <Button
             variant="ghost"
             onClick={() => router.push("/courses")}
-            className="text-white hover:text-brand-support mb-6"
+            className="text-white hover:text-emerald-100 mb-6"
           >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Courses
           </Button>
@@ -114,7 +124,7 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
                 {course.title}
               </h1>
-              <p className="text-xl text-brand-support/90 mb-6">
+              <p className="text-xl text-emerald-100 mb-6">
                 {course.subtitle}
               </p>
               <div className="flex flex-wrap gap-4 text-sm">
@@ -150,24 +160,24 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            <Card>
+            <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
               <CardContent className="p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">About This Course</h2>
-                <p className="text-gray-700 whitespace-pre-line leading-relaxed">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">About This Course</h2>
+                <p className="text-slate-700 whitespace-pre-line leading-relaxed">
                   {course.description}
                 </p>
               </CardContent>
             </Card>
 
-            {course.highlights.length > 0 && (
-              <Card>
+            {course.highlights && course.highlights.length > 0 && (
+              <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
                 <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">What You'll Learn</h2>
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-6">What You'll Learn</h2>
                   <div className="grid md:grid-cols-2 gap-4">
                     {course.highlights.map((highlight, idx) => (
-                      <div key={idx} className="flex items-start gap-3">
-                        <CheckCircle className="h-5 w-5 text-brand-secondary flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-700">{highlight}</span>
+                      <div key={`highlight-${idx}`} className="flex items-start gap-3">
+                        <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">{highlight}</span>
                       </div>
                     ))}
                   </div>
@@ -175,22 +185,22 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
               </Card>
             )}
 
-            {course.curriculum.length > 0 && (
-              <Card>
+            {course.curriculum && course.curriculum.length > 0 && (
+              <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
                 <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Course Curriculum</h2>
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-6">Course Curriculum</h2>
                   <div className="space-y-6">
                     {course.curriculum.map((section, idx) => (
-                      <div key={idx} className="border-l-4 border-brand-secondary pl-6 py-2">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <div key={`curriculum-${idx}`} className="border-l-4 border-teal-400 pl-6 py-2 bg-gradient-to-r from-teal-50/50 to-transparent rounded-r-lg">
+                        <h3 className="text-lg font-semibold text-slate-800 mb-2">
                           {section.title}
                         </h3>
-                        <p className="text-gray-600 mb-3">{section.description}</p>
+                        <p className="text-slate-600 mb-3">{section.description}</p>
                         {section.topics && section.topics.length > 0 && (
                           <ul className="space-y-1">
                             {section.topics.map((topic, topicIdx) => (
-                              <li key={topicIdx} className="text-sm text-gray-600 flex items-start gap-2">
-                                <span className="text-brand-secondary">•</span>
+                              <li key={`topic-${idx}-${topicIdx}`} className="text-sm text-slate-600 flex items-start gap-2">
+                                <span className="text-teal-500">•</span>
                                 <span>{topic}</span>
                               </li>
                             ))}
@@ -203,15 +213,15 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
               </Card>
             )}
 
-            {course.what_you_receive.length > 0 && (
-              <Card>
+            {course.what_you_receive && course.what_you_receive.length > 0 && (
+              <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
                 <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">What You Will Receive</h2>
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-6">What You Will Receive</h2>
                   <div className="space-y-3">
                     {course.what_you_receive.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-3">
-                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-700">{item}</span>
+                      <div key={`receive-${idx}`} className="flex items-start gap-3">
+                        <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">{item}</span>
                       </div>
                     ))}
                   </div>
@@ -220,17 +230,17 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
             )}
 
             {course.bonuses && course.bonuses.length > 0 && (
-              <Card className="border-2 border-brand-cta/20 bg-gradient-to-br from-brand-cta/5 to-transparent">
+              <Card className="border-2 border-teal-200 bg-gradient-to-br from-teal-50 to-emerald-50 shadow-lg">
                 <CardContent className="p-8">
                   <div className="flex items-center gap-2 mb-6">
-                    <Gift className="h-6 w-6 text-brand-cta" />
-                    <h2 className="text-2xl font-bold text-gray-900">Special Bonuses</h2>
+                    <Gift className="h-6 w-6 text-teal-600" />
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Special Bonuses</h2>
                   </div>
                   <div className="space-y-3">
                     {course.bonuses.map((bonus, idx) => (
-                      <div key={idx} className="flex items-start gap-3">
-                        <Gift className="h-5 w-5 text-brand-cta flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-700">{bonus}</span>
+                      <div key={`bonus-${idx}`} className="flex items-start gap-3">
+                        <Gift className="h-5 w-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">{bonus}</span>
                       </div>
                     ))}
                   </div>
@@ -238,15 +248,15 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
               </Card>
             )}
 
-            {course.who_is_this_for.length > 0 && (
-              <Card>
+            {course.who_is_this_for && course.who_is_this_for.length > 0 && (
+              <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
                 <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Who Is This Course For</h2>
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-6">Who Is This Course For</h2>
                   <div className="space-y-3">
                     {course.who_is_this_for.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-3">
-                        <User className="h-5 w-5 text-brand-secondary flex-shrink-0 mt-0.5" />
-                        <span className="text-gray-700">{item}</span>
+                      <div key={`who-${idx}`} className="flex items-start gap-3">
+                        <User className="h-5 w-5 text-teal-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">{item}</span>
                       </div>
                     ))}
                   </div>
@@ -254,14 +264,14 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
               </Card>
             )}
 
-            <Card>
+            <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
               <CardContent className="p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">About the Instructor</h2>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-6">About the Instructor</h2>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-semibold text-gray-900">{course.instructor.name}</h3>
-                  <p className="text-brand-secondary font-medium">{course.instructor.title}</p>
+                  <h3 className="text-xl font-semibold text-slate-800">{course.instructor.name}</h3>
+                  <p className="text-teal-600 font-medium">{course.instructor.title}</p>
                   <Separator className="my-4" />
-                  <p className="text-gray-700 whitespace-pre-line">{course.instructor.bio}</p>
+                  <p className="text-slate-700 whitespace-pre-line">{course.instructor.bio}</p>
                 </div>
               </CardContent>
             </Card>
@@ -269,38 +279,38 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
 
           <div className="lg:col-span-1">
             <div className="sticky top-24">
-              <Card className="shadow-xl">
+              <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="text-center mb-6">
-                    <p className="text-sm text-muted-foreground mb-2">Course Investment</p>
-                    <p className="text-4xl font-bold text-gray-900 mb-4">
+                    <p className="text-sm text-slate-500 mb-2">Course Investment</p>
+                    <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">
                       {formatPrice(course.price)}
                     </p>
                   </div>
 
                   <Button
                     onClick={handleEnroll}
-                    className="w-full bg-brand-secondary hover:bg-brand-accent text-white py-6 text-lg font-semibold mb-4"
+                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white py-6 text-lg font-semibold mb-4 shadow-lg"
                   >
                     Enroll Now
                   </Button>
 
-                  <div className="space-y-3 text-sm text-gray-600">
+                  <div className="space-y-3 text-sm text-slate-600">
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
                       <span>Lifetime access to course materials</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
                       <span>Expert guidance and support</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
                       <span>Certificate of completion</span>
                     </div>
                     {course.bonuses && course.bonuses.length > 0 && (
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-emerald-500" />
                         <span>Exclusive bonus materials</span>
                       </div>
                     )}
@@ -311,34 +321,38 @@ export default function CourseDetailClient({ slug }: CourseDetailClientProps) {
                   <div className="space-y-2 text-sm">
                     {course.duration && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Duration:</span>
-                        <span className="font-medium">{course.duration}</span>
+                        <span className="text-slate-500">Duration:</span>
+                        <span className="font-medium text-slate-700">{course.duration}</span>
                       </div>
                     )}
                     {course.level && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Level:</span>
-                        <span className="font-medium capitalize">{course.level}</span>
+                        <span className="text-slate-500">Level:</span>
+                        <span className="font-medium text-slate-700 capitalize">{course.level}</span>
                       </div>
                     )}
                     {course.category && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Category:</span>
-                        <span className="font-medium">{course.category}</span>
+                        <span className="text-slate-500">Category:</span>
+                        <span className="font-medium text-slate-700">{course.category}</span>
                       </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="mt-6 bg-gradient-to-br from-brand-secondary/10 to-brand-accent/10 border-brand-secondary/20">
+              <Card className="mt-6 bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-200 shadow-lg">
                 <CardContent className="p-6 text-center">
-                  <BookOpen className="h-12 w-12 mx-auto mb-3 text-brand-secondary" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Have Questions?</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <BookOpen className="h-12 w-12 mx-auto mb-3 text-teal-600" />
+                  <h3 className="font-semibold text-slate-800 mb-2">Have Questions?</h3>
+                  <p className="text-sm text-slate-600 mb-4">
                     Contact us for more information about this course
                   </p>
-                  <Button variant="outline" className="w-full" onClick={() => router.push("/contact")}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-teal-300 text-teal-700 hover:bg-teal-50" 
+                    onClick={() => router.push("/contact")}
+                  >
                     Contact Us
                   </Button>
                 </CardContent>

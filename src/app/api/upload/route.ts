@@ -1,52 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { nanoid } from "nanoid";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { v4 as uuidv4 } from "uuid";
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
-
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "File size must be less than 10MB" }, { status: 400 });
+    }
+
+    // Generate unique filename
+    const fileExtension = file.name.split(".").pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = join(process.cwd(), "public", "uploads");
+    try {
+      await mkdir(uploadsDir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist, ignore error
+    }
+
+    // Save file
+    const filePath = join(uploadsDir, fileName);
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    
+    await writeFile(filePath, buffer);
 
-    const ext = file.name.split(".").pop() || "bin";
-    const key = `uploads/${nanoid()}.${ext}`;
+    // Return the public URL
+    const url = `/uploads/${fileName}`;
 
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: key,
-        Body: buffer,
-        ContentType: file.type,
-      })
-    );
-
-    const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
-
-    return NextResponse.json({
-      url: publicUrl,
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    });
+    return NextResponse.json({ url, fileName });
   } catch (error: any) {
     console.error("Upload error:", error);
     return NextResponse.json(
-      { error: error.message || "Upload failed" },
+      { error: "Failed to upload file" },
       { status: 500 }
     );
   }

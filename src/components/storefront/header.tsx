@@ -93,6 +93,7 @@ export function Header() {
 
   const navLinks = [
     { href: "/", label: "Home" },
+    { href: "/courses", label: "Courses" },
     { href: "/shop", label: "Products" },
     { href: "/about", label: "About Us" },
     { href: "/contact", label: "Contact Us" },
@@ -104,8 +105,8 @@ export function Header() {
       <header
         className={`sticky top-0 z-40 w-full transition-all duration-300 ${
           scrolled
-            ? "bg-white/95 backdrop-blur-md shadow-lg"
-            : "bg-white"
+            ? "bg-white/95 backdrop-blur-md shadow-xl border-b border-emerald-100/50"
+            : "bg-white/90 backdrop-blur-sm"
         }`}
       >
         <div className="container flex h-16 items-center justify-between">
@@ -134,21 +135,22 @@ export function Header() {
             </Link>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-8 text-[13px] font-sans tracking-wide">
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-sans tracking-wide">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-gray-700 hover:text-brand-secondary transition-colors duration-200 uppercase"
+                className="relative text-slate-700 hover:text-emerald-600 transition-all duration-300 uppercase font-semibold group"
               >
                 {link.label}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-peacock group-hover:w-full transition-all duration-300"></span>
               </Link>
             ))}
           </nav>
 
           <div className="flex items-center gap-1">
             <button
-              className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-50 transition-all"
+              className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300"
               onClick={() => setSearchVisible((prev) => !prev)}
             >
               <Search className="h-4 w-4" />
@@ -156,21 +158,21 @@ export function Header() {
             {mounted && !loading && customer ? (
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-100 transition"
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300"
                   onClick={() => router.push("/order-history")}
                   title="Order History"
                 >
                   <Package className="h-4 w-4" />
                 </button>
                 <button
-                  className="h-9 px-3 rounded-full bg-gray-100 text-gray-800 text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:bg-gray-200 transition"
+                  className="h-9 px-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:from-emerald-600 hover:to-teal-600 transition-all duration-300 shadow-sm"
                   onClick={() => router.push("/account")}
                 >
                   <User className="h-3.5 w-3.5" />
                   {customer.first_name ? `Hi, ${customer.first_name}` : "My Account"}
                 </button>
                 <button
-                  className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:text-red-500 hover:bg-gray-100 transition"
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all duration-300"
                   onClick={async () => {
                     if (loggingOut) return;
                     setLoggingOut(true);
@@ -184,13 +186,13 @@ export function Header() {
             ) : (
               <div className="hidden sm:flex items-center gap-2">
                 <button
-                  className="h-9 px-3 rounded-full bg-brand-secondary text-white text-xs font-semibold uppercase tracking-wide hover:bg-brand-accent transition"
+                  className="h-9 px-3 rounded-lg bg-gradient-brand hover:shadow-md text-white text-xs font-semibold uppercase tracking-wide transition-all duration-300"
                   onClick={() => router.push("/login")}
                 >
                   Sign In
                 </button>
                 <button
-                  className="h-9 px-3 rounded-full border border-gray-300 text-gray-700 text-xs font-semibold uppercase tracking-wide hover:bg-gray-100 transition"
+                  className="h-9 px-3 rounded-lg border-2 border-emerald-500 text-emerald-600 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-500 hover:text-white transition-all duration-300"
                   onClick={() => router.push("/register")}
                 >
                   Join Now
@@ -198,12 +200,12 @@ export function Header() {
               </div>
             )}
             <button
-              className="relative h-9 w-9 flex items-center justify-center rounded-full text-gray-600 hover:text-brand-secondary hover:bg-gray-50 transition-all"
+              className="relative h-9 w-9 flex items-center justify-center rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300"
               onClick={() => setCartOpen(true)}
             >
               <ShoppingCart className="h-4 w-4" />
               {mounted && itemCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-brand-cta text-[9px] font-bold text-white flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-xs font-bold text-white flex items-center justify-center shadow-sm">
                   {itemCount}
                 </span>
               )}

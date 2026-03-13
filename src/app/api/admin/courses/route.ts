@@ -1,58 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDB from "@/lib/db";
-import { getUserFromRequest } from "@/lib/auth";
+import { connectDB } from "@/lib/mongodb";
+import Course from "@/models/Course";
 
-function slugify(text: string): string {
-  return text
+function generateSlug(title: string): string {
+  return title
     .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const authUser = getUserFromRequest(req);
-    if (!authUser || authUser.role !== "admin") {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
+    await connectDB();
 
-    const { Course } = await getDB();
-    
     const courses = await Course.find({})
       .sort({ display_order: 1, created_at: -1 })
       .lean();
 
-    const transformedCourses = courses.map((course: any) => ({
-      ...course,
-      id: course._id.toString(),
-      _id: undefined,
-    }));
-
-    return NextResponse.json({ courses: transformedCourses });
+    return NextResponse.json({ courses });
   } catch (error: any) {
-    console.error("Fetch courses error:", error);
+    console.error("Error fetching courses:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch courses" },
+      { error: "Failed to fetch courses" },
       { status: 500 }
     );
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const authUser = getUserFromRequest(req);
-    if (!authUser || authUser.role !== "admin") {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
+    await connectDB();
 
-    const body = await req.json();
-    const { Course } = await getDB();
-
+    const data = await request.json();
+    
     // Generate slug from title
-    const slug = slugify(body.title);
-
+    const slug = generateSlug(data.title);
+    
     // Check if slug already exists
     const existingCourse = await Course.findOne({ slug });
     if (existingCourse) {
@@ -62,16 +47,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const course = await Course.create({
-      ...body,
+    const course = new Course({
+      ...data,
       slug,
     });
 
-    return NextResponse.json({ course: course.toJSON() }, { status: 201 });
+    await course.save();
+
+    return NextResponse.json({ course }, { status: 201 });
   } catch (error: any) {
-    console.error("Create course error:", error);
+    console.error("Error creating course:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to create course" },
+      { error: "Failed to create course" },
       { status: 500 }
     );
   }

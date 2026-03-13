@@ -52,6 +52,7 @@ export default function AdminCoursesPage() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -159,6 +160,60 @@ export default function AdminCoursesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image size must be less than 10MB");
+      return;
+    }
+
+    await uploadFile(file);
+    
+    // Clear the input value to allow re-uploading the same file
+    e.target.value = '';
+  }
+
+  function handleDrag(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error("Please select a valid image file");
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Image size must be less than 10MB");
+        return;
+      }
+
+      // Upload the dropped file
+      uploadFile(file);
+    }
+  }
+
+  async function uploadFile(file: File) {
     setUploading(true);
     try {
       const formData = new FormData();
@@ -169,12 +224,16 @@ export default function AdminCoursesPage() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Upload failed");
+      }
 
       const data = await res.json();
       setFormData((prev) => ({ ...prev, featured_image: data.url }));
       toast.success("Image uploaded successfully");
     } catch (error: any) {
+      console.error("Upload error:", error);
       toast.error(error.message || "Failed to upload image");
     } finally {
       setUploading(false);
@@ -308,14 +367,14 @@ export default function AdminCoursesPage() {
             <Button variant="outline" onClick={() => { setFormOpen(false); setEditingCourse(null); }}>
               Cancel
             </Button>
-            <Button form="course-form" type="submit" disabled={saving}>
+            <Button form="course-form" type="submit" disabled={saving} className="bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white shadow-lg">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {editingCourse ? "Update" : "Create"} Course
             </Button>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-lg border p-6">
+        <div className="bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/30 rounded-3xl shadow-lg border border-emerald-100/50 p-6">
           <form id="course-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid gap-4">
               <div>
@@ -392,23 +451,90 @@ export default function AdminCoursesPage() {
               </div>
 
               <div>
-                <Label>Featured Image</Label>
-                <div className="space-y-2">
-                  {formData.featured_image && (
-                    <div className="relative w-full h-48 rounded-lg overflow-hidden border">
-                      <img src={formData.featured_image} alt="Preview" className="w-full h-full object-cover" />
+                <Label className="text-sm font-medium text-slate-700">Featured Image</Label>
+                <div className="space-y-4">
+                  {formData.featured_image ? (
+                    <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-slate-200 shadow-lg">
+                      <img 
+                        src={formData.featured_image} 
+                        alt="Course preview" 
+                        className="w-full h-full object-cover" 
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setFormData(prev => ({ ...prev, featured_image: "" }))}
+                          className="bg-red-500 hover:bg-red-600"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Remove Image
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                        dragActive 
+                          ? 'border-teal-500 bg-teal-50 scale-105' 
+                          : 'border-slate-300 bg-slate-50 hover:border-teal-400 hover:bg-teal-50'
+                      }`}
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                    >
+                      <Upload className={`h-12 w-12 mx-auto mb-4 transition-colors ${
+                        dragActive ? 'text-teal-500' : 'text-slate-400'
+                      }`} />
+                      <p className="text-sm text-slate-600 mb-2">
+                        <span className="font-medium">
+                          {dragActive ? 'Drop image here' : 'Click to upload'}
+                        </span>
+                        {!dragActive && ' or drag and drop'}
+                      </p>
+                      <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
                     </div>
                   )}
-                  <div className="flex gap-2">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={uploading}
-                      className="flex-1"
-                    />
-                    {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  </div>
+                  
+                  {uploading && (
+                    <div className="flex items-center justify-center gap-2 p-4 bg-teal-50 rounded-lg border border-teal-200">
+                      <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+                      <span className="text-sm text-teal-700">Uploading image...</span>
+                    </div>
+                  )}
+                  
+                  {!formData.featured_image && !uploading && (
+                    <div className="flex gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                          fileInput?.click();
+                        }}
+                        disabled={uploading}
+                        className="px-4"
+                      >
+                        <Upload className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -431,7 +557,7 @@ export default function AdminCoursesPage() {
                     </Button>
                   </div>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("highlights")}>
+                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("highlights")} className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                   <Plus className="h-4 w-4 mr-2" /> Add Highlight
                 </Button>
               </div>
@@ -439,7 +565,7 @@ export default function AdminCoursesPage() {
               <div>
                 <Label>Curriculum</Label>
                 {formData.curriculum.map((item, index) => (
-                  <Card key={index} className="p-4 mb-3">
+                  <Card key={index} className="p-4 mb-3 border-l-4 border-l-teal-300 bg-gradient-to-r from-white to-teal-50/30">
                     <div className="space-y-3">
                       <Input
                         value={item.title}
@@ -502,7 +628,7 @@ export default function AdminCoursesPage() {
                     </div>
                   </Card>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={addCurriculumItem}>
+                <Button type="button" variant="outline" size="sm" onClick={addCurriculumItem} className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                   <Plus className="h-4 w-4 mr-2" /> Add Curriculum Section
                 </Button>
               </div>
@@ -526,7 +652,7 @@ export default function AdminCoursesPage() {
                     </Button>
                   </div>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("what_you_receive")}>
+                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("what_you_receive")} className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                   <Plus className="h-4 w-4 mr-2" /> Add Item
                 </Button>
               </div>
@@ -550,7 +676,7 @@ export default function AdminCoursesPage() {
                     </Button>
                   </div>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("who_is_this_for")}>
+                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("who_is_this_for")} className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                   <Plus className="h-4 w-4 mr-2" /> Add Item
                 </Button>
               </div>
@@ -574,7 +700,7 @@ export default function AdminCoursesPage() {
                     </Button>
                   </div>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("bonuses")}>
+                <Button type="button" variant="outline" size="sm" onClick={() => addArrayItem("bonuses")} className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                   <Plus className="h-4 w-4 mr-2" /> Add Bonus
                 </Button>
               </div>
@@ -628,39 +754,88 @@ export default function AdminCoursesPage() {
           <h1 className="text-3xl font-bold">Courses</h1>
           <p className="text-muted-foreground">Manage your course offerings</p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button onClick={openCreateDialog} className="bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white shadow-lg">
           <Plus className="mr-2 h-4 w-4" /> Add Course
         </Button>
       </div>
 
       <div className="grid gap-4">
-        {courses.map((course) => (
-          <Card key={course.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CardTitle>{course.title}</CardTitle>
-                    <Badge variant={course.status === "published" ? "default" : "secondary"}>
-                      {course.status}
-                    </Badge>
-                    {course.featured && <Badge variant="outline">Featured</Badge>}
-                  </div>
-                  <CardDescription>{course.subtitle}</CardDescription>
-                  <p className="text-sm text-muted-foreground mt-2">₹{course.price}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(course)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(course.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+        {courses.length === 0 ? (
+          <Card className="border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-emerald-50/30">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mb-4">
+                <Plus className="h-8 w-8 text-teal-600" />
               </div>
-            </CardHeader>
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">No courses yet</h3>
+              <p className="text-sm text-slate-500 text-center mb-4">
+                Create your first course to get started with your online learning platform
+              </p>
+              <Button 
+                onClick={openCreateDialog}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Create First Course
+              </Button>
+            </CardContent>
           </Card>
-        ))}
+        ) : (
+          courses.map((course) => (
+            <Card key={course.id} className="hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-teal-400">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CardTitle className="text-slate-800">{course.title}</CardTitle>
+                      <Badge 
+                        variant={course.status === "published" ? "default" : "secondary"}
+                        className={course.status === "published" ? "bg-emerald-500 hover:bg-emerald-600" : ""}
+                      >
+                        {course.status}
+                      </Badge>
+                      {course.featured && (
+                        <Badge variant="outline" className="border-teal-300 text-teal-700 bg-teal-50">
+                          Featured
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="text-slate-600">{course.subtitle}</CardDescription>
+                    <div className="flex items-center gap-4 mt-3">
+                      <p className="text-lg font-semibold text-emerald-600">₹{course.price.toLocaleString()}</p>
+                      {course.duration && (
+                        <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                          {course.duration}
+                        </span>
+                      )}
+                      {course.level && (
+                        <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded-full capitalize">
+                          {course.level}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => openEditDialog(course)}
+                      className="hover:bg-emerald-50 hover:text-emerald-600"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleDelete(course.id)}
+                      className="hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

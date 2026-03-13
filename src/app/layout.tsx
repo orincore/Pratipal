@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import LogoMark from "@/app/assets/logo.png";
+import { FloatingActionButton } from "@/components/ui/floating-action-button";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'),
@@ -28,8 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans">
+      <body className={`${inter.className} bg-stone-50 text-stone-800`}>
         {children}
+        <FloatingActionButton />
         <Toaster position="bottom-right" richColors />
       </body>
     </html>

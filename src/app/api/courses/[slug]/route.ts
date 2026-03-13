@@ -1,40 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDB from "@/lib/db";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import { connectDB } from "@/lib/mongodb";
+import Course from "@/models/Course";
 
 export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ slug: string }> }
+  _request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { Course } = await getDB();
-    const { slug } = await context.params;
-    
+    await connectDB();
+    const { slug } = await params;
+
     const course = await Course.findOne({ 
-      slug,
-      status: "published"
+      slug: slug, 
+      status: "published" 
     }).lean();
 
     if (!course) {
-      return NextResponse.json(
-        { error: "Course not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    const transformedCourse = {
-      ...course,
-      id: course._id.toString(),
-      _id: undefined,
-    };
-
-    return NextResponse.json({ course: transformedCourse });
+    return NextResponse.json({ course });
   } catch (error: any) {
-    console.error("Fetch course error:", error);
+    console.error("Error fetching course:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch course" },
+      { error: "Failed to fetch course" },
       { status: 500 }
     );
   }

@@ -1,28 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import getDB from "@/lib/db";
+import { connectDB } from "@/lib/mongodb";
+import Course from "@/models/Course";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const { Course } = await getDB();
-    
-    const courses = await Course.find({ status: "published" })
+    await connectDB();
+
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status") || "published";
+    const featured = searchParams.get("featured");
+    const limit = parseInt(searchParams.get("limit") || "50");
+
+    const query: any = { status };
+    if (featured !== null) {
+      query.featured = featured === "true";
+    }
+
+    const courses = await Course.find(query)
       .sort({ display_order: 1, created_at: -1 })
+      .limit(limit)
       .lean();
 
-    const transformedCourses = courses.map((course: any) => ({
-      ...course,
-      id: course._id.toString(),
-      _id: undefined,
-    }));
-
-    return NextResponse.json({ courses: transformedCourses });
+    return NextResponse.json({ courses });
   } catch (error: any) {
-    console.error("Fetch courses error:", error);
+    console.error("Error fetching courses:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch courses" },
+      { error: "Failed to fetch courses" },
       { status: 500 }
     );
   }
