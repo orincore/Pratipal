@@ -66,7 +66,7 @@ export async function getProducts(): Promise<Product[]> {
     console.log("Fetching products from:", url);
     
     const res = await fetch(url, {
-      cache: "no-store",
+      next: { revalidate: 300 },
     });
     
     console.log("Products API response status:", res.status);

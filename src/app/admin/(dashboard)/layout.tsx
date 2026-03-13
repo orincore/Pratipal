@@ -21,6 +21,7 @@ import {
   Truck,
   Presentation,
   BookOpen,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ const sidebarItems = [
   { label: "Media Library", href: "/admin/media", icon: ImageIcon },
   { label: "Services", href: "/admin/services", icon: Presentation },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
+  { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },
 ];
 
 export default function DashboardLayout({

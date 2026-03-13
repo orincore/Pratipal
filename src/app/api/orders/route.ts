@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import getDB from "@/lib/db";
+import { IWeightTier } from "@/models/ShippingSettings";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { id: customerIdFromSession } = await getCustomerContextFromCookie();
-    const { Customer, Product, Order, OrderItem, CartItem } = await getDB();
+    const { Customer, Product, Order, OrderItem, CartItem, ShippingSettings } = await getDB();
     let resolvedCustomerId = customerIdFromSession;
 
     if (!resolvedCustomerId && customer_email) {
@@ -112,11 +113,13 @@ export async function POST(req: NextRequest) {
     }
 
     let subtotal = 0;
+    let totalWeight = 0;
     const orderItems = [];
 
+    // Calculate subtotal and total weight
     for (const item of items) {
       const product = await Product.findById(item.product_id)
-        .select('name sku price sale_price stock_quantity')
+        .select('name sku price sale_price stock_quantity weight')
         .lean();
 
       if (!product) {
@@ -134,8 +137,12 @@ export async function POST(req: NextRequest) {
       }
 
       const price = product.sale_price || product.price;
+      const weight = product.weight || 0;
       const itemSubtotal = price * item.quantity;
+      const itemWeight = weight * item.quantity;
+      
       subtotal += itemSubtotal;
+      totalWeight += itemWeight;
 
       orderItems.push({
         product_id: product._id,
@@ -149,8 +156,43 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Calculate shipping cost using the same logic as the shipping API
+    const settings = await ShippingSettings.findOne()
+      .sort({ updated_at: -1 })
+      .lean();
+
+    const flatRate = settings?.flat_rate || 50;
+    const freeShippingThreshold = settings?.free_shipping_threshold || 500;
+    const weightBasedEnabled = settings?.weight_based_enabled || false;
+    const weightTiers: IWeightTier[] = settings?.weight_tiers || [];
+
+    let shipping_cost = 0;
+    let shippingMethod = "flat_rate";
+
+    // Check if free shipping applies
+    if (subtotal >= freeShippingThreshold) {
+      shipping_cost = 0;
+      shippingMethod = "free_shipping";
+    } else if (weightBasedEnabled && weightTiers.length > 0 && totalWeight > 0) {
+      // Use weight-based shipping
+      const applicableTier = weightTiers.find((tier: IWeightTier) => 
+        totalWeight >= tier.min_weight && totalWeight <= tier.max_weight
+      );
+      
+      if (applicableTier) {
+        shipping_cost = applicableTier.rate;
+        shippingMethod = "weight_based";
+      } else {
+        // If no tier matches, use flat rate as fallback
+        shipping_cost = flatRate;
+        shippingMethod = "flat_rate_fallback";
+      }
+    } else {
+      // Use flat rate
+      shipping_cost = flatRate;
+    }
+
     const tax = subtotal * 0.18;
-    const shipping_cost = subtotal > 500 ? 0 : 50;
     const total = subtotal + tax + shipping_cost;
 
     const orderNumber = generateOrderNumber();
@@ -185,12 +227,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
+    // Update product stock
     for (const item of items) {
       await Product.findByIdAndUpdate(item.product_id, {
         $inc: { stock_quantity: -item.quantity }
       });
     }
 
+    // Clear customer cart
     if (resolvedCustomerId) {
       await CartItem.deleteMany({ customer_id: resolvedCustomerId });
     }
@@ -199,6 +243,8 @@ export async function POST(req: NextRequest) {
       order: {
         ...order.toJSON(),
         items: orderItemsWithOrderId,
+        shipping_method: shippingMethod,
+        total_weight: totalWeight,
       },
     });
   } catch (err: any) {

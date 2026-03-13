@@ -5,18 +5,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Package, Truck, IndianRupee } from "lucide-react";
+import { Package, Truck, IndianRupee, Plus, Trash2 } from "lucide-react";
+
+interface WeightTier {
+  min_weight: number;
+  max_weight: number;
+  rate: number;
+}
 
 interface ShippingSettings {
-  cost_per_kg: number;
   free_shipping_threshold: number;
+  flat_rate: number;
+  weight_based_enabled: boolean;
+  weight_tiers: WeightTier[];
+  enabled: boolean;
 }
 
 export default function ShippingSettingsPage() {
   const [settings, setSettings] = useState<ShippingSettings>({
-    cost_per_kg: 50,
     free_shipping_threshold: 500,
+    flat_rate: 50,
+    weight_based_enabled: false,
+    weight_tiers: [
+      { min_weight: 0, max_weight: 1, rate: 50 },
+      { min_weight: 1, max_weight: 5, rate: 100 },
+      { min_weight: 5, max_weight: 10, rate: 150 },
+    ],
+    enabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,7 +47,17 @@ export default function ShippingSettingsPage() {
       const res = await fetch("/api/admin/shipping-settings");
       if (res.ok) {
         const data = await res.json();
-        setSettings(data);
+        setSettings({
+          free_shipping_threshold: data.free_shipping_threshold || 500,
+          flat_rate: data.flat_rate || 50,
+          weight_based_enabled: data.weight_based_enabled || false,
+          weight_tiers: data.weight_tiers || [
+            { min_weight: 0, max_weight: 1, rate: 50 },
+            { min_weight: 1, max_weight: 5, rate: 100 },
+            { min_weight: 5, max_weight: 10, rate: 150 },
+          ],
+          enabled: data.enabled !== false,
+        });
       }
     } catch (error) {
       toast.error("Failed to load shipping settings");
@@ -38,6 +65,36 @@ export default function ShippingSettingsPage() {
       setLoading(false);
     }
   }
+
+  const addWeightTier = () => {
+    const lastTier = settings.weight_tiers[settings.weight_tiers.length - 1];
+    const newTier = {
+      min_weight: lastTier ? lastTier.max_weight : 0,
+      max_weight: lastTier ? lastTier.max_weight + 5 : 5,
+      rate: 50,
+    };
+    setSettings({
+      ...settings,
+      weight_tiers: [...settings.weight_tiers, newTier],
+    });
+  };
+
+  const removeWeightTier = (index: number) => {
+    const newTiers = settings.weight_tiers.filter((_, i) => i !== index);
+    setSettings({
+      ...settings,
+      weight_tiers: newTiers,
+    });
+  };
+
+  const updateWeightTier = (index: number, field: keyof WeightTier, value: number) => {
+    const newTiers = [...settings.weight_tiers];
+    newTiers[index] = { ...newTiers[index], [field]: value };
+    setSettings({
+      ...settings,
+      weight_tiers: newTiers,
+    });
+  };
 
   async function handleSave() {
     setSaving(true);
@@ -71,11 +128,78 @@ export default function ShippingSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold">Shipping Settings</h1>
         <p className="text-muted-foreground mt-2">
-          Configure shipping costs based on product weight
+          Configure shipping costs and weight-based pricing
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6">
+        {/* Basic Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Basic Shipping Settings
+            </CardTitle>
+            <CardDescription>
+              Configure flat rate and free shipping threshold
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="flat_rate">Flat Rate (₹)</Label>
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="flat_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={settings.flat_rate}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        flat_rate: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="pl-9"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Used when weight-based shipping is disabled
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="free_shipping_threshold">
+                  Free Shipping Threshold (₹)
+                </Label>
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="free_shipping_threshold"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={settings.free_shipping_threshold}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        free_shipping_threshold: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="pl-9"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Orders above this amount get free shipping
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Weight-Based Shipping */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -83,130 +207,131 @@ export default function ShippingSettingsPage() {
               Weight-Based Shipping
             </CardTitle>
             <CardDescription>
-              Set the cost per kilogram for shipping calculation
+              Configure shipping rates based on total order weight
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cost_per_kg">Cost per Kilogram (₹)</Label>
-              <div className="relative">
-                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="cost_per_kg"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={settings.cost_per_kg}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      cost_per_kg: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  className="pl-9"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Shipping cost will be calculated as: Total Weight × Cost per KG
-              </p>
-            </div>
-
-            <div className="bg-muted p-4 rounded-lg space-y-2">
-              <h4 className="font-medium text-sm">Example Calculation</h4>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>Product A: 0.5 kg × 2 qty = 1 kg</p>
-                <p>Product B: 0.3 kg × 1 qty = 0.3 kg</p>
-                <p className="font-medium text-foreground pt-2 border-t">
-                  Total: 1.3 kg × ₹{settings.cost_per_kg} = ₹
-                  {(1.3 * settings.cost_per_kg).toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Free Shipping Threshold
-            </CardTitle>
-            <CardDescription>
-              Offer free shipping for orders above this amount
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="free_shipping_threshold">
-                Minimum Order Amount (₹)
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="weight_based_enabled"
+                checked={settings.weight_based_enabled}
+                onCheckedChange={(checked) =>
+                  setSettings({
+                    ...settings,
+                    weight_based_enabled: checked,
+                  })
+                }
+              />
+              <Label htmlFor="weight_based_enabled">
+                Enable Weight-Based Shipping
               </Label>
-              <div className="relative">
-                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="free_shipping_threshold"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={settings.free_shipping_threshold}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      free_shipping_threshold: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  className="pl-9"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Orders with subtotal above this amount get free shipping
-              </p>
             </div>
 
-            <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-              <h4 className="font-medium text-sm text-green-900 mb-2">
-                Free Shipping Benefits
-              </h4>
-              <ul className="text-sm text-green-700 space-y-1 list-disc list-inside">
-                <li>Encourages larger orders</li>
-                <li>Improves customer satisfaction</li>
-                <li>Reduces cart abandonment</li>
-              </ul>
-            </div>
+            {settings.weight_based_enabled && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Weight Tiers</h4>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addWeightTier}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Tier
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {settings.weight_tiers.map((tier, index) => (
+                    <div
+                      key={index}
+                      className="grid grid-cols-4 gap-3 items-end p-3 border rounded-lg"
+                    >
+                      <div className="space-y-2">
+                        <Label className="text-xs">Min Weight (kg)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={tier.min_weight}
+                          onChange={(e) =>
+                            updateWeightTier(
+                              index,
+                              "min_weight",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Max Weight (kg)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={tier.max_weight}
+                          onChange={(e) =>
+                            updateWeightTier(
+                              index,
+                              "max_weight",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Rate (₹)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={tier.rate}
+                          onChange={(e) =>
+                            updateWeightTier(
+                              index,
+                              "rate",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeWeightTier(index)}
+                        disabled={settings.weight_tiers.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">Example Calculation</h4>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>Order with total weight: 2.5 kg</p>
+                    <p>
+                      Applicable tier: {settings.weight_tiers.find(tier => 
+                        2.5 >= tier.min_weight && 2.5 <= tier.max_weight
+                      )?.min_weight || 0}kg - {settings.weight_tiers.find(tier => 
+                        2.5 >= tier.min_weight && 2.5 <= tier.max_weight
+                      )?.max_weight || 0}kg
+                    </p>
+                    <p className="font-medium text-foreground pt-2 border-t">
+                      Shipping Cost: ₹{settings.weight_tiers.find(tier => 
+                        2.5 >= tier.min_weight && 2.5 <= tier.max_weight
+                      )?.rate || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Important Notes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-3">
-            <div className="h-2 w-2 rounded-full bg-primary mt-2" />
-            <p className="text-sm text-muted-foreground">
-              Make sure to add weight (in kg) to all products in the product management section
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <div className="h-2 w-2 rounded-full bg-primary mt-2" />
-            <p className="text-sm text-muted-foreground">
-              Shipping cost is calculated automatically based on total cart weight
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <div className="h-2 w-2 rounded-full bg-primary mt-2" />
-            <p className="text-sm text-muted-foreground">
-              If subtotal exceeds the free shipping threshold, shipping cost becomes ₹0
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <div className="h-2 w-2 rounded-full bg-primary mt-2" />
-            <p className="text-sm text-muted-foreground">
-              Products without weight will be treated as 0 kg
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="flex justify-end gap-4">
         <Button variant="outline" onClick={loadSettings} disabled={saving}>
