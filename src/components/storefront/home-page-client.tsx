@@ -1,9 +1,22 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Plus, Star, ShoppingBag, Sparkles, Heart, Leaf, Calendar, User, Loader2 } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  FlaskConical,
+  Heart,
+  Leaf,
+  Plus,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  Stethoscope,
+  Calendar,
+  User,
+} from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/utils";
 import type { Product, HomepageSection } from "@/types";
@@ -16,44 +29,7 @@ interface HomePageClientProps {
   products: Product[];
 }
 
-interface HeroSection {
-  id: string;
-  title: string;
-  subtitle: string | null;
-  description: string | null;
-  cta_text: string;
-  cta_link: string | null;
-  background_type: string;
-  background_image_url: string | null;
-  background_video_url: string | null;
-  card_type: string;
-  card_image_url: string | null;
-  card_video_url: string | null;
-  display_order: number;
-  is_active: boolean;
-}
-
 export function HomePageClient({ products }: HomePageClientProps) {
-  const [heroSections, setHeroSections] = useState<HeroSection[]>([]);
-  const [loadingHero, setLoadingHero] = useState(true);
-
-  useEffect(() => {
-    const fetchHeroSections = async () => {
-      try {
-        const res = await fetch("/api/hero-sections");
-        if (res.ok) {
-          const data = await res.json();
-          setHeroSections(data.heroSections || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch hero sections:", error);
-      } finally {
-        setLoadingHero(false);
-      }
-    };
-    fetchHeroSections();
-  }, []);
-
   const sectionedProducts = useMemo(() => {
     const record: Record<SectionKey, Product[]> = {
       best_sellers: [],
@@ -100,7 +76,7 @@ export function HomePageClient({ products }: HomePageClientProps) {
 
   return (
     <div className="bg-white">
-      <HeroSection heroSections={heroSections} loading={loadingHero} />
+      <HeroSection />
       <BrandingSection />
       <AboutFounderSection />
       <AboutPratipalSection />
@@ -114,271 +90,74 @@ export function HomePageClient({ products }: HomePageClientProps) {
   );
 }
 
-function HeroSection({ heroSections, loading }: { heroSections: HeroSection[]; loading: boolean }) {
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    if (heroSections.length === 0) return;
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroSections.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [heroSections.length]);
-
-  if (loading) {
-    return (
-      <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 min-h-[90vh] flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-brand-teal" />
-      </section>
-    );
-  }
-
-  if (heroSections.length === 0) {
-    return <DefaultHeroSection />;
-  }
-
-  const currentHero = heroSections[currentSlide];
-
+function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 min-h-[90vh] flex items-center">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        {currentHero.background_type === 'image' && currentHero.background_image_url && (
-          <Image
-            src={currentHero.background_image_url}
-            alt="Background"
-            fill
-            className="object-cover"
-            sizes="100vw"
-            priority
-          />
-        )}
-        {currentHero.background_type === 'video' && currentHero.background_video_url && (
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={currentHero.background_video_url} type="video/mp4" />
-          </video>
-        )}
-        {currentHero.background_type === 'default' && (
-          <>
-            <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-purple-300/30 to-pink-300/30 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-br from-blue-300/30 to-teal-300/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          </>
-        )}
-      </div>
-
+    <section className="relative overflow-hidden bg-[#f5f5f0] min-h-[85vh] flex items-center py-12">
       <div className="container relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center py-20">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
           {/* Left Content */}
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg">
-              <Sparkles className="h-4 w-4 text-brand-teal" />
-              <span className="text-sm font-medium text-gradient-brand">Ancient Wisdom, Modern Healing</span>
-            </div>
-
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-bold leading-tight text-gradient-brand whitespace-pre-line">
-              {currentHero.title}
+          <div className="space-y-6 lg:pr-8">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif leading-tight">
+              <span className="block text-[#1e3a5f] font-bold">EVERY MOMENT</span>
+              <span className="block text-[#1e3a5f] font-bold">"PRATIPAL"</span>
             </h1>
 
-            {currentHero.subtitle && (
-              <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gradient-brand">
-                {currentHero.subtitle}
-              </h2>
-            )}
-
-            {currentHero.description && (
-              <p className="text-lg md:text-xl text-gray-600 max-w-xl leading-relaxed">
-                {currentHero.description}
-              </p>
-            )}
-
-            <div className="flex flex-wrap gap-4">
-              <Link
-                href={currentHero.cta_link || "/shop"}
-                className="group inline-flex items-center gap-2 bg-gradient-brand hover:shadow-2xl text-white px-8 py-4 rounded-full text-base font-medium tracking-wide transition-all duration-300 shadow-xl"
-              >
-                {currentHero.cta_text}
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
-
-            {/* Trust Indicators */}
-            <div className="flex items-center gap-8 pt-4">
-              <div className="flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-10 h-10 rounded-full bg-gradient-brand border-2 border-white"></div>
-                  ))}
-                </div>
-                <div className="text-sm">
-                  <div className="font-semibold text-gray-800">1000+ Families</div>
-                  <div className="text-gray-500">Medicine Free Life</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Image/Video */}
-          <div className="relative">
-            <div className="relative w-full aspect-square max-w-lg mx-auto">
-              {/* Floating Elements */}
-              <div className="absolute -top-6 -left-6 w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl rotate-12 animate-float shadow-2xl"></div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-blue-400 to-teal-400 rounded-2xl -rotate-12 animate-float-delayed shadow-2xl"></div>
-              
-              {/* Main Media */}
-              <div className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl">
-                {currentHero.card_type === 'video' && currentHero.card_video_url ? (
-                  <video
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                  >
-                    <source src={currentHero.card_video_url} type="video/mp4" />
-                  </video>
-                ) : (
-                  <Image
-                    src={currentHero.card_image_url || "/placeholder.jpg"}
-                    alt={currentHero.title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    priority
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-              </div>
-
-              {/* Floating Badge */}
-              <div className="absolute top-8 right-8 bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-xl">
-                <div className="flex items-center gap-2 mb-1">
-                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  <span className="font-bold text-gray-800">4.9</span>
-                </div>
-                <div className="text-xs text-gray-600">500+ Reviews</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Slide Indicators */}
-        {heroSections.length > 1 && (
-          <div className="flex justify-center gap-2 mt-8">
-            {heroSections.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentSlide(index)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  index === currentSlide ? "w-8 bg-brand-teal" : "w-2 bg-gray-300"
-                }`}
-                aria-label={`Go to slide ${index + 1}`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function DefaultHeroSection() {
-  return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 min-h-[90vh] flex items-center">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-purple-300/30 to-pink-300/30 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-br from-blue-300/30 to-teal-300/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
-
-      <div className="container relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center py-20">
-          {/* Left Content */}
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg">
-              <Sparkles className="h-4 w-4 text-brand-teal" />
-              <span className="text-sm font-medium text-gradient-brand">Ancient Wisdom, Modern Healing</span>
-            </div>
-
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-bold leading-tight">
-              <span className="text-gradient-brand">EVERY MOMENT</span>
-              <br />
-              <span className="text-gradient-brand">"PRATIPAL"</span>
-            </h1>
-
-            <h2 className="text-2xl md:text-3xl font-serif font-semibold text-gradient-brand mb-4">
+            <h2 className="text-3xl md:text-4xl font-serif text-[#2d9b9b] font-semibold">
               Do you need healing?
             </h2>
 
-            <p className="text-lg md:text-xl text-gray-600 max-w-xl leading-relaxed">
-              Healing is not merely cure, it is weaving smile in routine. At Pratipal, I am your personal healing assistant, to integrate the methodology of ancient healing rituals, into your modern lifestyle in a seamless, natural & progressive manner, without disturbing your routine.
+            <p className="text-base md:text-lg text-[#2d9b9b] italic leading-relaxed">
+              Healing is not merely cure, it is weaving smile in routine.
             </p>
 
-            <div className="flex flex-wrap gap-4">
-              <Link
-                href="/shop"
-                className="group inline-flex items-center gap-2 bg-gradient-brand hover:shadow-2xl text-white px-8 py-4 rounded-full text-base font-medium tracking-wide transition-all duration-300 shadow-xl"
-              >
-                Explore Products
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                href="#booking"
-                className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-800 px-8 py-4 rounded-full text-base font-medium tracking-wide transition-all duration-300 shadow-lg border-2 border-gray-200"
-              >
-                <Calendar className="h-5 w-5" />
-                Book a Session
-              </Link>
+            <div className="space-y-4 text-sm md:text-base text-gray-700 leading-relaxed">
+              <p>
+                At Pratipal, I am your personal healing assistant, to integrate the methodology of ancient healing rituals, into your modern lifestyle in a seamless, natural & progressive manner, without disturbing your routine.
+              </p>
+              <p className="text-sm text-gray-600">
+                - Founder & Chief Executive Officer<br />
+                Dr. Aparnaa Singh
+              </p>
             </div>
 
-            {/* Trust Indicators */}
-            <div className="flex items-center gap-8 pt-4">
-              <div className="flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-10 h-10 rounded-full bg-gradient-brand border-2 border-white"></div>
-                  ))}
-                </div>
-                <div className="text-sm">
-                  <div className="font-semibold text-gray-800">1000+ Families</div>
-                  <div className="text-gray-500">Medicine Free Life</div>
-                </div>
-              </div>
+            <div className="pt-4">
+              <Link
+                href="/shop"
+                className="inline-flex items-center gap-2 bg-[#1e3a5f] hover:bg-[#2d9b9b] text-white px-8 py-3 rounded-md text-base font-medium transition-all duration-300"
+              >
+                Start Your Journey
+              </Link>
             </div>
           </div>
 
           {/* Right Image */}
-          <div className="relative">
-            <div className="relative w-full aspect-square max-w-lg mx-auto">
-              {/* Floating Elements */}
-              <div className="absolute -top-6 -left-6 w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl rotate-12 animate-float shadow-2xl"></div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-blue-400 to-teal-400 rounded-2xl -rotate-12 animate-float-delayed shadow-2xl"></div>
-              
-              {/* Main Image */}
-              <div className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl">
+          <div className="relative flex justify-center">
+            <div className="inline-block max-w-xl w-full">
+              <div className="rounded-lg border-4 border-[#2d9b9b] shadow-2xl bg-white overflow-hidden">
                 <Image
-                  src="https://worldofoorja.com/cdn/shop/files/DSC0725.jpg?v=1758892916&width=610"
-                  alt="Pratipal Healing"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  src="/assets/image1.jpeg"
+                  alt="Dr. Aparnaa Singh - Pratipal Healing"
+                  width={640}
+                  height={820}
+                  className="w-full h-auto object-contain"
                   priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
               </div>
 
-              {/* Floating Badge */}
-              <div className="absolute top-8 right-8 bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-xl">
-                <div className="flex items-center gap-2 mb-1">
-                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  <span className="font-bold text-gray-800">4.9</span>
-                </div>
-                <div className="text-xs text-gray-600">500+ Reviews</div>
+              {/* Bottom Info Card */}
+              <div className="mt-6 bg-white rounded-lg p-6 shadow-lg border border-gray-200">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  With doctorate in Naturopathy & Yoga, qualified practitioner & trainer of Acupressure (Ayurvedic & Chinese), Reiki Grand Master, Fertility Coach & a healer of 15 various healing techniques, having treated & trained many, she is on a mission to reform & revolutionise the costly, non-affordable wellness industry.
+                </p>
+                <p className="text-sm text-gray-600 mt-3">
+                  Making both physical & mental health accessible to everyone with personal attention at a cost that you can afford.
+                </p>
+                <Link
+                  href="#about"
+                  className="inline-flex items-center gap-2 bg-[#2d9b9b] hover:bg-[#1e3a5f] text-white px-6 py-2 rounded-md text-sm font-medium transition-all duration-300 mt-4"
+                >
+                  Know more
+                </Link>
               </div>
             </div>
           </div>
@@ -456,7 +235,7 @@ function AboutFounderSection() {
           <div className="relative">
             <div className="relative w-full aspect-[4/5] max-w-md mx-auto rounded-3xl overflow-hidden shadow-2xl">
               <Image
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&h=1000&fit=crop"
+                src="/assets/image2.jpg"
                 alt="Dr. Aparnaa Singh"
                 fill
                 className="object-cover"
@@ -514,41 +293,121 @@ function AboutFounderSection() {
 }
 
 function AboutPratipalSection() {
+  const highlights = [
+    {
+      icon: Stethoscope,
+      title: "Integrative Case Mapping",
+      description:
+        "Personalised healing roadmaps created after studying lifestyle, medical history, energy patterns, and emotional goals.",
+    },
+    {
+      icon: FlaskConical,
+      title: "Therapeutic Formulations",
+      description:
+        "Small-batch candles, salts, and oils infused with Ayurvedic botanicals and Reiki intentions for targeted relief.",
+    },
+    {
+      icon: Heart,
+      title: "Mentored Communities",
+      description:
+        "Collective circles, retreats, and healer trainings that keep you accountable and emotionally supported.",
+    },
+    {
+      icon: Activity,
+      title: "Evidence-led Rituals",
+      description:
+        "Daily practices blend breathwork, biorythm balancing, and yogic science—easy to adopt yet clinically grounded.",
+    },
+  ];
+
+  const stats = [
+    { label: "Personal healings", value: "10k+" },
+    { label: "Modalities mastered", value: "15" },
+    { label: "Client retention", value: "92%" },
+    { label: "Clinical experience", value: "9+ yrs" },
+  ];
+
   return (
-    <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-white">
-      <div className="container">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
-            <Sparkles className="h-4 w-4 text-brand-teal" />
-            <span className="text-sm font-medium text-brand-teal">Our Story</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
-            About Pratipal
-          </h2>
-        </div>
+    <section id="about" className="relative overflow-hidden py-20 md:py-28 bg-[#f4fafc]">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -left-20 top-16 w-72 h-72 bg-brand-support/20 blur-3xl rounded-full"></div>
+        <div className="absolute right-10 -bottom-10 w-80 h-80 bg-brand-primary/10 blur-3xl rounded-full"></div>
+        <div className="absolute inset-y-0 left-1/2 w-px bg-gradient-to-b from-transparent via-brand-support/20 to-transparent"></div>
+      </div>
 
-        <div className="max-w-4xl mx-auto space-y-6 text-gray-700 leading-relaxed">
-          <p>
-            In an ever-evolving and hyper-dynamic world, one vital aspect that has quietly receded to the background—both in thought and action—is our physical and mental well-being. The modern individual, perpetually short on time, finds quick fixes in near-perfect allopathic medicines, while the ancient wisdom of practices like meditation gathers dust, dismissed for lack of time—even for sleep itself. This, perhaps, is the unintended consequence of modern life.
-          </p>
+      <div className="container relative">
+        <div className="grid items-center gap-16 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur rounded-full border border-white/80 shadow-sm">
+              <Sparkles className="h-4 w-4 text-brand-support" />
+              <span className="text-xs font-semibold tracking-[0.28em] text-brand-support uppercase">Our Story</span>
+            </div>
 
-          <p>
-            The irony runs deep: we understand the need for change, we've heard echoes of the solution—through our elders, in books, or across the internet—but a truly holistic, accessible, and enduring approach remains elusive. What we do find are fragments: an acupressure center here, an Ayurveda clinic there, a naturopathy retreat somewhere—all existing in isolation and often beyond the reach of ordinary affordability.
-          </p>
+            <h2 className="mt-6 text-4xl md:text-5xl font-serif font-semibold text-brand-dark leading-tight">
+              Precision wellness with the warmth of traditional medicine
+            </h2>
 
-          <p>
-            And so, the cynical question returns, "What's new about this? I already know all this. Why pay for it?" But do we really use what we "already know"? Or does our pata hai gyaan—our so-called knowledge—remain just another unlit lamp in the chaos of modern living?
-          </p>
-
-          <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50 rounded-3xl p-8 my-8">
-            <p className="text-gray-800 font-medium">
-              Before founding Pratipal, I spent six years immersed in diverse courses of study, followed by three years of practical experience—treating patients and mentoring aspiring healers. During this time, I registered my MSME and began producing healing candles and salts tailored to specific ailments, crafted in response to user needs. The growing and sustained demand for these products and related services eventually compelled me to take the next step—launching this platform to reach and serve many more.
+            <p className="mt-6 text-base md:text-lg text-[#2a4a5f] leading-relaxed">
+              In an ever-dynamic world, physical and mental well-being often become an afterthought. Pratipal was
+              founded to bring integrative healing back to the centre—bridging naturopathy, energy medicine, and modern
+              lifestyle design so transformation fits inside busy routines.
             </p>
+            <p className="mt-4 text-base md:text-lg text-[#2a4a5f] leading-relaxed">
+              Instead of isolated clinics or expensive retreats, we nurture a continuum of care: diagnostics,
+              personalised rituals, handcrafted formulations, and guided communities that make healing both structured
+              and deeply human.
+            </p>
+
+            <div className="mt-10 grid gap-5 sm:grid-cols-2">
+              {highlights.map((item, index) => (
+                <div
+                  key={item.title}
+                  className="group rounded-3xl border border-white/60 bg-white/70 p-6 shadow-lg shadow-brand-primary/5 backdrop-blur hover:-translate-y-1 hover:border-brand-support/40 transition-all"
+                >
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-primary to-brand-support text-white shadow-lg">
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-brand-primary">{item.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600 leading-relaxed">{item.description}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <p>
-            At Pratipal, our vision is to nurture a community of healers and seekers alike. We aim to provide structured training for those aspiring to become healers, offer collective and individual treatments, organize retreat-based healing camps, and extend personalized guidance for day-to-day challenges. Our approach emphasizes simplicity—introducing daily rituals that can be seamlessly integrated into one's existing lifestyle, without disrupting its rhythm, yet gently transforming it from within.
-          </p>
+          <div className="relative">
+            <div className="relative z-10 rounded-[32px] border border-white/60 bg-white/90 p-10 shadow-2xl shadow-brand-primary/10 backdrop-blur">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-support">Impact</p>
+                  <p className="mt-2 text-2xl font-serif text-brand-primary">From research notes to ritual kits</p>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-brand-primary to-brand-support px-5 py-3 text-sm font-semibold text-white shadow-lg">
+                  Clinical empathy
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-2 gap-6">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="rounded-2xl border border-brand-cream/60 bg-brand-cream/40 p-4 text-center">
+                    <p className="text-3xl font-serif text-brand-primary">{stat.value}</p>
+                    <p className="mt-1 text-sm font-medium text-[#32586b]">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 rounded-2xl border border-brand-sand/50 bg-gradient-to-br from-brand-cream/70 to-white p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-support mb-2">Founder’s note</p>
+                <p className="text-sm md:text-base leading-relaxed text-[#2a4a5f]">
+                  “Six years of study and three years of active clinical practice led me to craft MSME-certified
+                  healing tools tailored to individual cases. Growing demand for these rituals made Pratipal inevitable—a
+                  platform to serve more families with the same intimacy and scientific sincerity.”
+                </p>
+              </div>
+            </div>
+
+            <div className="absolute -bottom-10 -right-6 hidden h-44 w-44 rounded-full bg-gradient-to-br from-brand-support/40 to-brand-primary/30 blur-2xl md:block"></div>
+            <div className="absolute -top-6 -left-6 h-24 w-24 rounded-[32px] border border-dashed border-brand-support/50"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -561,26 +420,31 @@ function ApproachSection() {
       icon: Sparkles,
       title: "Simple",
       description: "No complexity, no overwhelm — just intuitive tools and easy-to-follow guidance.",
+      image: "/assets/approach-simple.jpg",
     },
     {
       icon: Calendar,
       title: "Practical",
       description: "Designed to integrate seamlessly into busy modern lives.",
+      image: "/assets/approach-practical.jpg",
     },
     {
       icon: Heart,
       title: "Accessible",
       description: "Affordable, understandable, and available to anyone seeking inner growth.",
+      image: "/assets/approach-accessible.jpg",
     },
     {
       icon: Leaf,
       title: "Energy-Driven",
       description: "Every product, session, and course is intentionally charged to support specific emotional and spiritual outcomes.",
+      image: "/assets/approach-energy.jpg",
     },
     {
       icon: User,
       title: "Holistic",
       description: "We address the root — not just symptoms — across emotional, mental, physical, and spiritual layers.",
+      image: "/assets/approach-holistic.jpg",
     },
   ];
 
@@ -604,17 +468,30 @@ function ApproachSection() {
           {approaches.map((approach, index) => (
             <div
               key={index}
-              className="group bg-gradient-to-br from-white to-gray-50 rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-brand-teal/30"
+              className="group bg-gradient-to-br from-white to-gray-50 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-brand-teal/30"
             >
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-brand mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                <approach.icon className="h-8 w-8 text-white" />
+              <div className="relative h-44 w-full overflow-hidden">
+                <Image
+                  src={approach.image}
+                  alt={`${approach.title} approach visual`}
+                  fill
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 to-transparent"></div>
+                <div className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-brand-teal">
+                  <approach.icon className="h-4 w-4" />
+                  <span>Pratipal</span>
+                </div>
               </div>
-              <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-3">
-                {approach.title}
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                {approach.description}
-              </p>
+              <div className="p-8">
+                <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-3">
+                  {approach.title}
+                </h3>
+                <p className="text-gray-600 leading-relaxed">
+                  {approach.description}
+                </p>
+              </div>
             </div>
           ))}
         </div>

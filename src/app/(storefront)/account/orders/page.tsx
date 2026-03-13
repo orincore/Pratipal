@@ -15,11 +15,28 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Package, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
 import type { Order, OrderItem, TrackingStatus } from "@/lib/ecommerce-types";
+import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
 
 interface OrdersResponse extends Order {
   items?: OrderItem[];
+}
+
+interface ServiceBooking {
+  id: string;
+  booking_number: string;
+  service_name: string;
+  service_category: string;
+  frequency_label: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  amount: number;
+  payment_status: "pending" | "paid" | "failed";
+  razorpay_payment_id?: string;
+  whatsapp_redirect_url?: string;
+  created_at: string;
 }
 
 type StatusKey = Extract<
@@ -40,6 +57,7 @@ export default function AccountOrdersPage() {
   const { customer, loading } = useCustomerAuth();
   const router = useRouter();
   const [orders, setOrders] = useState<OrdersResponse[]>([]);
+  const [bookings, setBookings] = useState<ServiceBooking[]>([]);
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
@@ -53,17 +71,19 @@ export default function AccountOrdersPage() {
     async function loadOrders() {
       setFetching(true);
       try {
-        const res = await fetch("/api/orders", { cache: "no-store" });
-        if (!res.ok) {
-          if (res.status === 401) {
-            router.push("/login?redirect=/account/orders");
-            return;
-          }
-          const error = await res.json().catch(() => ({}));
-          throw new Error(error.error || "Unable to load orders");
+        // Fetch product orders
+        const ordersRes = await fetch("/api/orders", { cache: "no-store" });
+        if (ordersRes.ok) {
+          const ordersData = await ordersRes.json();
+          setOrders(ordersData.orders || []);
         }
-        const data = await res.json();
-        setOrders(data.orders || []);
+
+        // Fetch service bookings
+        const bookingsRes = await fetch("/api/bookings/customer", { cache: "no-store" });
+        if (bookingsRes.ok) {
+          const bookingsData = await bookingsRes.json();
+          setBookings(bookingsData.bookings || []);
+        }
       } catch (err: any) {
         toast.error(err.message || "Unable to load orders");
       } finally {
@@ -74,20 +94,19 @@ export default function AccountOrdersPage() {
   }, [customer, router]);
 
   const metrics = useMemo(() => {
-    if (!orders.length) {
-      return {
-        total: 0,
-        open: 0,
-        value: 0,
-      };
-    }
-    const total = orders.length;
-    const open = orders.filter((order) =>
+    const totalOrders = orders.length + bookings.length;
+    const openOrders = orders.filter((order) =>
       ["pending", "processing"].includes(order.status)
     ).length;
-    const value = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-    return { total, open, value };
-  }, [orders]);
+    const openBookings = bookings.filter((booking) => booking.payment_status === "pending").length;
+    const ordersValue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const bookingsValue = bookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
+    return {
+      total: totalOrders,
+      open: openOrders + openBookings,
+      value: ordersValue + bookingsValue,
+    };
+  }, [orders, bookings]);
 
   const handleOrderUpdated = (updated: OrdersResponse) => {
     setOrders((prev) => prev.map((order) => (order.id === updated.id ? updated : order)));
@@ -151,7 +170,7 @@ export default function AccountOrdersPage() {
               <div className="flex items-center justify-center py-16 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading your orders…
               </div>
-            ) : orders.length === 0 ? (
+            ) : orders.length === 0 && bookings.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <p className="text-lg font-semibold">No orders yet</p>
                 <p className="text-sm mt-2">Start shopping to see your purchases here.</p>
@@ -159,6 +178,9 @@ export default function AccountOrdersPage() {
               </div>
             ) : (
               <div className="space-y-6">
+                {bookings.map((booking) => (
+                  <BookingCard key={booking.id} booking={booking} />
+                ))}
                 {orders.map((order) => (
                   <OrderCard key={order.id} order={order} onOrderUpdated={handleOrderUpdated} />
                 ))}
@@ -384,6 +406,82 @@ function OrderCard({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function BookingCard({ booking }: { booking: ServiceBooking }) {
+  const eventDate = new Date(booking.created_at);
+  const statusMeta = {
+    pending: { label: "Payment Pending", color: "bg-amber-100 text-amber-800" },
+    paid: { label: "Paid", color: "bg-emerald-100 text-emerald-800" },
+    failed: { label: "Payment Failed", color: "bg-rose-100 text-rose-800" },
+  };
+  const meta = statusMeta[booking.payment_status];
+
+  return (
+    <div className="rounded-2xl border bg-white shadow-sm">
+      <div className="flex flex-col gap-2 border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Booking #{booking.booking_number}</p>
+          <p className="text-lg font-semibold text-gray-900">
+            {booking.service_name}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Booked on {eventDate.toLocaleDateString(undefined, { dateStyle: "medium" })}
+          </p>
+        </div>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <Badge className={`${meta.color} px-3 py-1 text-xs font-semibold`}>{meta.label}</Badge>
+          <p className="text-sm font-semibold">{formatPrice(booking.amount)}</p>
+        </div>
+      </div>
+
+      <div className="px-6 py-5 space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 mb-2">Service Details</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Category:</span>
+                <span className="font-medium">{booking.service_category}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Frequency:</span>
+                <span className="font-medium">{booking.frequency_label}</span>
+              </div>
+              {booking.razorpay_payment_id && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transaction ID:</span>
+                  <span className="font-mono text-xs">{booking.razorpay_payment_id}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-gray-900 mb-2">Contact Information</p>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>{booking.customer_name}</p>
+              <p>{booking.customer_email}</p>
+              <p>{booking.customer_phone}</p>
+            </div>
+          </div>
+        </div>
+
+        {booking.whatsapp_redirect_url && booking.payment_status === "paid" && (
+          <div className="pt-4 border-t">
+            <Button
+              onClick={() => window.open(booking.whatsapp_redirect_url, "_blank")}
+              className="w-full sm:w-auto"
+              variant="outline"
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Continue to WhatsApp
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

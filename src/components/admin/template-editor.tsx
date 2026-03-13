@@ -547,10 +547,88 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           onSettingsChange={(value) => handleMediaSettingsChange(heroImageKey, value)}
           onClearSettings={() => clearMediaSettings(heroImageKey)}
         />
+        <div className="space-y-2">
+          <Label className="text-xs text-gray-500">Carousel Slides</Label>
+          <p className="text-[11px] text-gray-400">Add images, videos, or YouTube links. Leave empty to fallback to the hero image.</p>
+          {data.hero.heroMedia.map((media, i) => {
+            const slideKey = mediaKey("hero", "heroMedia", i, "url");
+            return (
+              <div key={slideKey} className="rounded-lg border border-gray-200 p-3 space-y-2 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-gray-500 uppercase">Slide {i + 1}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-red-500"
+                    onClick={() => {
+                      clearMediaSettings(slideKey);
+                      update("hero", {
+                        heroMedia: data.hero.heroMedia.filter((_, idx) => idx !== i),
+                      });
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <MediaField
+                  label="Media URL"
+                  value={media.url}
+                  onChange={(v) => {
+                    const arr = [...data.hero.heroMedia];
+                    arr[i] = { ...arr[i], url: v };
+                    update("hero", { heroMedia: arr });
+                  }}
+                  settings={mediaSettings[slideKey]}
+                  onSettingsChange={(value) => handleMediaSettingsChange(slideKey, value)}
+                  onClearSettings={() => clearMediaSettings(slideKey)}
+                />
+                <Input
+                  value={media.label || ""}
+                  onChange={(e) => {
+                    const arr = [...data.hero.heroMedia];
+                    arr[i] = { ...arr[i], label: e.target.value };
+                    update("hero", { heroMedia: arr });
+                  }}
+                  placeholder="Optional label"
+                  className="h-8 text-xs bg-white border-gray-200"
+                />
+              </div>
+            );
+          })}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => update("hero", { heroMedia: [...data.hero.heroMedia, { url: "", label: "" }] })}
+          >
+            <Plus className="h-3 w-3 mr-1" /> Add Slide
+          </Button>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-xs text-gray-500">Autoplay Carousel</Label>
+            <p className="text-[11px] text-gray-400">Automatically advance slides.</p>
+          </div>
+          <Switch
+            checked={data.hero.carouselAutoplay}
+            onCheckedChange={(v) => update("hero", { carouselAutoplay: v })}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Slide Interval (ms)</Label>
+          <Input
+            type="number"
+            min={2000}
+            step={500}
+            value={data.hero.carouselInterval}
+            onChange={(e) => update("hero", { carouselInterval: Number(e.target.value) || 0 })}
+            className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+          />
+        </div>
         <div>
           <Label className="text-xs text-gray-500">Floating Stats</Label>
           {data.hero.floatingStats.map((stat, i) => (
-            <div key={i} className="flex gap-1 mt-1">
+            <div key={i} className="grid grid-cols-2 gap-1 mt-1">
               <Input
                 value={stat.value}
                 onChange={(e) => {

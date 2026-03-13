@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = getServiceSupabase();
+    const { ShippingSettings } = await getDB();
     const { cartItems } = await req.json();
 
     if (!cartItems || !Array.isArray(cartItems)) {
@@ -14,14 +14,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Get shipping settings
-    const { data: settings } = await supabase
-      .from("shipping_settings")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .single();
+    const settings = await ShippingSettings.findOne()
+      .sort({ updated_at: -1 })
+      .lean();
 
-    const costPerKg = settings?.cost_per_kg || 50;
+    const flatRate = settings?.flat_rate || 50;
     const freeShippingThreshold = settings?.free_shipping_threshold || 500;
 
     // Calculate total weight
@@ -41,13 +38,13 @@ export async function POST(req: NextRequest) {
     // Calculate shipping cost
     let shippingCost = 0;
     if (subtotal < freeShippingThreshold) {
-      shippingCost = Math.ceil(totalWeight * costPerKg);
+      shippingCost = flatRate;
     }
 
     return NextResponse.json({
       totalWeight,
       shippingCost,
-      costPerKg,
+      flatRate,
       freeShippingThreshold,
       subtotal,
       isFreeShipping: subtotal >= freeShippingThreshold,

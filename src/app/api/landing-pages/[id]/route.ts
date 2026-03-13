@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 function requireAdmin(req: NextRequest) {
   const user = getUserFromRequest(req);
@@ -19,20 +20,14 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = getServiceSupabase();
-  const { data, error } = await supabase
-    .from("landing_pages")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { LandingPage } = await getDB();
+  const page = await LandingPage.findById(id).lean();
 
-  if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Not found" }, {
-      status: error?.code === "PGRST117" ? 404 : 500,
-    });
+  if (!page) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ page: data });
+  return NextResponse.json({ page: { ...page, id: page._id.toString(), _id: undefined } });
 }
 
 export async function PATCH(
@@ -71,21 +66,18 @@ export async function PATCH(
     );
   }
 
-  const supabase = getServiceSupabase();
-  const { data, error } = await supabase
-    .from("landing_pages")
-    .update(payload)
-    .eq("id", id)
-    .select("*")
-    .single();
+  const { LandingPage } = await getDB();
+  const page = await LandingPage.findByIdAndUpdate(
+    id,
+    payload,
+    { new: true }
+  ).lean();
 
-  if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Update failed" }, {
-      status: 500,
-    });
+  if (!page) {
+    return NextResponse.json({ error: "Page not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ page: data });
+  return NextResponse.json({ page: { ...page, id: page._id.toString(), _id: undefined } });
 }
 
 export async function DELETE(
@@ -98,14 +90,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = getServiceSupabase();
-  const { error } = await supabase
-    .from("landing_pages")
-    .delete()
-    .eq("id", id);
+  const { LandingPage } = await getDB();
+  const result = await LandingPage.findByIdAndDelete(id);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!result) {
+    return NextResponse.json({ error: "Page not found" }, { status: 404 });
   }
 
   return NextResponse.json({ success: true });

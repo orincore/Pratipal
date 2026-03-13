@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
+import getDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,13 +15,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { Customer } = await getDB();
 
-    const { data: existingCustomer } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("email", email)
-      .single();
+    const existingCustomer = await Customer.findOne({ email }).lean();
 
     if (existingCustomer) {
       return NextResponse.json(
@@ -33,23 +29,15 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
     const verificationToken = uuidv4();
 
-    const { data: customer, error } = await supabase
-      .from("customers")
-      .insert({
-        email,
-        password_hash: passwordHash,
-        first_name,
-        last_name,
-        phone,
-        verification_token: verificationToken,
-        is_verified: false,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const customer = await Customer.create({
+      email,
+      password_hash: passwordHash,
+      first_name,
+      last_name,
+      phone,
+      verification_token: verificationToken,
+      is_verified: false,
+    });
 
     return NextResponse.json({
       success: true,

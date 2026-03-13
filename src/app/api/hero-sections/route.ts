@@ -1,26 +1,22 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import getDB from "@/lib/db";
 
 // Public endpoint to fetch active hero sections
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient();
+    const { HeroSection } = await getDB();
 
-    const { data, error } = await supabase
-      .from("hero_sections")
-      .select("*")
-      .eq("is_active", true)
-      .order("display_order", { ascending: true });
+    const heroSections = await HeroSection.find({ is_active: true })
+      .sort({ display_order: 1 })
+      .lean();
 
-    if (error) {
-      console.error("Error fetching hero sections:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch hero sections" },
-        { status: 500 }
-      );
-    }
+    const data = heroSections.map(section => ({
+      ...section,
+      id: section._id.toString(),
+      _id: undefined
+    }));
 
-    return NextResponse.json({ heroSections: data || [] });
+    return NextResponse.json({ heroSections: data });
   } catch (error) {
     console.error("Error in GET /api/hero-sections:", error);
     return NextResponse.json(

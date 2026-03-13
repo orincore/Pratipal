@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
 import { requireCustomerSession } from "@/lib/customer-session";
+import getDB from "@/lib/db";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,7 +9,7 @@ export async function PATCH(
   try {
     const session = await requireCustomerSession();
     const body = await req.json();
-    const supabase = getServiceSupabase();
+    const { CustomerAddress } = await getDB();
 
     const updates: Record<string, any> = {};
     const allowed = [
@@ -38,27 +38,24 @@ export async function PATCH(
     }
 
     if (updates.is_default) {
-      await supabase
-        .from("customer_addresses")
-        .update({ is_default: false })
-        .eq("customer_id", session.id)
-        .eq("address_type", updates.address_type || body.address_type || "shipping");
+      await CustomerAddress.updateMany(
+        { customer_id: session.id, address_type: updates.address_type || body.address_type || "shipping" },
+        { is_default: false }
+      );
     }
 
     const { id } = await context.params;
-    const { data, error } = await supabase
-      .from("customer_addresses")
-      .update(updates)
-      .eq("id", id)
-      .eq("customer_id", session.id)
-      .select("*")
-      .single();
+    const address = await CustomerAddress.findOneAndUpdate(
+      { _id: id, customer_id: session.id },
+      updates,
+      { new: true }
+    ).lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!address) {
+      return NextResponse.json({ error: "Address not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ address: data });
+    return NextResponse.json({ address: { ...address, id: address._id.toString(), _id: undefined } });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Unauthorized" },
@@ -73,17 +70,16 @@ export async function DELETE(
 ) {
   try {
     const session = await requireCustomerSession();
-    const supabase = getServiceSupabase();
+    const { CustomerAddress } = await getDB();
     const { id } = await context.params;
 
-    const { error } = await supabase
-      .from("customer_addresses")
-      .delete()
-      .eq("id", id)
-      .eq("customer_id", session.id);
+    const result = await CustomerAddress.findOneAndDelete({
+      _id: id,
+      customer_id: session.id
+    });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!result) {
+      return NextResponse.json({ error: "Address not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });

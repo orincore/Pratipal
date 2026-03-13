@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,14 +18,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { AuthUser } = await getDB();
 
-    // Check if user already exists
-    const { data: existing } = await supabase
-      .from("auth_users")
-      .select("id")
-      .eq("email", email.toLowerCase().trim())
-      .single();
+    const existing = await AuthUser.findOne({ email: email.toLowerCase().trim() }).lean();
 
     if (existing) {
       return NextResponse.json(
@@ -36,24 +31,15 @@ export async function POST(req: NextRequest) {
 
     const password_hash = await bcrypt.hash(password, 12);
 
-    const { data: user, error } = await supabase
-      .from("auth_users")
-      .insert({
-        email: email.toLowerCase().trim(),
-        password_hash,
-        full_name: full_name || null,
-        role: "admin",
-        status: "active",
-      })
-      .select("id, email, full_name, role, status")
-      .single();
+    const user = await AuthUser.create({
+      email: email.toLowerCase().trim(),
+      password_hash,
+      full_name: full_name || null,
+      role: "admin",
+      status: "active",
+    });
 
-    if (error) {
-      console.error("Seed error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ user, message: "Admin user created successfully" });
+    return NextResponse.json({ user: user.toJSON(), message: "Admin user created successfully" });
   } catch (err: any) {
     console.error("Seed error:", err);
     return NextResponse.json(

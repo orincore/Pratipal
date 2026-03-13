@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 import { sendEmail, generateBookingConfirmationEmail, generateAdminNotificationEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
@@ -34,23 +34,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { SessionBooking } = await getDB();
 
     // Update booking with payment details
-    const { data: booking, error: updateError } = await supabase
-      .from("session_bookings")
-      .update({
+    const booking = await SessionBooking.findByIdAndUpdate(
+      bookingId,
+      {
         razorpay_payment_id,
         razorpay_signature,
         payment_status: "paid",
-        status: "confirmed",
-      })
-      .eq("id", bookingId)
-      .select()
-      .single();
+      },
+      { new: true }
+    ).lean();
 
-    if (updateError || !booking) {
-      console.error("Error updating booking:", updateError);
+    if (!booking) {
       return NextResponse.json(
         { error: "Failed to update booking" },
         { status: 500 }

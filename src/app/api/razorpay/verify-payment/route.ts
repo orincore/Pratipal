@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,49 +19,31 @@ export async function POST(req: NextRequest) {
 
     const isValid = expectedSignature === razorpay_signature;
 
-    const supabase = getServiceSupabase();
+    const { Order, OrderItem, Product, Customer, CartItem } = await getDB();
 
     if (isValid) {
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          payment_status: "paid",
-          status: "processing",
-        })
-        .eq("id", order_id);
+      await Order.findByIdAndUpdate(order_id, {
+        payment_status: "paid",
+        status: "processing",
+      });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      const order = await Order.findById(order_id).lean();
+      const orderItems = await OrderItem.find({ order_id }).lean();
 
-      const { data: order } = await supabase
-        .from("orders")
-        .select("*, items:order_items(*)")
-        .eq("id", order_id)
-        .single();
-
-      if (order && order.items) {
-        for (const item of order.items) {
+      if (orderItems && orderItems.length > 0) {
+        for (const item of orderItems) {
           if (item.product_id) {
-            await supabase.rpc("decrement_product_stock", {
-              p_product_id: item.product_id,
-              p_quantity: item.quantity,
+            await Product.findByIdAndUpdate(item.product_id, {
+              $inc: { stock_quantity: -item.quantity }
             });
           }
         }
       }
 
-      const { data: customer } = await supabase
-        .from("customers")
-        .select("id")
-        .eq("email", order?.customer_email)
-        .single();
+      const customer = await Customer.findOne({ email: order?.customer_email }).lean();
 
       if (customer) {
-        await supabase
-          .from("cart_items")
-          .delete()
-          .eq("customer_id", customer.id);
+        await CartItem.deleteMany({ customer_id: customer._id.toString() });
       }
 
       return NextResponse.json({
@@ -69,13 +51,10 @@ export async function POST(req: NextRequest) {
         message: "Payment verified successfully",
       });
     } else {
-      await supabase
-        .from("orders")
-        .update({
-          payment_status: "failed",
-          status: "failed",
-        })
-        .eq("id", order_id);
+      await Order.findByIdAndUpdate(order_id, {
+        payment_status: "failed",
+        status: "failed",
+      });
 
       return NextResponse.json(
         { error: "Payment verification failed" },

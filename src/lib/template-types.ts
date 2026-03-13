@@ -12,6 +12,11 @@ export interface TemplateColors {
   bodyBg: string;        // Page body background
 }
 
+export interface HeroMediaItem {
+  url: string;
+  label?: string;
+}
+
 export interface HeroSection {
   badge: string;                 // e.g. "You're struggling because"
   headline: string;              // Main headline
@@ -20,7 +25,10 @@ export interface HeroSection {
   bulletPoints: string[];        // List of bullet points
   ctaButtonText: string;         // CTA button label
   ctaButtonLink: string;         // CTA button URL
-  heroImage: string;             // Main hero image URL
+  heroImage: string;             // Main hero image URL (fallback when carousel empty)
+  heroMedia: HeroMediaItem[];    // Carousel slides (images/videos)
+  carouselAutoplay: boolean;     // Auto-advance slides
+  carouselInterval: number;      // Duration between slides (ms)
   floatingStats: { label: string; value: string }[]; // Floating stat badges
   visible: boolean;
 }
@@ -212,6 +220,9 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ctaButtonText: "Join the Masterclass",
     ctaButtonLink: "#register",
     heroImage: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&h=700&fit=crop",
+    heroMedia: [],
+    carouselAutoplay: true,
+    carouselInterval: 6000,
     floatingStats: [
       { label: "Students", value: "10K+" },
       { label: "Countries", value: "50+" },

@@ -1,25 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
 import { requireCustomerSession } from "@/lib/customer-session";
+import getDB from "@/lib/db";
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, context: Context) {
   try {
-    const supabase = getServiceSupabase();
+    const { Order, OrderItem } = await getDB();
     const { id } = await context.params;
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        items:order_items(*)
-      `)
-      .eq("id", id)
-      .single();
+    
+    const order = await Order.findById(id).lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 404 });
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
+
+    const items = await OrderItem.find({ order_id: order._id }).lean();
+
+    const data = {
+      ...order,
+      id: order._id.toString(),
+      _id: undefined,
+      items: items.map(item => ({
+        ...item,
+        id: item._id.toString(),
+        _id: undefined
+      }))
+    };
 
     return NextResponse.json({ order: data });
   } catch (err: any) {
@@ -41,19 +49,15 @@ export async function PATCH(req: NextRequest, context: Context) {
       return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
     }
 
-    const supabase = getServiceSupabase();
-    const { data: order, error } = await supabase
-      .from("orders")
-      .select(
-        `*,
-        items:order_items(*)`
-      )
-      .eq("id", id)
-      .single();
+    const { Order, OrderItem } = await getDB();
+    const orderDoc = await Order.findById(id).lean();
 
-    if (error || !order) {
+    if (!orderDoc) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
+
+    const items = await OrderItem.find({ order_id: orderDoc._id }).lean();
+    const order: any = { ...orderDoc, items };
 
     const adminUser = getUserFromRequest(req);
     const isAdmin = !!adminUser && adminUser.role === "admin";
@@ -92,26 +96,33 @@ export async function PATCH(req: NextRequest, context: Context) {
         ? "Cancelled by admin"
         : "Cancelled by customer";
 
-    const { data: updated, error: updateError } = await supabase
-      .from("orders")
-      .update({
+    const updated = await Order.findByIdAndUpdate(
+      id,
+      {
         status: "cancelled",
         tracking_status: "cancelled",
-        tracking_message: cancellationMessage,
-        tracking_updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select(
-        `*,
-        items:order_items(*)`
-      )
-      .single();
+      },
+      { new: true }
+    ).lean();
 
-    if (updateError || !updated) {
-      return NextResponse.json({ error: updateError?.message || "Failed to cancel" }, { status: 500 });
+    if (!updated) {
+      return NextResponse.json({ error: "Failed to cancel" }, { status: 500 });
     }
 
-    return NextResponse.json({ order: updated });
+    const updatedItems = await OrderItem.find({ order_id: updated._id }).lean();
+
+    const orderData = {
+      ...updated,
+      id: updated._id.toString(),
+      _id: undefined,
+      items: updatedItems.map(item => ({
+        ...item,
+        id: item._id.toString(),
+        _id: undefined
+      }))
+    };
+
+    return NextResponse.json({ order: orderData });
   } catch (err: any) {
     if (err?.message === "Not authenticated") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

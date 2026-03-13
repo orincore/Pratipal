@@ -35,7 +35,10 @@ export function CustomerAuthProvider({
 
   async function checkAuth() {
     try {
-      const res = await fetch("/api/auth/customer-me");
+      const res = await fetch("/api/auth/customer-me", {
+        credentials: "include",
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setCustomer(data.customer);
@@ -52,6 +55,7 @@ export function CustomerAuthProvider({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
+      credentials: "include",
     });
 
     if (!res.ok) {
@@ -74,6 +78,7 @@ export function CustomerAuthProvider({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      credentials: "include",
     });
 
     if (!res.ok) {
@@ -85,7 +90,7 @@ export function CustomerAuthProvider({
   }
 
   async function logout() {
-    await fetch("/api/auth/customer-logout", { method: "POST" });
+    await fetch("/api/auth/customer-logout", { method: "POST", credentials: "include" });
     setCustomer(null);
   }
 

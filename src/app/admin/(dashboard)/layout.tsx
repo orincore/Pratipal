@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Truck,
   Presentation,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,8 @@ const sidebarItems = [
   { label: "Categories", href: "/admin/categories", icon: FolderTree },
   { label: "Landing Pages", href: "/admin/landing-pages", icon: FileText },
   { label: "Media Library", href: "/admin/media", icon: ImageIcon },
+  { label: "Services", href: "/admin/services", icon: Presentation },
+  { label: "Courses", href: "/admin/courses", icon: BookOpen },
 ];
 
 export default function DashboardLayout({

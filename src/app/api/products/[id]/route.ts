@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
@@ -12,25 +13,26 @@ export async function GET(
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    const supabase = getServiceSupabase();
+    const { Product } = await getDB();
 
-    const { data, error } = await supabase
-      .from("products")
-      .select(`
-        *,
-        category:categories(id, name, slug)
-      `)
-      .eq("id", id)
-      .eq("is_active", true)
-      .single();
+    const product = await Product.findById(id)
+      .where('is_active').equals(true)
+      .populate('category_id', 'id name slug')
+      .lean();
 
-    if (error) {
-      console.error("Error fetching product by ID:", error);
-      return NextResponse.json({ error: error.message }, { status: 404 });
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    if (!data) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    const data: any = { ...product, id: product._id.toString() };
+    delete data._id;
+    
+    if (data.category_id) {
+      data.category = {
+        id: data.category_id._id?.toString() || data.category_id,
+        name: data.category_id.name,
+        slug: data.category_id.slug
+      };
     }
 
     return NextResponse.json({ product: data });
@@ -53,11 +55,11 @@ export async function PUT(
     const { id } = await context.params;
     const body = await req.json();
 
-    const supabase = getServiceSupabase();
+    const { Product } = await getDB();
 
-    const { data, error } = await supabase
-      .from("products")
-      .update({
+    const product = await Product.findByIdAndUpdate(
+      id,
+      {
         name: body.name,
         slug: body.slug,
         description: body.description,
@@ -80,17 +82,15 @@ export async function PUT(
         tags: body.tags,
         meta_title: body.meta_title,
         meta_description: body.meta_description,
-      })
-      .eq("id", id)
-      .select()
-      .single();
+      },
+      { new: true }
+    ).lean();
 
-    if (error) {
-      console.error("Error updating product:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ product: data });
+    return NextResponse.json({ product: { ...product, id: product._id.toString(), _id: undefined } });
   } catch (err: any) {
     console.error("Exception in PUT /api/products/[id]:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -108,16 +108,12 @@ export async function DELETE(
     }
 
     const { id } = await context.params;
-    const supabase = getServiceSupabase();
+    const { Product } = await getDB();
 
-    const { error } = await supabase
-      .from("products")
-      .delete()
-      .eq("id", id);
+    const result = await Product.findByIdAndDelete(id);
 
-    if (error) {
-      console.error("Error deleting product:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!result) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });

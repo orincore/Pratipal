@@ -1,0 +1,17 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="520" rx="48" fill="#edf7fb"/>
+  <rect x="60" y="60" width="680" height="400" rx="36" fill="#ffffff"/>
+  <rect x="110" y="120" width="580" height="300" rx="28" fill="#f3fbff"/>
+  <rect x="140" y="150" width="520" height="240" rx="24" fill="#e4f1ff"/>
+  <rect x="180" y="190" width="440" height="40" rx="12" fill="#d0e5ff"/>
+  <rect x="180" y="250" width="340" height="40" rx="12" fill="#c7f6ef"/>
+  <rect x="180" y="310" width="420" height="40" rx="12" fill="#d7e6fb"/>
+  <rect x="540" y="250" width="80" height="40" rx="12" fill="#088199"/>
+  <text x="555" y="276" fill="#ffffff" font-family="'Inter', sans-serif" font-size="18">Plan</text>
+  <circle cx="220" cy="210" r="10" fill="#0f7e8b"/>
+  <circle cx="220" cy="270" r="10" fill="#f2c094"/>
+  <circle cx="220" cy="330" r="10" fill="#2f6f8a"/>
+  <path d="M610 200C610 163 641 132 678 132" stroke="#0f7e8b" stroke-width="10" stroke-linecap="round"/>
+  <path d="M678 132V164" stroke="#0f7e8b" stroke-width="10" stroke-linecap="round"/>
+  <path d="M678 132H646" stroke="#0f7e8b" stroke-width="10" stroke-linecap="round"/>
+</svg>

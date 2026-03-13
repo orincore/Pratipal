@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import getDB from "@/lib/db";
 
 async function getCustomerIdFromCookie(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -33,20 +33,20 @@ export async function PATCH(
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { CartItem } = await getDB();
     const { id } = await context.params;
-    const { data, error } = await supabase
-      .from("cart_items")
-      .update({ quantity })
-      .eq("id", id)
-      .select()
-      .single();
+    
+    const cartItem = await CartItem.findByIdAndUpdate(
+      id,
+      { quantity },
+      { new: true }
+    ).lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!cartItem) {
+      return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ cart_item: data });
+    return NextResponse.json({ cart_item: { ...cartItem, id: cartItem._id.toString(), _id: undefined } });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -57,15 +57,13 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getServiceSupabase();
+    const { CartItem } = await getDB();
     const { id } = await context.params;
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("id", id);
+    
+    const result = await CartItem.findByIdAndDelete(id);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!result) {
+      return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 function requireAdmin(req: NextRequest) {
   const user = getUserFromRequest(req);
@@ -15,17 +16,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = getServiceSupabase();
-  const { data, error } = await supabase
-    .from("landing_pages")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { LandingPage } = await getDB();
+  const pages = await LandingPage.find({})
+    .sort({ created_at: -1 })
+    .lean();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const pagesWithId = pages.map(p => ({
+    ...p,
+    id: p._id.toString(),
+    _id: undefined,
+  }));
 
-  return NextResponse.json({ pages: data ?? [] });
+  return NextResponse.json({ pages: pagesWithId });
 }
 
 export async function POST(req: NextRequest) {
@@ -45,16 +47,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const supabase = getServiceSupabase();
+  const { LandingPage } = await getDB();
 
   // Auto-increment slug if it already exists (-1, -2, -3, etc.)
   const baseSlug = slug.replace(/-\d+$/, "");
-  const { data: existingPages } = await supabase
-    .from("landing_pages")
-    .select("slug")
-    .like("slug", `${baseSlug}%`);
+  const existingPages = await LandingPage.find({
+    slug: { $regex: `^${baseSlug}`, $options: "i" }
+  }).select('slug').lean();
 
-  const existingSlugs = new Set((existingPages ?? []).map((p: any) => p.slug));
+  const existingSlugs = new Set(existingPages.map(p => p.slug));
   let finalSlug = slug;
   if (existingSlugs.has(finalSlug)) {
     let counter = 1;
@@ -64,51 +65,41 @@ export async function POST(req: NextRequest) {
     finalSlug = `${baseSlug}-${counter}`;
   }
 
-  const { data, error } = await supabase
-    .from("landing_pages")
-    .insert([
+  const page = await LandingPage.create({
+    title,
+    slug: finalSlug,
+    content:
+      body.content ??
       {
-        title,
-        slug: finalSlug,
-        content:
-          body.content ??
+        type: "doc",
+        content: [
           {
-            type: "doc",
+            type: "heading",
+            attrs: { level: 1 },
+            content: [{ type: "text", text: title }],
+          },
+          {
+            type: "paragraph",
             content: [
               {
-                type: "heading",
-                attrs: { level: 1 },
-                content: [{ type: "text", text: title }],
-              },
-              {
-                type: "paragraph",
-                content: [
-                  {
-                    type: "text",
-                    text: "Start editing your landing page here...",
-                  },
-                ],
+                type: "text",
+                text: "Start editing your landing page here...",
               },
             ],
           },
-        theme:
-          body.theme ?? {
-            primary: "#0F8A5F",
-            secondary: "#0B4F6C",
-            accent: "#18A999",
-            background: "#FFFFFF",
-          },
-        seo_title: body.seo_title ?? title,
-        seo_description: body.seo_description ?? "",
-        status: body.status ?? "draft",
+        ],
       },
-    ])
-    .select("*")
-    .single();
+    theme:
+      body.theme ?? {
+        primary: "#0F8A5F",
+        secondary: "#0B4F6C",
+        accent: "#18A999",
+        background: "#FFFFFF",
+      },
+    seo_title: body.seo_title ?? title,
+    seo_description: body.seo_description ?? "",
+    status: body.status ?? "draft",
+  });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ page: data }, { status: 201 });
+  return NextResponse.json({ page: page.toJSON() }, { status: 201 });
 }

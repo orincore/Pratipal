@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 import { nanoid } from "nanoid";
 
 export async function POST(req: NextRequest) {
@@ -28,35 +28,20 @@ export async function POST(req: NextRequest) {
     // Generate booking number
     const bookingNumber = `SB-${Date.now()}-${nanoid(6).toUpperCase()}`;
 
-    const supabase = getServiceSupabase();
+    const { SessionBooking } = await getDB();
 
     // Create booking record
-    const { data: booking, error } = await supabase
-      .from("session_bookings")
-      .insert({
-        booking_number: bookingNumber,
-        customer_name: customerName,
-        customer_email: customerEmail,
-        customer_phone: customerPhone,
-        session_type: sessionType,
-        frequency: frequency || null,
-        healing_type: healingType || null,
-        course_type: courseType || null,
-        amount: amount,
-        payment_status: "pending",
-        status: "pending",
-        notes: notes || null,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating booking:", error);
-      return NextResponse.json(
-        { error: "Failed to create booking" },
-        { status: 500 }
-      );
-    }
+    const booking = await SessionBooking.create({
+      booking_number: bookingNumber,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      session_id: sessionType,
+      session_date: new Date(),
+      session_time: "TBD",
+      amount: amount,
+      payment_status: "pending",
+    });
 
     return NextResponse.json({
       success: true,

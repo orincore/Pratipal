@@ -10,6 +10,7 @@ import type {
   HomepageSection,
 } from "@/types";
 import type { Product as EcomProduct, Category as EcomCategory } from "@/lib/ecommerce-types";
+import type { Service } from "@/types";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -215,4 +216,54 @@ export async function createCategory(
 
 export async function deleteCategory(id: string): Promise<void> {
   return;
+}
+
+export async function getAdminServices(): Promise<Service[]> {
+  const res = await fetch(buildApiUrl("/api/admin/services"), {
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to fetch services");
+  }
+  const data = await res.json();
+  return data.services as Service[];
+}
+
+export async function createService(service: Omit<Service, "id">): Promise<Service> {
+  const res = await fetch(buildApiUrl("/api/admin/services"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(service),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to create service");
+  }
+  const data = await res.json();
+  return data.service as Service;
+}
+
+export async function updateService(service: Service): Promise<Service> {
+  const res = await fetch(buildApiUrl(`/api/admin/services/${service.id}`), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(service),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update service");
+  }
+  const data = await res.json();
+  return data.service as Service;
+}
+
+export async function deleteService(id: string): Promise<void> {
+  const res = await fetch(buildApiUrl(`/api/admin/services/${id}`), {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete service");
+  }
 }

@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = getServiceSupabase();
+    const { Category } = await getDB();
     const url = new URL(req.url);
     
     const parentId = url.searchParams.get("parentId");
     const includeInactive = url.searchParams.get("includeInactive") === "true";
 
-    let query = supabase
-      .from("categories")
-      .select("*")
-      .order("display_order", { ascending: true });
+    const filter: any = {};
 
     if (!includeInactive) {
-      query = query.eq("is_active", true);
+      filter.is_active = true;
     }
 
     if (parentId) {
-      query = query.eq("parent_id", parentId);
+      filter.parent_id = parentId;
     } else if (parentId === null) {
-      query = query.is("parent_id", null);
+      filter.parent_id = null;
     }
 
-    const { data, error } = await query;
+    const categories = await Category.find(filter)
+      .sort({ display_order: 1 })
+      .lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const categoriesWithId = categories.map(cat => ({
+      ...cat,
+      id: cat._id.toString(),
+      _id: undefined,
+    }));
 
-    return NextResponse.json({ categories: data || [] });
+    return NextResponse.json({ categories: categoriesWithId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -44,27 +46,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const supabase = getServiceSupabase();
+    const { Category } = await getDB();
 
-    const { data, error } = await supabase
-      .from("categories")
-      .insert({
-        name: body.name,
-        slug: body.slug,
-        description: body.description,
-        image_url: body.image_url,
-        parent_id: body.parent_id,
-        display_order: body.display_order || 0,
-        is_active: body.is_active !== false,
-      })
-      .select()
-      .single();
+    const category = await Category.create({
+      name: body.name,
+      slug: body.slug,
+      description: body.description,
+      image_url: body.image_url,
+      parent_id: body.parent_id,
+      display_order: body.display_order || 0,
+      is_active: body.is_active !== false,
+    });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ category: data });
+    return NextResponse.json({ category: category.toJSON() });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

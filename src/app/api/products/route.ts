@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = getServiceSupabase();
+    const { Product } = await getDB();
     const url = new URL(req.url);
     
     const categoryId = url.searchParams.get("categoryId");
@@ -14,37 +15,48 @@ export async function GET(req: NextRequest) {
 
     console.log("Fetching products with params:", { categoryId, featured, search, limit, offset });
 
-    let query = supabase
-      .from("products")
-      .select(`
-        *,
-        category:categories(id, name, slug)
-      `)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+    const filter: any = { is_active: true };
 
     if (categoryId) {
-      query = query.eq("category_id", categoryId);
+      filter.category_id = categoryId;
     }
 
     if (featured === "true") {
-      query = query.eq("is_featured", true);
+      filter.is_featured = true;
     }
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } }
+      ];
     }
 
-    const { data, error, count } = await query;
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .populate('category_id', 'id name slug')
+        .sort({ created_at: -1 })
+        .skip(offset)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filter)
+    ]);
 
-    if (error) {
-      console.error("Supabase error fetching products:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const productsWithId = products.map(p => {
+      const product: any = { ...p, id: p._id.toString() };
+      delete product._id;
+      if (product.category_id) {
+        product.category = {
+          id: product.category_id._id?.toString() || product.category_id,
+          name: product.category_id.name,
+          slug: product.category_id.slug
+        };
+      }
+      return product;
+    });
 
-    console.log(`Successfully fetched ${data?.length || 0} products`);
-    return NextResponse.json({ products: data || [], total: count || 0 });
+    console.log(`Successfully fetched ${productsWithId.length} products`);
+    return NextResponse.json({ products: productsWithId, total });
   } catch (err: any) {
     console.error("Exception in GET /api/products:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -70,49 +82,35 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log("Creating product with data:", JSON.stringify(body, null, 2));
 
-    const supabase = getServiceSupabase();
+    const { Product } = await getDB();
 
-    const { data, error } = await supabase
-      .from("products")
-      .insert({
-        name: body.name,
-        slug: body.slug,
-        description: body.description,
-        short_description: body.short_description,
-        price: body.price,
-        sale_price: body.sale_price,
-        cost_price: body.cost_price,
-        sku: body.sku,
-        stock_quantity: body.stock_quantity || 0,
-        stock_status: body.stock_status || "in_stock",
-        manage_stock: body.manage_stock !== false,
-        category_id: body.category_id,
-        images: body.images || [],
-        featured_image: body.featured_image,
-        is_featured: body.is_featured || false,
-        is_active: body.is_active !== false,
-        homepage_section: body.homepage_section || null,
-        weight: body.weight,
-        dimensions: body.dimensions || {},
-        tags: body.tags || [],
-        meta_title: body.meta_title,
-        meta_description: body.meta_description,
-      })
-      .select()
-      .single();
+    const product = await Product.create({
+      name: body.name,
+      slug: body.slug,
+      description: body.description,
+      short_description: body.short_description,
+      price: body.price,
+      sale_price: body.sale_price,
+      cost_price: body.cost_price,
+      sku: body.sku,
+      stock_quantity: body.stock_quantity || 0,
+      stock_status: body.stock_status || "in_stock",
+      manage_stock: body.manage_stock !== false,
+      category_id: body.category_id,
+      images: body.images || [],
+      featured_image: body.featured_image,
+      is_featured: body.is_featured || false,
+      is_active: body.is_active !== false,
+      homepage_section: body.homepage_section || null,
+      weight: body.weight,
+      dimensions: body.dimensions || {},
+      tags: body.tags || [],
+      meta_title: body.meta_title,
+      meta_description: body.meta_description,
+    });
 
-    if (error) {
-      console.error("Supabase error creating product:", JSON.stringify(error, null, 2));
-      return NextResponse.json({ 
-        error: error.message, 
-        code: error.code,
-        details: error.details,
-        hint: error.hint 
-      }, { status: 500 });
-    }
-
-    console.log("Product created successfully:", data);
-    return NextResponse.json({ product: data });
+    console.log("Product created successfully:", product.id);
+    return NextResponse.json({ product: product.toJSON() });
   } catch (err: any) {
     console.error("Exception creating product:", err);
     return NextResponse.json({ 

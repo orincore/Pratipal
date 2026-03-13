@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
 import { requireCustomerSession } from "@/lib/customer-session";
+import getDB from "@/lib/db";
 
 export async function GET() {
   try {
     const session = await requireCustomerSession();
-    const supabase = getServiceSupabase();
+    const { CustomerAddress } = await getDB();
 
-    const { data, error } = await supabase
-      .from("customer_addresses")
-      .select("*")
-      .eq("customer_id", session.id)
-      .order("created_at", { ascending: true });
+    const addresses = await CustomerAddress.find({ customer_id: session.id })
+      .sort({ created_at: 1 })
+      .lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const data = addresses.map(addr => ({
+      ...addr,
+      id: addr._id.toString(),
+      _id: undefined
+    }));
 
-    return NextResponse.json({ addresses: data || [] });
+    return NextResponse.json({ addresses: data });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Unauthorized" },
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireCustomerSession();
     const body = await req.json();
-    const supabase = getServiceSupabase();
+    const { CustomerAddress } = await getDB();
 
     const address = {
       customer_id: session.id,
@@ -53,24 +53,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (address.is_default) {
-      await supabase
-        .from("customer_addresses")
-        .update({ is_default: false })
-        .eq("customer_id", session.id)
-        .eq("address_type", address.address_type);
+      await CustomerAddress.updateMany(
+        { customer_id: session.id, address_type: address.address_type },
+        { is_default: false }
+      );
     }
 
-    const { data, error } = await supabase
-      .from("customer_addresses")
-      .insert(address)
-      .select("*")
-      .single();
+    const newAddress = await CustomerAddress.create(address);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ address: data });
+    return NextResponse.json({ address: newAddress.toJSON() });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Unauthorized" },

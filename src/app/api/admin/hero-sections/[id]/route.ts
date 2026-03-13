@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 // GET single hero section
 export async function GET(
@@ -7,24 +8,24 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const user = getUserFromRequest(request);
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { HeroSection } = await getDB();
     const { id } = await context.params;
 
-    const { data, error } = await supabase
-      .from("hero_sections")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const heroSection = await HeroSection.findById(id).lean();
 
-    if (error) {
-      console.error("Error fetching hero section:", error);
+    if (!heroSection) {
       return NextResponse.json(
         { error: "Hero section not found" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ heroSection: data });
+    return NextResponse.json({ heroSection: { ...heroSection, id: heroSection._id.toString(), _id: undefined } });
   } catch (error) {
     console.error("Error in GET /api/admin/hero-sections/[id]:", error);
     return NextResponse.json(
@@ -40,26 +41,29 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const user = getUserFromRequest(request);
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { HeroSection } = await getDB();
     const { id } = await context.params;
     const body = await request.json();
 
-    const { data, error } = await supabase
-      .from("hero_sections")
-      .update(body)
-      .eq("id", id)
-      .select()
-      .single();
+    const heroSection = await HeroSection.findByIdAndUpdate(
+      id,
+      body,
+      { new: true }
+    ).lean();
 
-    if (error) {
-      console.error("Error updating hero section:", error);
+    if (!heroSection) {
       return NextResponse.json(
-        { error: "Failed to update hero section" },
-        { status: 500 }
+        { error: "Hero section not found" },
+        { status: 404 }
       );
     }
 
-    return NextResponse.json({ heroSection: data });
+    return NextResponse.json({ heroSection: { ...heroSection, id: heroSection._id.toString(), _id: undefined } });
   } catch (error) {
     console.error("Error in PUT /api/admin/hero-sections/[id]:", error);
     return NextResponse.json(
@@ -75,19 +79,20 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const user = getUserFromRequest(request);
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { HeroSection } = await getDB();
     const { id } = await context.params;
 
-    const { error } = await supabase
-      .from("hero_sections")
-      .delete()
-      .eq("id", id);
+    const result = await HeroSection.findByIdAndDelete(id);
 
-    if (error) {
-      console.error("Error deleting hero section:", error);
+    if (!result) {
       return NextResponse.json(
-        { error: "Failed to delete hero section" },
-        { status: 500 }
+        { error: "Hero section not found" },
+        { status: 404 }
       );
     }
 

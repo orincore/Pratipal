@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 function requireAdmin(req: NextRequest) {
   const user = getUserFromRequest(req);
@@ -19,30 +20,25 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = getServiceSupabase();
+  const { LandingPage } = await getDB();
 
   // Fetch the original page
-  const { data: original, error: fetchError } = await supabase
-    .from("landing_pages")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const original = await LandingPage.findById(id).lean();
 
-  if (fetchError || !original) {
+  if (!original) {
     return NextResponse.json(
-      { error: fetchError?.message ?? "Page not found" },
+      { error: "Page not found" },
       { status: 404 }
     );
   }
 
   // Generate a unique slug with -1, -2, -3 suffix
   const baseSlug = original.slug.replace(/-\d+$/, "");
-  const { data: existingPages } = await supabase
-    .from("landing_pages")
-    .select("slug")
-    .like("slug", `${baseSlug}%`);
+  const existingPages = await LandingPage.find({
+    slug: new RegExp(`^${baseSlug}`, 'i')
+  }).select('slug').lean();
 
-  const existingSlugs = new Set((existingPages ?? []).map((p: any) => p.slug));
+  const existingSlugs = new Set(existingPages.map((p: any) => p.slug));
   let newSlug = `${baseSlug}-1`;
   let counter = 1;
   while (existingSlugs.has(newSlug)) {
@@ -51,28 +47,22 @@ export async function POST(
   }
 
   // Create the duplicate
-  const { data: duplicated, error: insertError } = await supabase
-    .from("landing_pages")
-    .insert([
-      {
-        title: `${original.title} (Copy)`,
-        slug: newSlug,
-        content: original.content,
-        theme: original.theme,
-        seo_title: original.seo_title,
-        seo_description: original.seo_description,
-        status: "draft",
-      },
-    ])
-    .select("*")
-    .single();
+  try {
+    const duplicated = await LandingPage.create({
+      title: `${original.title} (Copy)`,
+      slug: newSlug,
+      content: original.content,
+      theme: original.theme,
+      seo_title: original.seo_title,
+      seo_description: original.seo_description,
+      status: "draft",
+    });
 
-  if (insertError || !duplicated) {
+    return NextResponse.json({ page: duplicated.toJSON() }, { status: 201 });
+  } catch (error: any) {
     return NextResponse.json(
-      { error: insertError?.message ?? "Failed to duplicate page" },
+      { error: error.message ?? "Failed to duplicate page" },
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ page: duplicated }, { status: 201 });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getServiceSupabase, signToken, getSessionCookieOptions } from "@/lib/auth";
+import { signToken, getSessionCookieOptions } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -15,22 +16,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { Customer } = await getDB();
 
-    const { data: customer, error } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("email", email.toLowerCase().trim())
-      .single();
+    const customerDoc = await Customer.findOne({ email: email.toLowerCase().trim() }).lean();
 
-    if (error || !customer) {
+    if (!customerDoc) {
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    const passwordValid = await bcrypt.compare(password, customer.password_hash);
+    const passwordValid = await bcrypt.compare(password, customerDoc.password_hash);
     if (!passwordValid) {
       return NextResponse.json(
         { error: "Invalid email or password" },
@@ -38,11 +35,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const customerId = customerDoc._id.toString();
+
     const token = signToken({
-      id: customer.id,
-      email: customer.email,
-      first_name: customer.first_name,
-      last_name: customer.last_name,
+      id: customerId,
+      email: customerDoc.email,
+      first_name: customerDoc.first_name,
+      last_name: customerDoc.last_name,
       role: "customer",
     });
 
@@ -50,15 +49,16 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({
       customer: {
-        id: customer.id,
-        email: customer.email,
-        first_name: customer.first_name,
-        last_name: customer.last_name,
-        phone: customer.phone,
-        is_verified: customer.is_verified,
+        id: customerId,
+        email: customerDoc.email,
+        first_name: customerDoc.first_name,
+        last_name: customerDoc.last_name,
+        phone: customerDoc.phone,
+        is_verified: customerDoc.is_verified,
       },
     });
 
+    console.log("customer-login: setting cookie", CUSTOMER_COOKIE_NAME);
     response.cookies.set(CUSTOMER_COOKIE_NAME, token, {
       maxAge: cookieOpts.maxAge,
       httpOnly: cookieOpts.httpOnly,

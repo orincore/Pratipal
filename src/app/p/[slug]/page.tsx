@@ -1,8 +1,8 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { DynamicPageRenderer } from "@/components/storefront/dynamic-page-renderer";
 import { LandingTemplate } from "@/components/storefront/landing-template";
+import getDB from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -11,15 +11,19 @@ interface Props {
 }
 
 async function getPublishedPage(slug: string) {
-  const supabase = await createServerSupabaseClient();
-  const { data } = await supabase
-    .from("landing_pages")
-    .select("title, seo_title, seo_description, content, theme")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .single();
+  const { LandingPage } = await getDB();
+  const page = await LandingPage.findOne({ slug, status: "published" })
+    .select("title slug seo_title seo_description content theme")
+    .lean();
 
-  return data ?? null;
+  if (!page) {
+    return null;
+  }
+
+  return {
+    ...page,
+    id: page._id ? page._id.toString() : page.id,
+  };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -48,7 +52,13 @@ export default async function DynamicLandingPage({ params }: Props) {
   const hasTemplate = content?.templateData != null;
 
   if (hasTemplate) {
-    return <LandingTemplate data={content.templateData} />;
+    return (
+      <LandingTemplate
+        data={content.templateData}
+        landingPageId={page!.id}
+        pageSlug={page!.slug || slug}
+      />
+    );
   }
 
   return (

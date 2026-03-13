@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
 import type { TrackingStatus } from "@/lib/ecommerce-types";
+import getDB from "@/lib/db";
 
 const TRACKING_STATUSES: TrackingStatus[] = [
   "order_received",
@@ -50,16 +51,14 @@ export async function PATCH(
       return NextResponse.json({ error: "No tracking fields provided" }, { status: 400 });
     }
 
-    const supabase = getServiceSupabase();
+    const { Order, OrderItem } = await getDB();
     const { id } = await context.params;
 
-    const { data: existingOrder, error: existingError } = await supabase
-      .from("orders")
-      .select("id, payment_method, payment_status")
-      .eq("id", id)
-      .single();
+    const existingOrder = await Order.findById(id)
+      .select('payment_method payment_status')
+      .lean();
 
-    if (existingError || !existingOrder) {
+    if (!existingOrder) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
@@ -71,21 +70,30 @@ export async function PATCH(
       updateData.payment_status = "paid";
     }
 
-    const { data, error } = await supabase
-      .from("orders")
-      .update(updateData)
-      .eq("id", id)
-      .select(
-        `*,
-        items:order_items(*)`
-      )
-      .single();
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    ).lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!updatedOrder) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ order: data });
+    const items = await OrderItem.find({ order_id: updatedOrder._id }).lean();
+
+    const orderData = {
+      ...updatedOrder,
+      id: updatedOrder._id.toString(),
+      _id: undefined,
+      items: items.map(item => ({
+        ...item,
+        id: item._id.toString(),
+        _id: undefined
+      }))
+    };
+
+    return NextResponse.json({ order: orderData });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

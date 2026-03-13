@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { LandingTemplateData } from "@/lib/template-types";
 import { DEFAULT_MEDIA_SETTINGS, normalizeTemplateData } from "@/lib/template-types";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, Clock3, MapPin, CheckCircle2 } from "lucide-react";
+import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Helper: hex to rgba
@@ -178,6 +178,121 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     }
   })();
 
+  const heroSlides = useMemo(() => {
+    const slides = (t.hero.heroMedia || [])
+      .filter((item) => item?.url && item.url.trim().length > 0)
+      .map((item) => ({ ...item, url: item.url.trim() }));
+    if (slides.length === 0 && hasContent(t.hero.heroImage)) {
+      return [{ url: t.hero.heroImage, label: t.hero.highlightedWord || "" }];
+    }
+    return slides;
+  }, [t.hero.heroMedia, t.hero.heroImage, t.hero.highlightedWord]);
+
+  const [currentHeroSlide, setCurrentHeroSlide] = useState(0);
+
+  useEffect(() => {
+    setCurrentHeroSlide((prev) => {
+      if (heroSlides.length === 0) return 0;
+      return Math.min(prev, heroSlides.length - 1);
+    });
+  }, [heroSlides.length]);
+
+  useEffect(() => {
+    if (!t.hero.carouselAutoplay || heroSlides.length <= 1) return;
+    const intervalDuration = Math.max(t.hero.carouselInterval || 5000, 2000);
+    const timer = setInterval(() => {
+      setCurrentHeroSlide((prev) => (prev + 1) % heroSlides.length);
+    }, intervalDuration);
+    return () => clearInterval(timer);
+  }, [t.hero.carouselAutoplay, t.hero.carouselInterval, heroSlides.length]);
+
+  const handleHeroSlideChange = (direction: "prev" | "next") => {
+    if (heroSlides.length <= 1) return;
+    setCurrentHeroSlide((prev) => {
+      if (direction === "prev") {
+        return prev === 0 ? heroSlides.length - 1 : prev - 1;
+      }
+      return prev === heroSlides.length - 1 ? 0 : prev + 1;
+    });
+  };
+
+  const renderHeroCarousel = () => {
+    if (heroSlides.length === 0) {
+      return renderMedia(t.hero.heroImage, mediaKey("hero", "heroImage"), {
+        wrapperClassName: "absolute inset-0 w-full h-full",
+        className: "w-full h-full object-cover",
+        alt: "Hero",
+      });
+    }
+
+    return (
+      <div className="group relative w-full h-full">
+        <div className="relative w-full h-full">
+          {heroSlides.map((slide, index) => (
+            <div
+              key={`${slide.url}-${index}`}
+              className={`absolute inset-0 transition-all duration-700 ease-in-out ${
+                index === currentHeroSlide
+                  ? "opacity-100 scale-100"
+                  : "opacity-0 scale-95 pointer-events-none"
+              }`}
+            >
+              {renderMedia(slide.url, mediaKey("hero", "heroMedia", index, "url"), {
+                wrapperClassName: "absolute inset-0 w-full h-full",
+                className: "w-full h-full object-cover",
+                alt: slide.label || `Hero slide ${index + 1}`,
+              })}
+              {slide.label && index === currentHeroSlide && (
+                <div className="absolute bottom-6 left-6 bg-white/80 backdrop-blur px-4 py-2 rounded-full text-xs font-semibold text-gray-700">
+                  {slide.label}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {heroSlides.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 text-gray-900 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition"
+              onClick={() => handleHeroSlideChange("prev")}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 text-gray-900 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition"
+              onClick={() => handleHeroSlideChange("next")}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              {heroSlides.map((_, index) => (
+                <button
+                  key={`dot-${index}`}
+                  type="button"
+                  onClick={() => setCurrentHeroSlide(index)}
+                  className={`h-2.5 rounded-full transition-all ${
+                    index === currentHeroSlide ? "w-8 bg-white" : "w-2 bg-white/60"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const withWrapper = (
+    element: React.ReactNode,
+    wrapperClassName?: string
+  ) => {
+    if (!wrapperClassName) return element;
+    return <div className={wrapperClassName}>{element}</div>;
+  };
+
   const renderMedia = (
     url?: string,
     key?: string,
@@ -198,124 +313,139 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
         modestbranding: "1",
         playsinline: "1",
       });
-      return (
-        <div
-          className={
-            [
-              "relative w-full overflow-hidden aspect-video",
-              options.wrapperClassName,
-            ].filter(Boolean).join(" ")
-          }
-        >
-          <iframe
-            src={`https://www.youtube.com/embed/${youtubeId}?${params.toString()}`}
-            className={[
-              "absolute inset-0 h-full w-full",
-              options.className,
-            ].filter(Boolean).join(" ")}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-          />
-        </div>
+      const iframe = (
+        <iframe
+          src={`https://www.youtube.com/embed/${youtubeId}?${params.toString()}`}
+          className={[
+            "absolute inset-0 h-full w-full",
+            options.className,
+          ].filter(Boolean).join(" ")}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      );
+      return withWrapper(
+        iframe,
+        options.wrapperClassName || "relative w-full overflow-hidden aspect-video"
       );
     }
 
     if (isVideo) {
-      return <video src={url} className={options.className} autoPlay controls muted={mediaSettings[key || ""]?.mute ?? true} />;
+      const settings = key ? mediaSettings[key] || DEFAULT_MEDIA_SETTINGS : DEFAULT_MEDIA_SETTINGS;
+      return withWrapper(
+        <video
+          src={url}
+          className={options.className}
+          autoPlay={settings.autoplay}
+          muted={settings.mute}
+          loop={settings.autoplay}
+          controls={!settings.autoplay}
+        />,
+        options.wrapperClassName
+      );
     }
 
-    return <img src={url} alt={options.alt || ""} className={options.className} />;
-  };
-
-  const withWrapper = (
-    element: React.ReactNode,
-    wrapperClassName?: string
-  ) => {
-    if (!wrapperClassName) return element;
-    return <div className={wrapperClassName}>{element}</div>;
+    return withWrapper(
+      <img src={url} alt={options.alt || ""} className={options.className} />,
+      options.wrapperClassName
+    );
   };
 
   const renderSection = (sectionKey: string) => {
     switch (sectionKey) {
       case 'hero':
-        return t.hero.visible && (
-        <section className="relative overflow-hidden" style={{ backgroundColor: c.heroBg }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div className="space-y-6">
-                {t.hero.badge && (
-                  <span
-                    className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider"
-                    style={{ backgroundColor: hexToRgba(c.primary, 0.15), color: c.primary }}
-                  >
-                    {t.hero.badge}
-                  </span>
-                )}
-                <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight text-gray-900">
-                  {t.hero.headline}{" "}
-                  {t.hero.highlightedWord && (
-                    <span className="relative inline-block">
-                      <span style={{ color: c.secondary }}>{t.hero.highlightedWord}</span>
-                      <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
-                        <path d="M2 8 C50 2, 150 2, 198 8" stroke={c.primary} strokeWidth="4" strokeLinecap="round" />
-                      </svg>
-                    </span>
-                  )}
-                </h1>
-                <p className="text-base sm:text-lg text-gray-600 font-body leading-relaxed max-w-2xl">
-                  {t.hero.subheadline}
-                </p>
-                {t.hero.bulletPoints.length > 0 && (
-                  <ul className="space-y-3">
-                    {t.hero.bulletPoints.map((point, i) => (
-                      <li key={i} className="flex items-start gap-3 text-gray-700 font-body">
+        return (
+          t.hero.visible && (
+            <section className="py-14 sm:py-20" style={{ backgroundColor: c.heroBg }}>
+              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="relative overflow-hidden rounded-[36px] border border-black/5 shadow-2xl">
+                  <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+                    {/* Media */}
+                    <div className="relative order-1 min-h-[320px] sm:min-h-[420px] lg:order-2">
+                      <div className="absolute inset-0">{renderHeroCarousel()}</div>
+                      <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-black/35 via-transparent to-transparent" />
+                    </div>
+
+                    {/* Content */}
+                    <div className="order-2 lg:order-1 bg-white/95 backdrop-blur-sm px-6 sm:px-10 py-10 lg:py-14 space-y-6">
+                      {t.hero.badge && (
                         <span
-                          className="mt-1 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center text-white text-xs"
+                          className="inline-flex px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider"
+                          style={{ backgroundColor: hexToRgba(c.primary, 0.1), color: c.primary }}
+                        >
+                          {t.hero.badge}
+                        </span>
+                      )}
+
+                      <div className="space-y-4">
+                        <h1 className="font-display text-[clamp(2.2rem,4vw,3.8rem)] leading-tight font-bold text-gray-900">
+                          {t.hero.headline}{" "}
+                          {t.hero.highlightedWord && (
+                            <span className="relative inline-block">
+                              <span style={{ color: c.secondary }}>{t.hero.highlightedWord}</span>
+                              <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
+                                <path d="M2 8 C50 2, 150 2, 198 8" stroke={c.primary} strokeWidth="4" strokeLinecap="round" />
+                              </svg>
+                            </span>
+                          )}
+                        </h1>
+                        {hasContent(t.hero.subheadline) && (
+                          <p className="text-base sm:text-lg text-gray-600 font-body leading-relaxed">
+                            {t.hero.subheadline}
+                          </p>
+                        )}
+                      </div>
+
+                      {Array.isArray(t.hero.bulletPoints) && t.hero.bulletPoints.filter(Boolean).length > 0 && (
+                        <ul className="space-y-3">
+                          {t.hero.bulletPoints.filter(Boolean).map((point, i) => (
+                            <li key={i} className="flex items-start gap-3 text-gray-700 font-body">
+                              <span
+                                className="mt-1 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center text-white text-xs"
+                                style={{ backgroundColor: c.primary }}
+                              >
+                                ✓
+                              </span>
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-5 pt-2">
+                        <a
+                          href={resolveLink(t.hero.ctaButtonLink)}
+                          className="inline-flex items-center px-7 sm:px-8 py-3.5 sm:py-4 rounded-full text-white font-semibold text-base sm:text-lg shadow-lg transition-all duration-300 hover:-translate-y-0.5"
                           style={{ backgroundColor: c.primary }}
                         >
-                          ✓
-                        </span>
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="flex flex-wrap items-center gap-4 pt-2 sm:gap-6">
-                  <a
-                    href={t.hero.ctaButtonLink}
-                    className="inline-flex items-center px-8 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
-                    style={{ backgroundColor: c.primary }}
-                  >
-                    {t.hero.ctaButtonText}
-                    <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                  </a>
-                </div>
-                {t.hero.floatingStats.length > 0 && (
-                  <div className="flex flex-wrap gap-6 pt-4">
-                    {t.hero.floatingStats.map((stat, i) => (
-                      <div key={i} className="text-center">
-                        <div className="text-2xl font-bold font-display" style={{ color: c.secondary }}>{stat.value}</div>
-                        <div className="text-xs text-gray-500 font-body uppercase tracking-wider">{stat.label}</div>
+                          {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
+                          <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </a>
+
+                        {Array.isArray(t.hero.floatingStats) && t.hero.floatingStats.length > 0 && (
+                          <div className="flex flex-wrap gap-6">
+                            {t.hero.floatingStats.map((stat, i) => (
+                              <div key={i} className="text-center">
+                                <div className="text-xl font-bold font-display" style={{ color: c.secondary }}>
+                                  {stat.value}
+                                </div>
+                                <div className="text-[11px] text-gray-500 font-body uppercase tracking-wider">
+                                  {stat.label}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
-              <div className="relative mt-10 lg:mt-0">
-                <div
-                  className="absolute inset-4 rounded-3xl -rotate-3 opacity-20"
-                  style={{ backgroundColor: c.primary }}
-                />
-                {renderMedia(t.hero.heroImage, mediaKey("hero", "heroImage"), {
-                  wrapperClassName: "rounded-3xl shadow-2xl overflow-hidden",
-                  className: "object-cover",
-                  alt: "Hero",
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-      );
+            </section>
+          )
+        );
       
       case 'marquee':
         return t.marquee.enabled && <Marquee items={t.marquee.items} color={c.secondary} />;
@@ -621,60 +751,68 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'invitation':
         return t.invitation.enabled && (
-        <section className="py-16" style={{ backgroundColor: hexToRgba(c.primary, 0.06) }}>
-          <div className="max-w-2xl mx-auto px-4 sm:px-6">
-            <div className="bg-white rounded-3xl shadow-xl p-6 sm:p-10 relative overflow-hidden">
-              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full" style={{ background: hexToRgba(c.primary, 0.15) }} />
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 relative z-10">
-                <div>
-                  <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide bg-pink-100 text-pink-600 px-3 py-1 rounded-full">
-                    <span>{t.invitation.badgeEmoji}</span>
-                    {t.invitation.badgeText}
+        <section className="py-12 sm:py-14" style={{ backgroundColor: hexToRgba(c.primary, 0.06) }}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="bg-white rounded-[32px] shadow-xl p-6 sm:p-8 lg:p-10 relative overflow-hidden">
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full" style={{ background: hexToRgba(c.primary, 0.12) }} />
+              <div className="relative z-10 space-y-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="max-w-2xl">
+                    <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide bg-pink-100 text-pink-600 px-3 py-1 rounded-full">
+                      <span>{t.invitation.badgeEmoji}</span>
+                      {t.invitation.badgeText}
+                    </div>
+                    <h2 className="font-display text-3xl lg:text-4xl font-bold text-gray-900 mt-4">{t.invitation.title}</h2>
+                    <p className="text-gray-600 mt-2 text-sm sm:text-base">{t.invitation.subtitle}</p>
                   </div>
-                  <h2 className="font-display text-3xl font-bold text-gray-900 mt-4">{t.invitation.title}</h2>
-                  <p className="text-gray-600 mt-2 text-sm sm:text-base">{t.invitation.subtitle}</p>
-                </div>
-              </div>
-
-              <div className="space-y-5 relative z-10">
-                <div className="flex items-center gap-3 border border-gray-100 rounded-2xl p-4 bg-gray-50/60">
-                  <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
-                    <CalendarDays className="h-5 w-5 text-pink-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">{t.invitation.dateLabel}</p>
-                    <p className="text-xl font-bold text-gray-900">{t.invitation.dateValue}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 border border-gray-100 rounded-2xl p-4 bg-gray-50/60">
-                  <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
-                    <Clock3 className="h-5 w-5 text-violet-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">{t.invitation.timeLabel}</p>
-                    <p className="text-xl font-bold text-gray-900">{t.invitation.timeValue}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 border border-gray-100 rounded-2xl p-4 bg-gray-50/60">
-                  <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
-                    <MapPin className="h-5 w-5 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">{t.invitation.venueLabel}</p>
-                    <p className="text-sm font-semibold text-gray-900">{t.invitation.venueValue}</p>
+                  <div className="flex items-center gap-3 rounded-3xl bg-gray-50/80 p-4 shadow-inner">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                    <p className="text-sm font-semibold text-gray-700">{t.invitation.availabilityText}</p>
                   </div>
                 </div>
 
-                <div className="pt-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="flex items-center gap-3 border border-gray-100 rounded-2xl p-4 bg-gray-50/60">
+                    <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                      <CalendarDays className="h-5 w-5 text-pink-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">{t.invitation.dateLabel}</p>
+                      <p className="text-xl font-bold text-gray-900">{t.invitation.dateValue}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 border border-gray-100 rounded-2xl p-4 bg-gray-50/60">
+                    <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                      <Clock3 className="h-5 w-5 text-violet-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">{t.invitation.timeLabel}</p>
+                      <p className="text-xl font-bold text-gray-900">{t.invitation.timeValue}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 border border-gray-100 rounded-2xl p-4 bg-gray-50/60">
+                    <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                      <MapPin className="h-5 w-5 text-emerald-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">{t.invitation.venueLabel}</p>
+                      <p className="text-sm font-semibold text-gray-900">{t.invitation.venueValue}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
                   <Button
                     size="lg"
-                    className="w-full text-base font-semibold h-14 rounded-2xl"
+                    className="w-full sm:w-auto text-base font-semibold h-14 rounded-2xl px-10"
                     style={{ backgroundColor: c.primary, color: "#1B1F3A" }}
                     onClick={() => setInvitationDialogOpen(true)}
                   >
                     {t.invitation.buttonText}
                   </Button>
-                  <p className="text-xs text-gray-500 text-center mt-2">{t.invitation.availabilityText}</p>
+                  <p className="text-xs text-gray-500 text-center sm:text-left">
+                    {t.invitation.supportText}
+                  </p>
                 </div>
               </div>
             </div>

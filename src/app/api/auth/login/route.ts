@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import {
-  getServiceSupabase,
   signToken,
   getSessionCookieOptions,
   COOKIE_NAME,
 } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,15 +18,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { AuthUser } = await getDB();
 
-    const { data: user, error } = await supabase
-      .from("auth_users")
-      .select("id, email, password_hash, full_name, role, status")
-      .eq("email", email.toLowerCase().trim())
-      .single();
+    const user = await AuthUser.findOne({ email: email.toLowerCase().trim() }).lean();
 
-    if (error || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }

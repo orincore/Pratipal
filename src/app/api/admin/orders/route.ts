@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,20 +9,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = getServiceSupabase();
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        items:order_items(*)
-      `)
-      .order("created_at", { ascending: false });
+    const { Order, OrderItem } = await getDB();
+    
+    const orders = await Order.find({})
+      .sort({ created_at: -1 })
+      .lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const ordersWithItems = await Promise.all(
+      orders.map(async (order) => {
+        const items = await OrderItem.find({ order_id: order._id }).lean();
+        return {
+          ...order,
+          id: order._id.toString(),
+          _id: undefined,
+          items: items.map(item => ({
+            ...item,
+            id: item._id.toString(),
+            _id: undefined
+          }))
+        };
+      })
+    );
 
-    return NextResponse.json({ orders: data || [] });
+    return NextResponse.json({ orders: ordersWithItems });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

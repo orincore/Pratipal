@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, getUserFromRequest } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 function sanitizeText(value?: string | null) {
   return (value ?? "").trim();
@@ -18,9 +19,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { InvitationRequest } = await getDB();
 
-    const { error } = await supabase.from("invitation_requests").insert({
+    await InvitationRequest.create({
       landing_page_id: sanitizeText(body.landingPageId) || null,
       landing_page_slug: sanitizeText(body.landingPageSlug) || null,
       first_name: firstName,
@@ -28,14 +29,6 @@ export async function POST(req: NextRequest) {
       whatsapp_number: sanitizeText(body.whatsappNumber) || null,
       gender: sanitizeText(body.gender) || null,
     });
-
-    if (error) {
-      console.error("Invitation request failed", error);
-      return NextResponse.json(
-        { error: "Unable to save request. Please try again." },
-        { status: 500 }
-      );
-    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
@@ -53,24 +46,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = getServiceSupabase();
+  const { InvitationRequest } = await getDB();
   const url = new URL(req.url);
   const landingPageId = url.searchParams.get("landingPageId");
 
-  let query = supabase
-    .from("invitation_requests")
-    .select("id, landing_page_id, landing_page_slug, first_name, email, whatsapp_number, gender, created_at")
-    .order("created_at", { ascending: false });
-
+  const filter: any = {};
   if (landingPageId) {
-    query = query.eq("landing_page_id", landingPageId);
+    filter.landing_page_id = landingPageId;
   }
 
-  const { data, error } = await query;
+  const invitations = await InvitationRequest.find(filter)
+    .select('landing_page_id landing_page_slug first_name email whatsapp_number gender created_at')
+    .sort({ created_at: -1 })
+    .lean();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const data = invitations.map(inv => ({
+    ...inv,
+    id: inv._id.toString(),
+    _id: undefined
+  }));
 
-  return NextResponse.json({ invitations: data ?? [] });
+  return NextResponse.json({ invitations: data });
 }

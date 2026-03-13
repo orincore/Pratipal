@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
@@ -13,25 +13,25 @@ export async function GET(
       return NextResponse.json({ error: "Slug is required" }, { status: 400 });
     }
 
-    const supabase = getServiceSupabase();
+    const { Product } = await getDB();
 
-    const { data, error } = await supabase
-      .from("products")
-      .select(`
-        *,
-        category:categories(id, name, slug)
-      `)
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .single();
+    const product = await Product.findOne({ slug, is_active: true })
+      .populate('category_id', 'id name slug')
+      .lean();
 
-    if (error) {
-      console.error("Error fetching product by slug:", error);
-      return NextResponse.json({ error: error.message }, { status: 404 });
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    if (!data) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    const data: any = { ...product, id: product._id.toString() };
+    delete data._id;
+    
+    if (data.category_id) {
+      data.category = {
+        id: data.category_id._id?.toString() || data.category_id,
+        name: data.category_id.name,
+        slug: data.category_id.slug
+      };
     }
 
     return NextResponse.json({ product: data });

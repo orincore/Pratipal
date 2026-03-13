@@ -1,12 +1,32 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Calendar, User, Loader2, Heart, Sparkles, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { SESSION_TYPES } from "@/lib/session-types";
+import { useCustomerAuth } from "@/lib/customer-auth-context";
+
+interface ServiceFrequency {
+  label: string;
+  value: string;
+  price: number;
+}
+
+interface ServiceItem {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  detailed_description?: string;
+  image_url: string;
+  base_price: number;
+  frequency_options: ServiceFrequency[];
+  category: string;
+}
 
 export function BookingSection() {
   const [step, setStep] = useState<'selection' | 'details'>('selection');
@@ -17,43 +37,58 @@ export function BookingSection() {
     customerPhone: "",
     sessionType: "",
     frequency: "",
-    healingType: "",
-    courseType: "",
     notes: "",
   });
   const [selectedAmount, setSelectedAmount] = useState(0);
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+  const { customer } = useCustomerAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    async function loadServices() {
+      try {
+        const res = await fetch("/api/services", { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error("Failed to fetch services");
+        }
+        const data = await res.json();
+        setServices(data.services || []);
+      } catch (error) {
+        console.error("Services fetch error:", error);
+        setServicesError("Unable to load services. Please try again later.");
+      } finally {
+        setServicesLoading(false);
+      }
+    }
+
+    loadServices();
+  }, []);
+
+  const selectedService = useMemo(
+    () => services.find((service) => service.id === formData.sessionType),
+    [services, formData.sessionType]
+  );
 
   const handleSessionTypeChange = (value: string) => {
     setFormData({
       ...formData,
       sessionType: value,
       frequency: "",
-      healingType: "",
-      courseType: "",
     });
-    setSelectedAmount(0);
+    const service = services.find((item) => item.id === value);
+    if (service) {
+      setSelectedAmount(service.frequency_options.length ? 0 : service.base_price);
+    } else {
+      setSelectedAmount(0);
+    }
   };
 
   const handleFrequencyChange = (value: string) => {
     setFormData({ ...formData, frequency: value });
-    const freq = SESSION_TYPES.one_to_one.frequencies.find((f) => f.value === value);
-    setSelectedAmount(freq?.price || 0);
-  };
-
-  const handleHealingTypeChange = (value: string) => {
-    setFormData({ ...formData, healingType: value });
-    const type = SESSION_TYPES.need_based.types.find((t) => t.value === value);
-    setSelectedAmount(type?.price || 0);
-  };
-
-  const handleCourseTypeChange = (value: string) => {
-    setFormData({ ...formData, courseType: value });
-    const course = SESSION_TYPES.learning_curve.courses.find((c) => c.value === value);
-    setSelectedAmount(course?.price || 0);
-  };
-
-  const handleGroupHealingSelect = () => {
-    setSelectedAmount(SESSION_TYPES.group_healing.price);
+    const option = selectedService?.frequency_options.find((f) => f.value === value);
+    setSelectedAmount(option?.price || selectedService?.base_price || 0);
   };
 
   const handleContinueToDetails = () => {
@@ -63,6 +98,11 @@ export function BookingSection() {
     }
     if (selectedAmount === 0) {
       toast.error("Please select a session option");
+      return;
+    }
+    if (!customer) {
+      toast.info("Please login to continue");
+      router.push("/login?redirect=/");
       return;
     }
     setStep('details');
@@ -94,62 +134,52 @@ export function BookingSection() {
     setLoading(true);
 
     try {
-      const bookingRes = await fetch("/api/sessions/create-booking", {
+      // Create booking and Razorpay order
+      const bookingRes = await fetch("/api/bookings/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          customer_id: customer?.id,
+          service_id: selectedService?.id,
+          service_name: selectedService?.title,
+          service_category: selectedService?.category,
+          frequency_label: formData.sessionType,
+          customer_name: formData.customerName,
+          customer_email: formData.customerEmail,
+          customer_phone: formData.customerPhone,
           amount: selectedAmount,
         }),
       });
 
       if (!bookingRes.ok) {
-        throw new Error("Failed to create booking");
+        const error = await bookingRes.json();
+        throw new Error(error.error || "Failed to create booking");
       }
 
-      const { booking } = await bookingRes.json();
-
-      const paymentRes = await fetch("/api/sessions/create-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          amount: selectedAmount,
-        }),
-      });
-
-      if (!paymentRes.ok) {
-        throw new Error("Failed to create payment order");
-      }
-
-      const { orderId } = await paymentRes.json();
+      const { booking, razorpay_order_id, razorpay_key_id } = await bookingRes.json();
 
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
         throw new Error("Failed to load payment gateway");
       }
 
-      const whatsappMessage = `Hi! I've booked a session (${booking.booking_number}). Looking forward to connecting!`;
-      const whatsappNumber = "919876543210";
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
-
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: razorpay_key_id,
         amount: selectedAmount * 100,
         currency: "INR",
         name: "Pratipal Healing",
-        description: `Session Booking - ${booking.booking_number}`,
-        order_id: orderId,
+        description: `${selectedService?.title} - ${booking.booking_number}`,
+        order_id: razorpay_order_id,
         handler: async function (response: any) {
           try {
-            const verifyRes = await fetch("/api/sessions/verify-payment", {
+            const verifyRes = await fetch("/api/bookings/verify-payment", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                bookingId: booking.id,
+                booking_id: booking.id,
               }),
             });
 
@@ -157,8 +187,16 @@ export function BookingSection() {
               throw new Error("Payment verification failed");
             }
 
-            window.open(whatsappUrl, "_blank");
-            window.location.href = `/booking-success?bookingId=${booking.id}`;
+            const { whatsapp_url } = await verifyRes.json();
+            
+            // Redirect to WhatsApp
+            window.open(whatsapp_url, "_blank");
+            
+            // Redirect to success page
+            toast.success("Payment successful! Redirecting...");
+            setTimeout(() => {
+              window.location.href = `/account/orders`;
+            }, 1500);
           } catch (error) {
             console.error("Payment verification error:", error);
             toast.error("Payment verification failed. Please contact support.");
@@ -190,113 +228,113 @@ export function BookingSection() {
   };
 
   return (
-    <section id="booking" className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-white">
-      <div className="container">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
-            <Calendar className="h-4 w-4 text-brand-teal" />
-            <span className="text-sm font-medium text-brand-teal">Book Your Healing Journey</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-brand mb-4">
+    <section id="booking" className="py-20 md:py-28 bg-[#f5f4ef]">
+      <div className="container max-w-6xl">
+        <div className="text-center mb-14 space-y-3">
+          <span className="inline-flex items-center justify-center rounded-full border border-gray-300 px-4 py-1 text-xs uppercase tracking-[0.25em] text-gray-500">
             Services
+          </span>
+          <h2 className="text-4xl md:text-[46px] font-serif text-gray-900 leading-tight">
+            Tailored Healing & Learning Programs
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Learn to cure yourself and many. Points of transformation & training courses
+          <p className="text-base md:text-lg text-gray-600 max-w-3xl mx-auto">
+            Curated offerings that combine clinical precision with intuitive care. Select a service, choose the cadence that suits you, and begin a considered transformation.
           </p>
         </div>
 
         {step === 'selection' ? (
-          // Step 1: Two-Panel Split Layout
-          <div className="flex flex-col md:flex-row gap-8 items-start max-w-7xl mx-auto">
+          <div className="flex flex-col lg:flex-row gap-8 items-start">
             {/* Left Panel: Service Cards (40%) */}
-            <div className="w-full md:w-2/5">
-              {/* Mobile: Horizontal scroll */}
+            <div className="w-full lg:w-2/5 space-y-4">
               <div className="md:hidden flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
                 {renderServiceCards()}
               </div>
-              {/* Desktop: Vertical list */}
-              <div className="hidden md:flex flex-col gap-4">
+              <div className="hidden md:flex flex-col gap-3">
                 {renderServiceCards()}
               </div>
             </div>
 
             {/* Right Panel: Selection Options (60%) */}
-            <div className="w-full md:w-3/5">
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl p-8 md:p-10 border border-gray-100 min-h-[400px] transition-all duration-500">
-                {!formData.sessionType ? (
-                  // Placeholder
+            <div className="w-full lg:w-3/5">
+              <div className="bg-white border border-gray-200 rounded-[18px] shadow-[0_15px_60px_rgba(15,23,42,0.04)] p-8 md:p-10 min-h-[440px] space-y-6">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-gray-400">Overview</p>
+                  <h3 className="mt-2 text-2xl font-serif text-gray-900">Selected Program</h3>
+                </div>
+                {servicesLoading ? (
                   <div className="flex items-center justify-center h-full min-h-[300px]">
                     <div className="text-center space-y-4">
-                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-brand/10 mb-4">
-                        <ArrowRight className="h-10 w-10 text-brand-teal rotate-180" />
-                      </div>
-                      <h3 className="text-2xl font-serif font-bold text-gradient-brand">
-                        Select a service to get started
-                      </h3>
-                      <p className="text-gray-600">
-                        Choose from our healing services on the left
-                      </p>
+                      <Loader2 className="h-12 w-12 animate-spin text-brand-teal mx-auto" />
+                      <p className="text-gray-500">Loading services...</p>
                     </div>
                   </div>
-                ) : formData.sessionType === 'group_healing' ? (
-                  // Group Healing Summary
-                  <div className="space-y-6 animate-fadeIn">
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 mb-4 shadow-lg">
-                        <Leaf className="h-8 w-8 text-white" />
-                      </div>
-                      <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Group Healing</h3>
-                      <p className="text-gray-600">Collective healing circles & spiritual guidance</p>
-                    </div>
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-200">
-                      <div className="text-center">
-                        <span className="text-sm text-gray-600 uppercase tracking-wider block mb-2">Fixed Price</span>
-                        <span className="text-5xl font-bold text-gradient-brand">
-                          ₹{SESSION_TYPES.group_healing.price.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-3 text-gray-700">
-                      <p>Join our collective healing circles where the power of group energy amplifies individual transformation.</p>
-                      <ul className="space-y-2">
-                        <li className="flex items-start gap-2">
-                          <span className="text-brand-teal mt-1">•</span>
-                          <span>Shared healing experience with like-minded individuals</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-brand-teal mt-1">•</span>
-                          <span>Guided meditation and energy work</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-brand-teal mt-1">•</span>
-                          <span>Community support and spiritual guidance</span>
-                        </li>
-                      </ul>
+                ) : servicesError ? (
+                  <div className="flex items-center justify-center h-full min-h-[300px]">
+                    <div className="text-center space-y-4">
+                      <p className="text-lg font-semibold text-red-500">{servicesError}</p>
+                      <Button onClick={() => window.location.reload()} variant="outline">
+                        Retry
+                      </Button>
                     </div>
                   </div>
-                ) : (
-                  // Options for other session types
-                  <div className="space-y-6 animate-fadeIn">
+                ) : !formData.sessionType ? (
+                  <div className="flex items-center justify-center h-full min-h-[300px]">
+                    <div className="text-center space-y-3 text-gray-500">
+                      <div className="inline-flex items-center justify-center h-14 w-14 rounded-md border border-dashed border-gray-300">
+                        <ArrowRight className="h-5 w-5" />
+                      </div>
+                      <p className="text-lg font-medium text-gray-800">Select a service to begin</p>
+                      <p>Browse the programs on the left to view their detail and schedule.</p>
+                    </div>
+                  </div>
+                ) : selectedService ? (
+                  <div className="space-y-8 animate-fadeIn">
+                    <div className="flex flex-col lg:flex-row gap-6">
+                      <div className="relative w-full lg:w-2/5 overflow-hidden border border-gray-200 bg-white rounded-[14px]">
+                        <Image
+                          src={selectedService.image_url || "/placeholder.jpg"}
+                          alt={selectedService.title}
+                          width={480}
+                          height={360}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 space-y-4">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                          <span className="inline-flex items-center px-3 py-[2px] border border-gray-300 rounded-full uppercase tracking-wide">
+                            {selectedService.category}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-[2px] text-[11px] bg-gray-100 rounded-full">
+                            {selectedService.frequency_options.length || 1} options available
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          <h3 className="text-3xl font-serif text-gray-900 leading-tight">
+                            {selectedService.title}
+                          </h3>
+                          <p className="text-gray-600 leading-relaxed">
+                            {selectedService.detailed_description || selectedService.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     {renderOptionsPanel()}
                   </div>
+                ) : (
+                  <div className="text-center text-gray-500">Service unavailable.</div>
                 )}
 
                 {/* Amount Banner & Continue Button */}
                 {selectedAmount > 0 && (
-                  <div className="mt-8 space-y-4 animate-fadeIn">
-                    <div className="relative overflow-hidden bg-gradient-to-r from-brand-teal via-brand-green to-brand-teal rounded-2xl p-6 shadow-xl">
-                      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 animate-pulse"></div>
-                      <div className="relative z-10 flex items-center justify-between">
-                        <span className="text-white/90 text-sm font-medium uppercase tracking-wider">Session Amount</span>
-                        <span className="text-3xl font-bold text-white">
-                          ₹{selectedAmount.toLocaleString()}
-                        </span>
-                      </div>
+                  <div className="pt-4 space-y-4 border-t">
+                    <div className="flex items-center justify-between text-gray-800">
+                      <span className="text-sm uppercase tracking-[0.3em] text-gray-500">Total</span>
+                      <span className="text-2xl font-semibold">₹{selectedAmount.toLocaleString()}</span>
                     </div>
                     <Button
                       onClick={handleContinueToDetails}
-                      className="w-full h-14 text-lg font-semibold shadow-xl hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-300"
-                      variant="cta"
+                      className="w-full h-13 text-base font-semibold bg-gray-900 text-white hover:bg-gray-800"
                     >
                       Continue to Details
                       <ArrowRight className="ml-2 h-5 w-5" />
@@ -309,7 +347,7 @@ export function BookingSection() {
         ) : (
           // Step 2: Personal Details & Payment (unchanged)
           <div className="max-w-3xl mx-auto">
-            <form onSubmit={handleSubmit} className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl p-10 md:p-12 space-y-8 border border-gray-100">
+            <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl shadow-sm p-10 md:p-12 space-y-8">
               <button
                 type="button"
                 onClick={() => setStep('selection')}
@@ -320,14 +358,12 @@ export function BookingSection() {
               </button>
 
               <div className="space-y-8">
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-brand mb-4 shadow-lg">
-                    <User className="h-8 w-8 text-white" />
+                <div className="text-center space-y-3">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-md border border-gray-300 mb-2">
+                    <User className="h-6 w-6 text-gray-700" />
                   </div>
-                  <h3 className="text-3xl font-serif font-bold text-gradient-brand mb-2">
-                    Your Information
-                  </h3>
-                  <p className="text-gray-600">We'll use this to confirm your booking and send you details</p>
+                  <h3 className="text-3xl font-serif text-gray-900">Your Information</h3>
+                  <p className="text-gray-600">We’ll confirm your booking and share guidance using these details.</p>
                 </div>
                 
                 <div className="grid md:grid-cols-2 gap-6">
@@ -425,40 +461,17 @@ export function BookingSection() {
 
   // Helper function to render service cards
   function renderServiceCards() {
-    const services = [
-      {
-        id: 'one_to_one',
-        icon: Heart,
-        title: 'One to One',
-        description: 'Personalized healing sessions',
-        gradient: 'from-purple-500 to-pink-500',
-        price: SESSION_TYPES.one_to_one.frequencies[0].price,
-      },
-      {
-        id: 'need_based',
-        icon: Sparkles,
-        title: 'Need Based',
-        description: 'Specialized healing modalities',
-        gradient: 'from-blue-500 to-teal-500',
-        price: SESSION_TYPES.need_based.types[0].price,
-      },
-      {
-        id: 'group_healing',
-        icon: Leaf,
-        title: 'Group Healing',
-        description: 'Collective healing circles',
-        gradient: 'from-green-500 to-emerald-500',
-        price: SESSION_TYPES.group_healing.price,
-      },
-      {
-        id: 'learning_curve',
-        icon: User,
-        title: 'Learning Curve',
-        description: 'Transformative training courses',
-        gradient: 'from-orange-500 to-amber-500',
-        price: SESSION_TYPES.learning_curve.courses[0].price,
-      },
-    ];
+    if (servicesLoading) {
+      return [1, 2, 3].map((i) => (
+        <div key={i} className="h-24 bg-white/60 rounded-2xl border border-dashed border-gray-200 animate-pulse" />
+      ));
+    }
+
+    if (!services.length) {
+      return (
+        <div className="text-gray-500 text-sm">No services available right now.</div>
+      );
+    }
 
     return services.map((service) => (
       <div
@@ -470,15 +483,18 @@ export function BookingSection() {
         } ${formData.sessionType === service.id ? '' : 'md:hover:-translate-x-1'}`}
         onClick={() => {
           handleSessionTypeChange(service.id);
-          if (service.id === 'group_healing') {
-            handleGroupHealingSelect();
-          }
         }}
         style={{ minWidth: formData.sessionType ? 'auto' : '280px' }}
       >
         <div className="flex items-center gap-4">
-          <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br ${service.gradient} shadow-md flex-shrink-0`}>
-            <service.icon className="h-5 w-5 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-brand/10 shadow-inner flex-shrink-0 overflow-hidden">
+            <Image
+              src={service.image_url || "/placeholder.jpg"}
+              alt={service.title}
+              width={64}
+              height={64}
+              className="object-cover w-full h-full"
+            />
           </div>
           <div className="flex-grow min-w-0">
             <h3 className="text-lg font-serif font-bold text-gray-800 mb-1 truncate">
@@ -488,7 +504,7 @@ export function BookingSection() {
               {service.description}
             </p>
             <div className="text-xs text-gray-500 mt-1">
-              From <span className="font-semibold text-gradient-brand">₹{service.price.toLocaleString()}</span>
+              Starts at <span className="font-semibold text-gradient-brand">₹{(service.frequency_options[0]?.price || service.base_price).toLocaleString()}</span>
             </div>
           </div>
           {formData.sessionType === service.id && (
@@ -505,96 +521,48 @@ export function BookingSection() {
 
   // Helper function to render options panel
   function renderOptionsPanel() {
-    if (formData.sessionType === 'one_to_one') {
+    if (!selectedService) return null;
+
+    if (selectedService.frequency_options.length === 0) {
       return (
-        <>
-          <div className="text-center">
-            <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Frequency</h3>
-            <p className="text-gray-600">Select the session frequency that works best for you</p>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-xl font-serif font-semibold text-gray-800">One-time Session</h4>
+              <p className="text-gray-600 text-sm">Fixed investment for this service</p>
+            </div>
+            <span className="text-3xl font-bold text-gradient-brand">₹{selectedService.base_price.toLocaleString()}</span>
           </div>
-          <div className="grid gap-3">
-            {SESSION_TYPES.one_to_one.frequencies.map((freq) => (
-              <button
-                key={freq.value}
-                type="button"
-                onClick={() => handleFrequencyChange(freq.value)}
-                className={`text-left p-4 rounded-xl border-2 transition-all duration-300 ${
-                  formData.frequency === freq.value
-                    ? 'border-brand-teal bg-gradient-to-r from-purple-50 to-pink-50 shadow-md'
-                    : 'border-gray-200 hover:border-brand-teal/50 hover:shadow-sm bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-800">{freq.label}</span>
-                  <span className="text-gradient-brand font-bold text-lg">₹{freq.price.toLocaleString()}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </>
+        </div>
       );
     }
 
-    if (formData.sessionType === 'need_based') {
-      return (
-        <>
-          <div className="text-center">
-            <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Healing</h3>
-            <p className="text-gray-600">Select the specialized healing modality you need</p>
-          </div>
-          <div className="grid gap-3">
-            {SESSION_TYPES.need_based.types.map((type) => (
-              <button
-                key={type.value}
-                type="button"
-                onClick={() => handleHealingTypeChange(type.value)}
-                className={`text-left p-4 rounded-xl border-2 transition-all duration-300 ${
-                  formData.healingType === type.value
-                    ? 'border-brand-teal bg-gradient-to-r from-blue-50 to-teal-50 shadow-md'
-                    : 'border-gray-200 hover:border-brand-teal/50 hover:shadow-sm bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-800">{type.label}</span>
-                  <span className="text-gradient-brand font-bold text-lg">₹{type.price.toLocaleString()}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </>
-      );
-    }
-
-    if (formData.sessionType === 'learning_curve') {
-      return (
-        <>
-          <div className="text-center">
-            <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose Your Course</h3>
-            <p className="text-gray-600">Select the transformative training that resonates with you</p>
-          </div>
-          <div className="grid gap-3">
-            {SESSION_TYPES.learning_curve.courses.map((course) => (
-              <button
-                key={course.value}
-                type="button"
-                onClick={() => handleCourseTypeChange(course.value)}
-                className={`text-left p-4 rounded-xl border-2 transition-all duration-300 ${
-                  formData.courseType === course.value
-                    ? 'border-brand-teal bg-gradient-to-r from-orange-50 to-amber-50 shadow-md'
-                    : 'border-gray-200 hover:border-brand-teal/50 hover:shadow-sm bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-800">{course.label}</span>
-                  <span className="text-gradient-brand font-bold text-lg">₹{course.price.toLocaleString()}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </>
-      );
-    }
-
-    return null;
+    return (
+      <>
+        <div className="text-center">
+          <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">Choose an Option</h3>
+          <p className="text-gray-600">Select the plan or frequency that aligns with your healing journey</p>
+        </div>
+        <div className="grid gap-3">
+          {selectedService.frequency_options.map((freq) => (
+            <button
+              key={freq.value}
+              type="button"
+              onClick={() => handleFrequencyChange(freq.value)}
+              className={`text-left p-4 rounded-xl border-2 transition-all duration-300 ${
+                formData.frequency === freq.value
+                  ? 'border-brand-teal bg-gradient-to-r from-purple-50 to-pink-50 shadow-md'
+                  : 'border-gray-200 hover:border-brand-teal/50 hover:shadow-sm bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-gray-800">{freq.label}</span>
+                <span className="text-gradient-brand font-bold text-lg">₹{freq.price.toLocaleString()}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </>
+    );
   }
 }

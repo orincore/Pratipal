@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 function getRazorpayClient() {
   const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       receipt: `receipt_${Date.now()}`,
     });
 
-    const supabase = getServiceSupabase();
+    const { Order, OrderItem, Product } = await getDB();
 
     function generateOrderNumber(): string {
       const timestamp = Date.now().toString(36).toUpperCase();
@@ -43,42 +43,32 @@ export async function POST(req: NextRequest) {
     const shipping = subtotal > 500 ? 0 : 50;
     const total = subtotal + tax + shipping;
 
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert({
-        order_number: orderNumber,
-        customer_email: orderData.customer_email,
-        customer_name: orderData.customer_name,
-        status: "pending",
-        payment_status: "pending",
-        payment_method: "razorpay",
-        subtotal,
-        tax,
-        shipping_cost: shipping,
-        discount: 0,
-        total,
-        shipping_address: orderData.shipping_address,
-        billing_address: orderData.billing_address,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    const order = await Order.create({
+      order_number: orderNumber,
+      customer_email: orderData.customer_email,
+      customer_name: orderData.customer_name,
+      status: "pending",
+      payment_status: "pending",
+      payment_method: "razorpay",
+      subtotal,
+      tax,
+      shipping_cost: shipping,
+      discount: 0,
+      total,
+      shipping_address: orderData.shipping_address,
+      billing_address: orderData.billing_address,
+    });
 
     const orderItems = [];
     for (const item of orderData.items) {
-      const { data: product } = await supabase
-        .from("products")
-        .select("name, sku, price, sale_price")
-        .eq("id", item.product_id)
-        .single();
+      const product = await Product.findById(item.product_id)
+        .select("name sku price sale_price")
+        .lean();
 
       if (product) {
         const price = product.sale_price || product.price;
         orderItems.push({
-          order_id: order.id,
+          order_id: order._id.toString(),
           product_id: item.product_id,
           variant_id: item.variant_id || null,
           product_name: product.name,
@@ -90,11 +80,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await supabase.from("order_items").insert(orderItems);
+    await OrderItem.insertMany(orderItems);
 
     return NextResponse.json({
       razorpay_order_id: razorpayOrder.id,
-      order_id: order.id,
+      order_id: order._id.toString(),
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
     });

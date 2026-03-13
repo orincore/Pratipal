@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function GET() {
   try {
-    const supabase = getServiceSupabase();
+    const { ShippingSettings } = await getDB();
 
-    const { data, error } = await supabase
-      .from("shipping_settings")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .single();
+    const settings = await ShippingSettings.findOne()
+      .sort({ updated_at: -1 })
+      .lean();
 
-    if (error) {
-      return NextResponse.json(
-        { error: "Failed to fetch shipping settings" },
-        { status: 500 }
-      );
+    if (!settings) {
+      return NextResponse.json({ flat_rate: 50, free_shipping_threshold: 500, enabled: true });
     }
 
-    return NextResponse.json(data || { cost_per_kg: 50, free_shipping_threshold: 500 });
+    return NextResponse.json({
+      ...settings,
+      id: settings._id.toString(),
+      _id: undefined
+    });
   } catch (error) {
     return NextResponse.json(
       { error: "Internal server error" },
@@ -30,52 +28,36 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const supabase = getServiceSupabase();
+    const { ShippingSettings } = await getDB();
     const body = await req.json();
 
-    const { cost_per_kg, free_shipping_threshold } = body;
+    const { flat_rate, free_shipping_threshold, enabled } = body;
 
     // Get existing settings
-    const { data: existing } = await supabase
-      .from("shipping_settings")
-      .select("id")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .single();
+    const existing = await ShippingSettings.findOne().sort({ updated_at: -1 });
 
     let result;
     if (existing) {
       // Update existing
-      result = await supabase
-        .from("shipping_settings")
-        .update({
-          cost_per_kg,
-          free_shipping_threshold,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id)
-        .select()
-        .single();
+      result = await ShippingSettings.findByIdAndUpdate(
+        existing._id,
+        { flat_rate, free_shipping_threshold, enabled },
+        { new: true }
+      ).lean();
     } else {
       // Insert new
-      result = await supabase
-        .from("shipping_settings")
-        .insert({
-          cost_per_kg,
-          free_shipping_threshold,
-        })
-        .select()
-        .single();
+      result = await ShippingSettings.create({
+        flat_rate,
+        free_shipping_threshold,
+        enabled,
+      });
     }
 
-    if (result.error) {
-      return NextResponse.json(
-        { error: "Failed to update shipping settings" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(result.data);
+    return NextResponse.json({
+      ...result,
+      id: result._id.toString(),
+      _id: undefined
+    });
   } catch (error) {
     return NextResponse.json(
       { error: "Internal server error" },

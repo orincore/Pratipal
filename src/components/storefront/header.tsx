@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Menu, X, Search, User, LogOut, Loader2 } from "lucide-react";
+import { ShoppingCart, Menu, X, Search, User, LogOut, Loader2, Package } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { CartDrawer } from "./cart-drawer";
 import LogoMark from "@/app/assets/logo.png";
@@ -92,10 +92,10 @@ export function Header() {
   }
 
   const navLinks = [
+    { href: "/", label: "Home" },
     { href: "/shop", label: "Products" },
-    { href: "/about", label: "About" },
-    { href: "/candles", label: "Healing Candles" },
-    { href: "/mood-refresher", label: "Explore-refreshness" },
+    { href: "/about", label: "About Us" },
+    { href: "/contact", label: "Contact Us" },
   ];
   return (
     <>
@@ -157,6 +157,13 @@ export function Header() {
             </button>
             {mounted && !loading && customer ? (
               <div className="hidden sm:flex items-center gap-2">
+                <button
+                  className="h-9 w-9 flex items-center justify-center rounded-full text-gray-500 hover:text-brand-secondary hover:bg-gray-100 transition"
+                  onClick={() => router.push("/order-history")}
+                  title="Order History"
+                >
+                  <Package className="h-4 w-4" />
+                </button>
                 <button
                   className="h-9 px-3 rounded-full bg-gray-100 text-gray-800 text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:bg-gray-200 transition"
                   onClick={() => router.push("/account")}
@@ -230,6 +237,15 @@ export function Header() {
                     }}
                   >
                     <User className="h-4 w-4" /> Account
+                  </button>
+                  <button
+                    className="w-full flex items-center justify-center gap-2 rounded-full bg-gray-100 text-gray-900 py-2 text-sm font-semibold"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      router.push("/order-history");
+                    }}
+                  >
+                    <Package className="h-4 w-4" /> Order History
                   </button>
                   <button
                     className="w-full flex items-center justify-center gap-2 rounded-full border border-gray-300 text-gray-700 py-2 text-sm"

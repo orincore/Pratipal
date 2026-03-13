@@ -99,3 +99,23 @@ export interface CartItem {
   product: Product;
   quantity: number;
 }
+
+export interface ServiceFrequency {
+  label: string;
+  value: string;
+  price: number;
+}
+
+export interface Service {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  detailed_description?: string;
+  image_url: string;
+  base_price: number;
+  frequency_options: ServiceFrequency[];
+  category: string;
+  is_active: boolean;
+  display_order: number;
+}

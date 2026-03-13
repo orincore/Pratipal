@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, verifyToken } from "@/lib/auth";
+import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import getDB from "@/lib/db";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -39,30 +40,41 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = getServiceSupabase();
-    let query = supabase
-      .from("orders")
-      .select(
-        `*,
-        items:order_items(*)`
-      )
-      .order("created_at", { ascending: false });
+    const { Order, OrderItem } = await getDB();
 
+    const filter: any = {};
     if (customerId && email) {
-      query = query.or(`customer_id.eq.${customerId},customer_email.eq.${email}`);
+      filter.$or = [
+        { customer_id: customerId },
+        { customer_email: email }
+      ];
     } else if (customerId) {
-      query = query.eq("customer_id", customerId);
+      filter.customer_id = customerId;
     } else if (email) {
-      query = query.eq("customer_email", email);
+      filter.customer_email = email;
     }
 
-    const { data, error } = await query;
+    const orders = await Order.find(filter)
+      .sort({ created_at: -1 })
+      .lean();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const ordersWithItems = await Promise.all(
+      orders.map(async (order) => {
+        const items = await OrderItem.find({ order_id: order._id }).lean();
+        return {
+          ...order,
+          id: order._id.toString(),
+          _id: undefined,
+          items: items.map(item => ({
+            ...item,
+            id: item._id.toString(),
+            _id: undefined
+          }))
+        };
+      })
+    );
 
-    return NextResponse.json({ orders: data || [] });
+    return NextResponse.json({ orders: ordersWithItems });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -89,27 +101,23 @@ export async function POST(req: NextRequest) {
     }
 
     const { id: customerIdFromSession } = await getCustomerContextFromCookie();
-    const supabase = getServiceSupabase();
+    const { Customer, Product, Order, OrderItem, CartItem } = await getDB();
     let resolvedCustomerId = customerIdFromSession;
 
     if (!resolvedCustomerId && customer_email) {
-      const { data: existingCustomer } = await supabase
-        .from("customers")
-        .select("id")
-        .eq("email", customer_email.toLowerCase().trim())
-        .maybeSingle();
-      resolvedCustomerId = existingCustomer?.id || null;
+      const existingCustomer = await Customer.findOne({ 
+        email: customer_email.toLowerCase().trim() 
+      }).lean();
+      resolvedCustomerId = existingCustomer?._id.toString() || null;
     }
 
     let subtotal = 0;
     const orderItems = [];
 
     for (const item of items) {
-      const { data: product } = await supabase
-        .from("products")
-        .select("id, name, sku, price, sale_price, stock_quantity")
-        .eq("id", item.product_id)
-        .single();
+      const product = await Product.findById(item.product_id)
+        .select('name sku price sale_price stock_quantity')
+        .lean();
 
       if (!product) {
         return NextResponse.json(
@@ -130,7 +138,7 @@ export async function POST(req: NextRequest) {
       subtotal += itemSubtotal;
 
       orderItems.push({
-        product_id: product.id,
+        product_id: product._id,
         product_name: product.name,
         product_sku: product.sku,
         variant_id: item.variant_id || null,
@@ -147,68 +155,49 @@ export async function POST(req: NextRequest) {
 
     const orderNumber = generateOrderNumber();
 
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        order_number: orderNumber,
-        customer_id: resolvedCustomerId,
-        customer_email,
-        customer_name,
-        status: "pending",
-        payment_status: payment_method === "cod" ? "pending" : "pending",
-        payment_method,
-        subtotal,
-        tax,
-        shipping_cost,
-        discount: 0,
-        total,
-        shipping_address,
-        billing_address: billing_address || shipping_address,
-        notes,
-      })
-      .select()
-      .single();
-
-    if (orderError) {
-      return NextResponse.json({ error: orderError.message }, { status: 500 });
-    }
+    const order = await Order.create({
+      order_number: orderNumber,
+      customer_id: resolvedCustomerId,
+      customer_email,
+      customer_name,
+      status: "pending",
+      payment_status: payment_method === "cod" ? "pending" : "pending",
+      payment_method,
+      subtotal,
+      tax,
+      shipping_cost,
+      discount: 0,
+      total,
+      shipping_address,
+      billing_address: billing_address || shipping_address,
+      notes,
+    });
 
     const orderItemsWithOrderId = orderItems.map(item => ({
       ...item,
-      order_id: order.id,
+      order_id: order._id,
     }));
 
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItemsWithOrderId);
-
-    if (itemsError) {
-      await supabase.from("orders").delete().eq("id", order.id);
+    try {
+      await OrderItem.insertMany(orderItemsWithOrderId);
+    } catch (itemsError: any) {
+      await Order.findByIdAndDelete(order._id);
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
     for (const item of items) {
-      await supabase
-        .from("products")
-        .update({
-          stock_quantity: supabase.rpc("decrement_stock", {
-            product_id: item.product_id,
-            quantity: item.quantity,
-          }),
-        })
-        .eq("id", item.product_id);
+      await Product.findByIdAndUpdate(item.product_id, {
+        $inc: { stock_quantity: -item.quantity }
+      });
     }
 
     if (resolvedCustomerId) {
-      await supabase
-        .from("cart_items")
-        .delete()
-        .eq("customer_id", resolvedCustomerId);
+      await CartItem.deleteMany({ customer_id: resolvedCustomerId });
     }
 
     return NextResponse.json({
       order: {
-        ...order,
+        ...order.toJSON(),
         items: orderItemsWithOrderId,
       },
     });

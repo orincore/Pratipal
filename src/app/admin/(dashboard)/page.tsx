@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { Package, FolderTree, FileText, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -15,14 +14,18 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const { count } = await supabase
-        .from("landing_pages")
-        .select("*", { count: "exact", head: true });
-      setStats((prev) => ({
-        ...prev,
-        landingPages: count || 0,
-      }));
+      try {
+        const res = await fetch("/api/landing-pages");
+        if (res.ok) {
+          const data = await res.json();
+          setStats((prev) => ({
+            ...prev,
+            landingPages: data.pages?.length || 0,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load stats:", error);
+      }
     }
     load();
   }, []);

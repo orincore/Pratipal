@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase } from "@/lib/auth";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import getDB from "@/lib/db";
 
 async function getCustomerIdFromCookie(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -31,31 +31,43 @@ async function getSessionId(): Promise<string> {
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = getServiceSupabase();
+    const { CartItem } = await getDB();
     const customerId = await getCustomerIdFromCookie();
     const sessionId = await getSessionId();
 
-    let query = supabase
-      .from("cart_items")
-      .select(`
-        *,
-        product:products(id, name, slug, price, sale_price, featured_image, stock_quantity, stock_status),
-        variant:product_variants(id, name, price, sale_price, stock_quantity)
-      `);
+    const filter: any = customerId 
+      ? { customer_id: customerId }
+      : { session_id: sessionId };
 
-    if (customerId) {
-      query = query.eq("customer_id", customerId);
-    } else {
-      query = query.eq("session_id", sessionId);
-    }
+    const cartItems = await CartItem.find(filter)
+      .populate('product_id', 'id name slug price sale_price featured_image stock_quantity stock_status')
+      .populate('variant_id', 'id name price sale_price stock_quantity')
+      .lean();
 
-    const { data, error } = await query;
+    const data = cartItems.map(item => ({
+      ...item,
+      id: item._id.toString(),
+      _id: undefined,
+      product: item.product_id ? {
+        id: (item.product_id as any)._id?.toString() || item.product_id,
+        name: (item.product_id as any).name,
+        slug: (item.product_id as any).slug,
+        price: (item.product_id as any).price,
+        sale_price: (item.product_id as any).sale_price,
+        featured_image: (item.product_id as any).featured_image,
+        stock_quantity: (item.product_id as any).stock_quantity,
+        stock_status: (item.product_id as any).stock_status,
+      } : null,
+      variant: item.variant_id ? {
+        id: (item.variant_id as any)._id?.toString() || item.variant_id,
+        name: (item.variant_id as any).name,
+        price: (item.variant_id as any).price,
+        sale_price: (item.variant_id as any).sale_price,
+        stock_quantity: (item.variant_id as any).stock_quantity,
+      } : null,
+    }));
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    const response = NextResponse.json({ cart: data || [] });
+    const response = NextResponse.json({ cart: data });
     
     if (!customerId) {
       response.cookies.set("cart_session", sessionId, {
@@ -85,15 +97,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = getServiceSupabase();
+    const { Product, CartItem } = await getDB();
     const customerId = await getCustomerIdFromCookie();
     const sessionId = await getSessionId();
 
-    const { data: product } = await supabase
-      .from("products")
-      .select("price, sale_price")
-      .eq("id", product_id)
-      .single();
+    const product = await Product.findById(product_id)
+      .select('price sale_price')
+      .lean();
 
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -101,56 +111,38 @@ export async function POST(req: NextRequest) {
 
     const price = product.sale_price || product.price;
 
-    let existingQuery = supabase
-      .from("cart_items")
-      .select("*")
-      .eq("product_id", product_id);
-
+    const existingFilter: any = { product_id };
     if (variant_id) {
-      existingQuery = existingQuery.eq("variant_id", variant_id);
+      existingFilter.variant_id = variant_id;
     } else {
-      existingQuery = existingQuery.is("variant_id", null);
+      existingFilter.variant_id = null;
     }
-
     if (customerId) {
-      existingQuery = existingQuery.eq("customer_id", customerId);
+      existingFilter.customer_id = customerId;
     } else {
-      existingQuery = existingQuery.eq("session_id", sessionId);
+      existingFilter.session_id = sessionId;
     }
 
-    const { data: existing } = await existingQuery.single();
+    const existing = await CartItem.findOne(existingFilter).lean();
 
     let result;
     if (existing) {
-      const { data, error } = await supabase
-        .from("cart_items")
-        .update({ quantity: existing.quantity + quantity })
-        .eq("id", existing.id)
-        .select()
-        .single();
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-      result = data;
+      const updated = await CartItem.findByIdAndUpdate(
+        existing._id,
+        { quantity: existing.quantity + quantity },
+        { new: true }
+      ).lean();
+      result = { ...updated, id: updated!._id.toString(), _id: undefined };
     } else {
-      const { data, error } = await supabase
-        .from("cart_items")
-        .insert({
-          customer_id: customerId,
-          session_id: customerId ? null : sessionId,
-          product_id,
-          variant_id,
-          quantity,
-          price,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-      result = data;
+      const newItem = await CartItem.create({
+        customer_id: customerId,
+        session_id: customerId ? null : sessionId,
+        product_id,
+        variant_id,
+        quantity,
+        price,
+      });
+      result = newItem.toJSON();
     }
 
     const response = NextResponse.json({ cart_item: result });

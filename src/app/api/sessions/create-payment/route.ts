@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { getServiceSupabase } from "@/lib/auth";
+import getDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,16 +31,12 @@ export async function POST(req: NextRequest) {
       key_secret: razorpayKeySecret,
     });
 
-    const supabase = getServiceSupabase();
+    const { SessionBooking } = await getDB();
 
     // Get booking details
-    const { data: booking, error: bookingError } = await supabase
-      .from("session_bookings")
-      .select("*")
-      .eq("id", bookingId)
-      .single();
+    const booking = await SessionBooking.findById(bookingId).lean();
 
-    if (bookingError || !booking) {
+    if (!booking) {
       return NextResponse.json(
         { error: "Booking not found" },
         { status: 404 }
@@ -63,16 +59,9 @@ export async function POST(req: NextRequest) {
     const order = await razorpay.orders.create(options);
 
     // Update booking with Razorpay order ID
-    const { error: updateError } = await supabase
-      .from("session_bookings")
-      .update({
-        razorpay_order_id: order.id,
-      })
-      .eq("id", bookingId);
-
-    if (updateError) {
-      console.error("Error updating booking:", updateError);
-    }
+    await SessionBooking.findByIdAndUpdate(bookingId, {
+      razorpay_order_id: order.id,
+    });
 
     return NextResponse.json({
       success: true,

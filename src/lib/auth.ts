@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 
 const JWT_SECRET = process.env.AUTH_JWT_SECRET || "fallback-dev-secret";
@@ -30,17 +29,6 @@ export interface AuthenticatedUser {
   email: string;
   role: string;
   full_name: string | null;
-}
-
-export function getServiceSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SECRET_KEY;
-
-  if (!url || !serviceKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SECRET_KEY");
-  }
-
-  return createClient(url, serviceKey);
 }
 
 export function signToken(user: AuthUser): string {
