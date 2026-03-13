@@ -11,18 +11,21 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     const authUser = getUserFromRequest(req);
     if (!authUser || authUser.role !== "admin") {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const { Course } = await getDB();
-    const course = await Course.findById(params.id).lean();
+    const course = await Course.findById(id).lean();
 
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
@@ -46,9 +49,10 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     const authUser = getUserFromRequest(req);
     if (!authUser || authUser.role !== "admin") {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
@@ -63,7 +67,7 @@ export async function PUT(
     // Check if slug already exists (excluding current course)
     const existingCourse = await Course.findOne({ 
       slug, 
-      _id: { $ne: params.id } 
+      _id: { $ne: id } 
     });
     
     if (existingCourse) {
@@ -74,7 +78,7 @@ export async function PUT(
     }
 
     const course = await Course.findByIdAndUpdate(
-      params.id,
+      id,
       { ...body, slug },
       { new: true, runValidators: true }
     );
@@ -95,16 +99,17 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
+    const { id } = await params;
     const authUser = getUserFromRequest(req);
     if (!authUser || authUser.role !== "admin") {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const { Course } = await getDB();
-    const course = await Course.findByIdAndDelete(params.id);
+    const course = await Course.findByIdAndDelete(id);
 
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });

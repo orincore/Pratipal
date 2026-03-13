@@ -1,7 +1,7 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 
-export interface ICustomer extends Document {
+export interface ICustomer {
   _id: string;
   email: string;
   password_hash: string;
@@ -19,7 +19,7 @@ export interface ICustomer extends Document {
 
 const CustomerSchema = new Schema<ICustomer>(
   {
-    _id: { type: String, default: uuidv4 },
+    _id: { type: String, default: () => uuidv4() },
     email: { type: String, required: true, unique: true },
     password_hash: { type: String, required: true },
     first_name: { type: String },
