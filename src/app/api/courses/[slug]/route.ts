@@ -13,13 +13,19 @@ export async function GET(
     const course = await Course.findOne({ 
       slug: slug, 
       status: "published" 
-    }).lean();
+    });
 
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ course });
+    // Ensure the returned course has an id field
+    const courseObj = course.toJSON();
+    if (!courseObj.id && courseObj._id) {
+      courseObj.id = courseObj._id.toString();
+    }
+
+    return NextResponse.json({ course: courseObj });
   } catch (error: any) {
     console.error("Error fetching course:", error);
     return NextResponse.json(

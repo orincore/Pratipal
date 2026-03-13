@@ -11,15 +11,24 @@ function generateSlug(title: string): string {
     .trim();
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     await connectDB();
 
     const courses = await Course.find({})
-      .sort({ display_order: 1, created_at: -1 })
-      .lean();
+      .sort({ display_order: 1, created_at: -1 });
 
-    return NextResponse.json({ courses });
+    // Ensure each course has an id field
+    const coursesWithId = courses.map(course => {
+      const courseObj = course.toJSON();
+      // Ensure id field exists
+      if (!courseObj.id && courseObj._id) {
+        courseObj.id = courseObj._id.toString();
+      }
+      return courseObj;
+    });
+
+    return NextResponse.json({ courses: coursesWithId });
   } catch (error: any) {
     console.error("Error fetching courses:", error);
     return NextResponse.json(
@@ -54,7 +63,13 @@ export async function POST(request: NextRequest) {
 
     await course.save();
 
-    return NextResponse.json({ course }, { status: 201 });
+    // Ensure the returned course has an id field
+    const courseObj = course.toJSON();
+    if (!courseObj.id && courseObj._id) {
+      courseObj.id = courseObj._id.toString();
+    }
+
+    return NextResponse.json({ course: courseObj }, { status: 201 });
   } catch (error: any) {
     console.error("Error creating course:", error);
     return NextResponse.json(

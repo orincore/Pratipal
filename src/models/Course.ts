@@ -81,7 +81,6 @@ const CourseSchema = new Schema<ICourse>(
   }
 );
 
-CourseSchema.index({ slug: 1 });
 CourseSchema.index({ status: 1 });
 CourseSchema.index({ featured: 1 });
 CourseSchema.index({ display_order: 1 });

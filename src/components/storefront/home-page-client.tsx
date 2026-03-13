@@ -30,8 +30,8 @@ import { formatPrice } from "@/lib/utils";
 import type { Product, HomepageSection } from "@/types";
 import { BookingSection } from "@/components/booking/booking-section";
 
-type SectionKey = Extract<HomepageSection, "best_sellers" | "new_arrivals" | "on_sale">;
-const SECTION_KEYS: SectionKey[] = ["best_sellers", "new_arrivals", "on_sale"];
+type SectionKey = Extract<HomepageSection, "featured" | "best_sellers" | "new_arrivals" | "on_sale">;
+const SECTION_KEYS: SectionKey[] = ["featured", "best_sellers", "new_arrivals", "on_sale"];
 
 interface HomePageClientProps {
   products: Product[];
@@ -46,6 +46,7 @@ export function HomePageClient({ products }: HomePageClientProps) {
 
   const sectionedProducts = useMemo(() => {
     const record: Record<SectionKey, Product[]> = {
+      featured: [],
       best_sellers: [],
       new_arrivals: [],
       on_sale: [],
@@ -84,7 +85,7 @@ export function HomePageClient({ products }: HomePageClientProps) {
   );
 
   const featuredProducts = useMemo(
-    () => selectSectionProducts("best_sellers", (product) => product.category === "candles"),
+    () => selectSectionProducts("featured", (product) => product.homepageSection === "featured"),
     [selectSectionProducts]
   );
 
@@ -92,12 +93,11 @@ export function HomePageClient({ products }: HomePageClientProps) {
     <div className={`bg-white transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       <HeroSection />
       <BrandingSection />
+      <BookingSection />
       <AboutFounderSection />
       <AboutPratipalSection />
       <ApproachSection />
-      <BookingSection />
       <FeaturedProducts products={featuredProducts} />
-      <BenefitsSection />
       <TestimonialsSection />
       <CtaBanner />
     </div>
@@ -106,7 +106,7 @@ export function HomePageClient({ products }: HomePageClientProps) {
 
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden min-h-screen flex items-center py-16 bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600">
+    <section className="relative overflow-hidden min-h-screen flex items-center py-8 bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600">
       {/* Subtle Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-30">
         <div className="absolute top-20 left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-float"></div>
@@ -114,10 +114,10 @@ function HeroSection() {
       </div>
 
       <div className="container relative z-10">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+        <div className="grid lg:grid-cols-2 gap-8 items-center">
           {/* Left Content */}
-          <div className="space-y-8 animate-slide-up">
-            <div className="space-y-6">
+          <div className="space-y-4 animate-slide-up">
+            <div className="space-y-4">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30">
                 <Crown className="h-4 w-4 text-white" />
                 <span className="text-sm font-medium text-white">Sacred Healing Journey</span>
@@ -154,7 +154,7 @@ function HeroSection() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Link
                 href="/shop"
                 className="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-600 px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:shadow-lg"
@@ -188,13 +188,13 @@ function HeroSection() {
               </div>
 
               {/* Bottom Info Card */}
-              <div className="mt-6 bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/30">
-                <div className="flex items-start gap-4">
+              <div className="mt-4 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30">
+                <div className="flex items-start gap-3">
                   <div className="w-10 h-10 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0">
                     <Stethoscope className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-slate-700 leading-relaxed mb-3">
+                    <p className="text-sm text-slate-700 leading-relaxed mb-2">
                       With doctorate in Naturopathy & Yoga, qualified practitioner & trainer of Acupressure, Reiki Grand Master, Fertility Coach & a healer of 15 various healing techniques.
                     </p>
                     <Link
@@ -217,7 +217,7 @@ function HeroSection() {
 
 function BrandingSection() {
   return (
-    <section className="relative py-20 overflow-hidden bg-gradient-to-br from-slate-900 via-emerald-900 to-teal-900">
+    <section className="relative py-12 overflow-hidden bg-gradient-to-br from-slate-900 via-emerald-900 to-teal-900">
       <div className="absolute inset-0">
         <Image
           src="https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&h=800&fit=crop"
@@ -244,11 +244,11 @@ function BrandingSection() {
             &ldquo;To nurture, to protect, to heal&rdquo;
           </p>
           
-          <p className="text-base text-white/70 max-w-3xl mx-auto leading-relaxed mb-12">
+          <p className="text-base text-white/70 max-w-3xl mx-auto leading-relaxed mb-8">
             Every product is crafted with sacred intention, pure ingredients, and the ancient healing wisdom of Ayurveda and crystal therapy.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-12">
+          <div className="flex flex-wrap items-center justify-center gap-8">
             <div className="text-center">
               <div className="text-3xl font-serif font-bold text-gradient-peacock mb-2">100%</div>
               <div className="text-sm text-white/60 uppercase tracking-wider">Natural</div>
@@ -276,7 +276,7 @@ function BrandingSection() {
 
 function AboutFounderSection() {
   return (
-    <section className="py-20 bg-white relative overflow-hidden">
+    <section className="py-12 bg-white relative overflow-hidden">
       {/* Subtle background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
         <div className="absolute top-20 left-20 w-64 h-64 bg-emerald-100 rounded-full blur-3xl animate-float"></div>
@@ -284,7 +284,7 @@ function AboutFounderSection() {
       </div>
 
       <div className="container relative z-10">
-        <div className="text-center mb-16 animate-slide-up">
+        <div className="text-center mb-10 animate-slide-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg mb-6">
             <User className="h-4 w-4 text-emerald-600" />
             <span className="text-emerald-700 font-medium">Meet the Visionary</span>
@@ -295,7 +295,7 @@ function AboutFounderSection() {
           <div className="w-16 h-0.5 bg-gradient-brand mx-auto"></div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-16 items-center max-w-6xl mx-auto">
+        <div className="grid lg:grid-cols-2 gap-10 items-center max-w-6xl mx-auto">
           <div className="relative animate-fade-in">
             <div className="relative w-full aspect-[4/5] max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl">
               <Image
@@ -317,7 +317,7 @@ function AboutFounderSection() {
             </div>
           </div>
 
-          <div className="space-y-6 animate-slide-up">
+          <div className="space-y-4 animate-slide-up">
             <div>
               <h3 className="text-3xl font-serif font-bold text-gradient-peacock mb-2">
                 Dr. Aparnaa Singh
@@ -341,12 +341,12 @@ function AboutFounderSection() {
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-100">
-              <h4 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
+              <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-emerald-500" />
                 Key Achievements:
               </h4>
-              <div className="space-y-2 text-sm text-slate-700">
+              <div className="space-y-1 text-sm text-slate-700">
                 <div className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0"></div>
                   <span>Successful assistance to women in overcoming health & infertility challenges</span>
@@ -362,7 +362,7 @@ function AboutFounderSection() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-3">
               <Link
                 href="/about"
                 className="inline-flex items-center gap-2 bg-gradient-brand hover:shadow-lg text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
@@ -421,7 +421,7 @@ function AboutPratipalSection() {
   ];
 
   return (
-    <section id="about" className="relative overflow-hidden py-20 md:py-28 bg-[#f4fafc]">
+    <section id="about" className="relative overflow-hidden py-12 md:py-16 bg-[#f4fafc]">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -left-20 top-16 w-72 h-72 bg-brand-support/20 blur-3xl rounded-full"></div>
         <div className="absolute right-10 -bottom-10 w-80 h-80 bg-brand-primary/10 blur-3xl rounded-full"></div>
@@ -429,18 +429,18 @@ function AboutPratipalSection() {
       </div>
 
       <div className="container relative">
-        <div className="grid items-center gap-16 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur rounded-full border border-white/80 shadow-sm">
               <Sparkles className="h-4 w-4 text-brand-support" />
               <span className="text-xs font-semibold tracking-[0.28em] text-brand-support uppercase">Our Story</span>
             </div>
 
-            <h2 className="mt-6 text-4xl md:text-5xl font-serif font-semibold text-brand-dark leading-tight">
+            <h2 className="mt-4 text-4xl md:text-5xl font-serif font-semibold text-brand-dark leading-tight">
               Precision wellness with the warmth of traditional medicine
             </h2>
 
-            <p className="mt-6 text-base md:text-lg text-[#2a4a5f] leading-relaxed">
+            <p className="mt-4 text-base md:text-lg text-[#2a4a5f] leading-relaxed">
               In an ever-dynamic world, physical and mental well-being often become an afterthought. Pratipal was
               founded to bring integrative healing back to the centre—bridging naturopathy, energy medicine, and modern
               lifestyle design so transformation fits inside busy routines.
@@ -451,44 +451,44 @@ function AboutPratipalSection() {
               and deeply human.
             </p>
 
-            <div className="mt-10 grid gap-5 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {highlights.map((item, index) => (
                 <div
                   key={item.title}
-                  className="group rounded-3xl border border-white/60 bg-white/70 p-6 shadow-lg shadow-brand-primary/5 backdrop-blur hover:-translate-y-1 hover:border-brand-support/40 transition-all"
+                  className="group rounded-3xl border border-white/60 bg-white/70 p-4 shadow-lg shadow-brand-primary/5 backdrop-blur hover:-translate-y-1 hover:border-brand-support/40 transition-all"
                 >
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-primary to-brand-support text-white shadow-lg">
+                  <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-primary to-brand-support text-white shadow-lg">
                     <item.icon className="h-5 w-5" />
                   </div>
                   <h3 className="text-lg font-semibold text-brand-primary">{item.title}</h3>
-                  <p className="mt-2 text-sm text-slate-600 leading-relaxed">{item.description}</p>
+                  <p className="mt-1 text-sm text-slate-600 leading-relaxed">{item.description}</p>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="relative">
-            <div className="relative z-10 rounded-[32px] border border-white/60 bg-white/90 p-10 shadow-2xl shadow-brand-primary/10 backdrop-blur">
+            <div className="relative z-10 rounded-[32px] border border-white/60 bg-white/90 p-6 shadow-2xl shadow-brand-primary/10 backdrop-blur">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-support">Impact</p>
-                  <p className="mt-2 text-2xl font-serif text-brand-primary">From research notes to ritual kits</p>
+                  <p className="mt-1 text-2xl font-serif text-brand-primary">From research notes to ritual kits</p>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-brand-primary to-brand-support px-5 py-3 text-sm font-semibold text-white shadow-lg">
                   Clinical empathy
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-2 gap-6">
+              <div className="mt-6 grid grid-cols-2 gap-4">
                 {stats.map((stat) => (
-                  <div key={stat.label} className="rounded-2xl border border-brand-cream/60 bg-brand-cream/40 p-4 text-center">
+                  <div key={stat.label} className="rounded-2xl border border-brand-cream/60 bg-brand-cream/40 p-3 text-center">
                     <p className="text-3xl font-serif text-brand-primary">{stat.value}</p>
                     <p className="mt-1 text-sm font-medium text-[#32586b]">{stat.label}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-8 rounded-2xl border border-brand-sand/50 bg-gradient-to-br from-brand-cream/70 to-white p-6">
+              <div className="mt-6 rounded-2xl border border-brand-sand/50 bg-gradient-to-br from-brand-cream/70 to-white p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-support mb-2">Founder’s note</p>
                 <p className="text-sm md:text-base leading-relaxed text-[#2a4a5f]">
                   “Six years of study and three years of active clinical practice led me to craft MSME-certified
@@ -542,9 +542,9 @@ function ApproachSection() {
   ];
 
   return (
-    <section className="py-20 md:py-28 bg-white">
+    <section className="py-12 md:py-16 bg-white">
       <div className="container">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-4">
             <Leaf className="h-4 w-4 text-brand-teal" />
             <span className="text-sm font-medium text-brand-teal">The Pratipal Way</span>
@@ -557,7 +557,7 @@ function ApproachSection() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {approaches.map((approach, index) => (
             <div
               key={index}
@@ -577,8 +577,8 @@ function ApproachSection() {
                   <span>Pratipal</span>
                 </div>
               </div>
-              <div className="p-8">
-                <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-3">
+              <div className="p-6">
+                <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">
                   {approach.title}
                 </h3>
                 <p className="text-gray-600 leading-relaxed">
@@ -597,23 +597,23 @@ function FeaturedProducts({ products }: { products: Product[] }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="py-20 bg-gradient-to-br from-slate-50 to-emerald-50/30 relative overflow-hidden">
+    <section className="py-12 bg-gradient-to-br from-slate-50 to-emerald-50/30 relative overflow-hidden">
       <div className="container relative z-10">
-        <div className="text-center mb-16 animate-slide-up">
+        <div className="text-center mb-10 animate-slide-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg mb-6">
             <ShoppingBag className="h-4 w-4 text-emerald-600" />
             <span className="text-emerald-700 font-medium">Handcrafted Collection</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-gradient-peacock mb-4">
-            Sacred Rituals
+            Featured Products
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Discover our curated collection of healing products, each crafted with intention and infused with positive energy
+            Discover our specially curated featured products, each crafted with intention and infused with positive energy
           </p>
           <div className="w-16 h-0.5 bg-gradient-brand mx-auto mt-4"></div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {products.map((product, index) => (
             <div key={product.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
               <ProductCard product={product} />
@@ -660,8 +660,8 @@ function ProductCard({ product }: { product: Product }) {
         </button>
       </div>
 
-      <div className="p-4">
-        <h3 className="text-sm font-medium text-slate-800 leading-tight line-clamp-2 min-h-[2.5rem] mb-3 group-hover:text-emerald-600 transition-colors duration-300">
+      <div className="p-3">
+        <h3 className="text-sm font-medium text-slate-800 leading-tight line-clamp-2 min-h-[2.5rem] mb-2 group-hover:text-emerald-600 transition-colors duration-300">
           {product.name}
         </h3>
 
@@ -682,47 +682,7 @@ function ProductCard({ product }: { product: Product }) {
   );
 }
 
-function BenefitsSection() {
-  const benefits = [
-    {
-      icon: Leaf,
-      title: "Simple",
-      description: "No complexity, no overwhelm — just intuitive tools and easy-to-follow guidance.",
-    },
-    {
-      icon: Heart,
-      title: "Practical",
-      description: "Designed to integrate seamlessly into busy modern lives.",
-    },
-    {
-      icon: Sparkles,
-      title: "Accessible",
-      description: "Affordable, understandable, and available to anyone seeking inner growth.",
-    },
-  ];
 
-  return (
-    <section className="py-20 bg-gradient-to-br from-purple-50 via-blue-50 to-teal-50">
-      <div className="container">
-        <div className="grid md:grid-cols-3 gap-8">
-          {benefits.map((benefit, index) => (
-            <div key={index} className="text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-brand mb-6 shadow-xl">
-                <benefit.icon className="h-10 w-10 text-white" />
-              </div>
-              <h3 className="text-xl font-serif font-bold text-gradient-brand mb-3">
-                {benefit.title}
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                {benefit.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function TestimonialsSection() {
   const testimonials = [
@@ -747,9 +707,9 @@ function TestimonialsSection() {
   ];
 
   return (
-    <section className="py-20 bg-white relative overflow-hidden">
+    <section className="py-12 bg-white relative overflow-hidden">
       <div className="container relative z-10">
-        <div className="text-center mb-16 animate-slide-up">
+        <div className="text-center mb-10 animate-slide-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-lg mb-6">
             <Heart className="h-4 w-4 text-emerald-600" />
             <span className="text-emerald-700 font-medium">Healing Stories</span>
@@ -763,15 +723,15 @@ function TestimonialsSection() {
           <div className="w-16 h-0.5 bg-gradient-brand mx-auto mt-4"></div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {testimonials.map((testimonial, index) => (
             <div
               key={index}
-              className="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 animate-fade-in"
+              className="bg-white rounded-xl p-4 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 animate-fade-in"
               style={{ animationDelay: `${index * 0.2}s` }}
             >
               {/* Stars */}
-              <div className="flex gap-1 mb-4">
+              <div className="flex gap-1 mb-3">
                 {[...Array(testimonial.rating)].map((_, i) => (
                   <Star 
                     key={i} 
@@ -781,14 +741,14 @@ function TestimonialsSection() {
               </div>
 
               {/* Quote */}
-              <blockquote className="text-slate-700 mb-4 leading-relaxed text-sm italic relative">
+              <blockquote className="text-slate-700 mb-3 leading-relaxed text-sm italic relative">
                 <span className="text-4xl text-emerald-200 absolute -top-2 -left-1 font-serif">"</span>
                 <span className="relative z-10">{testimonial.text}</span>
               </blockquote>
 
               {/* Author */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-gradient-brand rounded-full flex items-center justify-center flex-shrink-0">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div>
@@ -800,14 +760,8 @@ function TestimonialsSection() {
           ))}
         </div>
 
-        <div className="text-center mt-12 animate-slide-up">
-          <Link
-            href="/testimonials"
-            className="inline-flex items-center gap-2 border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-500 hover:text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
-          >
-            <Heart className="h-4 w-4" />
-            Read More Stories
-          </Link>
+        <div className="text-center mt-8 animate-slide-up">
+          
         </div>
       </div>
     </section>
@@ -816,7 +770,7 @@ function TestimonialsSection() {
 
 function CtaBanner() {
   return (
-    <section className="relative py-20 overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600">
+    <section className="relative py-12 overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600">
       {/* Subtle background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-white/20 blur-3xl animate-float" />
@@ -834,11 +788,11 @@ function CtaBanner() {
             Begin Your Healing Journey Today
           </h2>
           
-          <p className="text-white/90 text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
+          <p className="text-white/90 text-lg max-w-2xl mx-auto mb-6 leading-relaxed">
             Join thousands who have transformed their lives through our sacred rituals and healing sessions
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/#booking"
               className="inline-flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-600 px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:shadow-lg"

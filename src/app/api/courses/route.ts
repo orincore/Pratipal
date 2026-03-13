@@ -18,10 +18,19 @@ export async function GET(request: NextRequest) {
 
     const courses = await Course.find(query)
       .sort({ display_order: 1, created_at: -1 })
-      .limit(limit)
-      .lean();
+      .limit(limit);
 
-    return NextResponse.json({ courses });
+    // Ensure each course has an id field
+    const coursesWithId = courses.map(course => {
+      const courseObj = course.toJSON();
+      // Ensure id field exists
+      if (!courseObj.id && courseObj._id) {
+        courseObj.id = courseObj._id.toString();
+      }
+      return courseObj;
+    });
+
+    return NextResponse.json({ courses: coursesWithId });
   } catch (error: any) {
     console.error("Error fetching courses:", error);
     return NextResponse.json(

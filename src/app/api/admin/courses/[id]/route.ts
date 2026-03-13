@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Course from "@/models/Course";
+import { Types } from "mongoose";
 
 function generateSlug(title: string): string {
   return title
@@ -11,20 +12,34 @@ function generateSlug(title: string): string {
     .trim();
 }
 
+function isValidObjectId(id: string): boolean {
+  return Types.ObjectId.isValid(id) && id !== "undefined" && id !== "null";
+}
+
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
     const { id } = await params;
 
-    const course = await Course.findById(id).lean();
+    if (!isValidObjectId(id)) {
+      return NextResponse.json({ error: "Invalid course ID" }, { status: 400 });
+    }
+
+    const course = await Course.findById(id);
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ course });
+    // Ensure the returned course has an id field
+    const courseObj = course.toJSON();
+    if (!courseObj.id && courseObj._id) {
+      courseObj.id = courseObj._id.toString();
+    }
+
+    return NextResponse.json({ course: courseObj });
   } catch (error: any) {
     console.error("Error fetching course:", error);
     return NextResponse.json(
@@ -42,6 +57,10 @@ export async function PUT(
     await connectDB();
     const { id } = await params;
 
+    if (!isValidObjectId(id)) {
+      return NextResponse.json({ error: "Invalid course ID" }, { status: 400 });
+    }
+
     const data = await request.json();
     
     // Generate new slug if title changed
@@ -50,7 +69,7 @@ export async function PUT(
     // Check if new slug conflicts with another course
     const existingCourse = await Course.findOne({ 
       slug: newSlug, 
-      _id: { $ne: id } 
+      _id: { $ne: new Types.ObjectId(id) } 
     });
     
     if (existingCourse) {
@@ -61,7 +80,7 @@ export async function PUT(
     }
 
     const course = await Course.findByIdAndUpdate(
-      id,
+      new Types.ObjectId(id),
       { ...data, slug: newSlug },
       { new: true, runValidators: true }
     );
@@ -70,7 +89,13 @@ export async function PUT(
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ course });
+    // Ensure the returned course has an id field
+    const courseObj = course.toJSON();
+    if (!courseObj.id && courseObj._id) {
+      courseObj.id = courseObj._id.toString();
+    }
+
+    return NextResponse.json({ course: courseObj });
   } catch (error: any) {
     console.error("Error updating course:", error);
     return NextResponse.json(
@@ -88,7 +113,11 @@ export async function DELETE(
     await connectDB();
     const { id } = await params;
 
-    const course = await Course.findByIdAndDelete(id);
+    if (!isValidObjectId(id)) {
+      return NextResponse.json({ error: "Invalid course ID" }, { status: 400 });
+    }
+
+    const course = await Course.findByIdAndDelete(new Types.ObjectId(id));
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }

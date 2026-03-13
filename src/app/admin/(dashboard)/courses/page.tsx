@@ -25,6 +25,7 @@ import { toast } from "sonner";
 
 interface Course {
   id: string;
+  _id?: string; // Fallback for MongoDB documents
   title: string;
   slug: string;
   subtitle: string;
@@ -259,10 +260,17 @@ export default function AdminCoursesPage() {
         bonuses: formData.bonuses?.filter(b => b.trim()) || [],
       };
 
-      const url = editingCourse
-        ? `/api/admin/courses/${editingCourse.id}`
+      // Get course ID with better fallback handling
+      const courseId = editingCourse?.id || editingCourse?._id;
+      
+      if (editingCourse && !courseId) {
+        throw new Error("Course ID is missing. Cannot update course.");
+      }
+
+      const url = courseId
+        ? `/api/admin/courses/${courseId}`
         : "/api/admin/courses";
-      const method = editingCourse ? "PUT" : "POST";
+      const method = courseId ? "PUT" : "POST";
 
       const res = await fetch(url, {
         method,
@@ -281,6 +289,7 @@ export default function AdminCoursesPage() {
       setEditingCourse(null);
       fetchCourses();
     } catch (error: any) {
+      console.error("Error updating course:", error);
       toast.error(error.message);
     } finally {
       setSaving(false);
@@ -825,7 +834,10 @@ export default function AdminCoursesPage() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      onClick={() => handleDelete(course.id)}
+                      onClick={() => {
+                        const courseId = course.id || course._id;
+                        if (courseId) handleDelete(courseId);
+                      }}
                       className="hover:bg-red-50 hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
