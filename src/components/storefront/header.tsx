@@ -99,9 +99,7 @@ export function Header() {
   ];
   return (
     <>
-      <div className="bg-brand-dark text-brand-support/80 text-[11px] tracking-wider text-center py-1.5 font-sans hidden sm:block">
-        FREE SHIPPING ON ORDERS ABOVE ₹999 &nbsp;|&nbsp; HANDCRAFTED WITH LOVE & INTENTION
-      </div>
+     
 
       <header
         className={`sticky top-0 z-40 w-full transition-all duration-300 ${

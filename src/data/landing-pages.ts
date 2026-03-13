@@ -236,15 +236,7 @@ export const landingPages: LandingPage[] = [
           { id: "cf-4", title: "Do you offer custom candles?", description: "Yes! Contact us for custom intention candles for special occasions." },
         ],
       },
-      {
-        id: "sec-ca-09",
-        type: "cta",
-        title: "Light Your Healing Journey",
-        subtitle: "Choose the candle that calls to you",
-        content: "Free shipping on orders above ₹999. Each candle comes with a ritual guide card.",
-        visible: true,
-        order: 9,
-      },
+      
     ],
     linkedProducts: ["prod-001", "prod-002", "prod-003", "prod-004"],
   },

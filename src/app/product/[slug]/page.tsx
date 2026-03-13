@@ -178,14 +178,7 @@ export default async function ProductPage({ params }: ProductParams) {
                 ))}
               </dl>
             </div>
-            <div className="bg-white rounded-[32px] border border-gray-200 p-6 space-y-3">
-              <h2 className="text-lg font-semibold text-white-900">Shipping & returns</h2>
-              <ul className="space-y-2 text-sm text-white-600">
-                <li>Ships within 48 hours across India</li>
-                <li>Free shipping on orders above ₹999</li>
-                <li>14-day easy exchanges on unused products</li>
-              </ul>
-            </div>
+            
             <div className="bg-white rounded-[32px] border border-gray-200 p-6 space-y-3">
               <h2 className="text-lg font-semibold text-gray-900">Care instructions</h2>
               <p className="text-sm text-gray-600">
