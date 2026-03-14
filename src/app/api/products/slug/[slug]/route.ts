@@ -7,19 +7,24 @@ export async function GET(
 ) {
   try {
     const { slug } = await context.params;
-    //TO check is auth is working or noT
+    console.log("API: Fetching product with slug:", slug);
     
     if (!slug) {
+      console.error("API: No slug provided");
       return NextResponse.json({ error: "Slug is required" }, { status: 400 });
     }
 
     const { Product } = await getDB();
+    console.log("API: Database connection established");
 
     const product = await Product.findOne({ slug, is_active: true })
       .populate('category_id', 'id name slug')
       .lean();
 
+    console.log("API: Database query completed, product found:", !!product);
+
     if (!product) {
+      console.log("API: Product not found in database");
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
@@ -34,9 +39,14 @@ export async function GET(
       };
     }
 
+    console.log("API: Returning product data:", data.name);
     return NextResponse.json({ product: data });
   } catch (err: any) {
-    console.error("Exception in GET /api/products/slug/[slug]:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("API: Exception in GET /api/products/slug/[slug]:", err);
+    console.error("API: Error stack:", err.stack);
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    }, { status: 500 });
   }
 }

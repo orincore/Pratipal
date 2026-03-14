@@ -29,16 +29,27 @@ export async function connectDB(): Promise<typeof mongoose> {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     };
 
+    console.log("MongoDB: Attempting to connect to:", MONGODB_URI?.replace(/\/\/.*@/, '//***:***@'));
+    
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
+      console.log("MongoDB: Connected successfully");
       return mongoose;
+    }).catch((error) => {
+      console.error("MongoDB: Connection failed:", error.message);
+      cached.promise = null;
+      throw error;
     });
   }
 
   try {
     cached.conn = await cached.promise;
   } catch (e) {
+    console.error("MongoDB: Failed to establish connection:", e);
     cached.promise = null;
     throw e;
   }
@@ -47,3 +58,5 @@ export async function connectDB(): Promise<typeof mongoose> {
 }
 
 export default connectDB;
+
+
