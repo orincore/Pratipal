@@ -220,7 +220,7 @@ export default function AdminCoursesPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/upload", {
+      const res = await fetch("/api/upload/courses", {
         method: "POST",
         body: formData,
       });
@@ -232,7 +232,7 @@ export default function AdminCoursesPage() {
 
       const data = await res.json();
       setFormData((prev) => ({ ...prev, featured_image: data.url }));
-      toast.success("Image uploaded successfully");
+      toast.success(`Image uploaded successfully${data.storage === 'r2' ? ' to R2' : ' locally'}`);
     } catch (error: any) {
       console.error("Upload error:", error);
       toast.error(error.message || "Failed to upload image");

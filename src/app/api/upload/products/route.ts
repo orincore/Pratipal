@@ -1,54 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
+import R2Storage from "@/lib/r2-client";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
-import R2Storage from "@/lib/r2-client";
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const folder = formData.get("folder") as string || "uploads";
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
+    // Validate file type (images and videos for products)
+    const allowedTypes = ["image/", "video/"];
+    const isValidType = allowedTypes.some(type => file.type.startsWith(type));
+    
+    if (!isValidType) {
+      return NextResponse.json({ error: "Only image and video files are allowed" }, { status: 400 });
     }
 
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "File size must be less than 10MB" }, { status: 400 });
+    // Validate file size (50MB limit for products to allow videos)
+    if (file.size > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: "File size must be less than 50MB" }, { status: 400 });
     }
+
+    const folder = "products";
 
     // Try R2 upload first if configured
     if (R2Storage.isConfigured()) {
       try {
-        console.log("Uploading to R2 bucket...");
+        console.log("Uploading product media to R2 bucket...");
         const result = await R2Storage.uploadFile(file, folder);
         
         return NextResponse.json({
           url: result.url,
           fileName: result.fileName,
           key: result.key,
-          storage: "r2"
+          storage: "r2",
+          type: file.type.startsWith("image/") ? "image" : "video"
         });
       } catch (r2Error: any) {
         console.error("R2 upload failed, falling back to local storage:", r2Error.message);
         // Continue to local storage fallback
       }
-    } else {
-      console.log("R2 not configured, using local storage");
     }
 
     // Fallback to local storage
     const fileExtension = file.name.split(".").pop();
     const fileName = `${uuidv4()}.${fileExtension}`;
 
-    // Create uploads directory if it doesn't exist
+    // Create products directory if it doesn't exist
     const uploadsDir = join(process.cwd(), "public", folder);
     try {
       await mkdir(uploadsDir, { recursive: true });
@@ -69,10 +72,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       url, 
       fileName,
-      storage: "local"
+      storage: "local",
+      type: file.type.startsWith("image/") ? "image" : "video"
     });
   } catch (error: any) {
-    console.error("Upload error:", error);
+    console.error("Product upload error:", error);
     return NextResponse.json(
       { error: "Failed to upload file" },
       { status: 500 }

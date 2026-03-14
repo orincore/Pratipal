@@ -242,24 +242,27 @@ export default function CreateProductPage() {
         const uploadData = new FormData();
         uploadData.append("file", file);
 
-        const res = await fetch("/api/upload", {
+        const res = await fetch("/api/upload/products", {
           method: "POST",
           body: uploadData,
         });
 
-        if (!res.ok) throw new Error("Upload failed");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Upload failed");
+        }
 
         const data = await res.json();
         
         const newMedia: MediaFile = {
           id: Math.random().toString(36).substr(2, 9),
           url: data.url,
-          type: isVideo ? "video" : "image",
+          type: data.type === "video" ? "video" : "image",
         };
 
         setMediaFiles((prev) => [...prev, newMedia]);
 
-        if (isImage && !formData.featured_image) {
+        if (data.type === "image" && !formData.featured_image) {
           handleChange("featured_image", data.url);
         }
       }

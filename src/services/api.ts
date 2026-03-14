@@ -15,21 +15,39 @@ import type { Service } from "@/types";
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function getApiBaseUrl() {
+  // In production, use the current domain
+  if (process.env.NODE_ENV === "production") {
+    // Check for explicit API URL first
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+    }
+    
+    // In production, use the current domain
+    if (typeof window !== "undefined") {
+      return window.location.origin;
+    }
+    
+    // Server-side in production - use VERCEL_URL or fallback
+    const vercelUrl = process.env.VERCEL_URL;
+    if (vercelUrl) {
+      return vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
+    }
+    
+    // Fallback for production - use the production domain
+    return "https://pratipal.vercel.app";
+  }
+  
+  // Development mode
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SITE_URL;
   if (envUrl) return envUrl.replace(/\/$/, "");
   
-  // During build time or server-side, always use localhost to avoid external authentication
+  // During build time or server-side in development
   if (typeof window === "undefined") {
     return "http://localhost:3000";
   }
   
-  // Only use VERCEL_URL in client-side runtime
-  const vercelUrl = process.env.VERCEL_URL?.startsWith("http")
-    ? process.env.VERCEL_URL
-    : process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : undefined;
-  return (vercelUrl || process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000").replace(/\/$/, "");
+  // Client-side development
+  return "http://localhost:3000";
 }
 
 function buildApiUrl(path: string) {
@@ -79,16 +97,25 @@ export async function getProducts(): Promise<Product[]> {
     
     if (!res.ok) {
       const errorText = await res.text();
-      console.error("Failed to fetch products:", errorText);
-      throw new Error("Failed to fetch products");
+      console.error("Failed to fetch products:", res.status, errorText);
+      console.error("Request URL was:", url);
+      throw new Error(`Failed to fetch products: ${res.status} ${errorText}`);
     }
     
     const data = await res.json();
     console.log(`Received ${data.products?.length || 0} products from API`);
     
-    return data.products.map(mapEcomProductToProduct);
+    if (!data.products || !Array.isArray(data.products)) {
+      console.error("Invalid products data structure:", data);
+      return [];
+    }
+    
+    const mappedProducts = data.products.map(mapEcomProductToProduct);
+    
+    return mappedProducts;
   } catch (err) {
     console.error("Error fetching products:", err);
+    console.error("This error occurred while fetching products for homepage");
     // Return empty array instead of throwing to prevent build failures
     return [];
   }

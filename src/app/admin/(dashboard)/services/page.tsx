@@ -141,16 +141,17 @@ export default function AdminServicesPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/upload", {
+      const res = await fetch("/api/upload/services", {
         method: "POST",
         body: formData,
       });
       if (!res.ok) {
-        throw new Error("Upload failed");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Upload failed");
       }
       const data = await res.json();
       updateField("image_url", data.url);
-      toast.success("Image uploaded");
+      toast.success(`Image uploaded${data.storage === 'r2' ? ' to R2' : ' locally'}`);
     } catch (error) {
       console.error(error);
       toast.error("Failed to upload image");

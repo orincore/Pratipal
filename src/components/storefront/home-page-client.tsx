@@ -85,10 +85,10 @@ export function HomePageClient({ products }: HomePageClientProps) {
     [products, sectionedProducts]
   );
 
-  const featuredProducts = useMemo(
-    () => selectSectionProducts("featured", (product) => product.homepageSection === "featured"),
-    [selectSectionProducts]
-  );
+  const featuredProducts = useMemo(() => {
+    const result = selectSectionProducts("featured", (product) => product.status === "active");
+    return result;
+  }, [selectSectionProducts]);
 
   return (
     <div className={`bg-white transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
@@ -595,7 +595,8 @@ function ApproachSection() {
 }
 
 function FeaturedProducts({ products }: { products: Product[] }) {
-  if (products.length === 0) return null;
+  // Show section even if no products, with a message
+  const hasProducts = products.length > 0;
 
   return (
     <section className="py-12 bg-gradient-to-br from-slate-50 to-emerald-50/30 relative overflow-hidden">
@@ -614,24 +615,44 @@ function FeaturedProducts({ products }: { products: Product[] }) {
           <div className="w-16 h-0.5 bg-gradient-brand mx-auto mt-4"></div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {products.map((product, index) => (
-            <div key={product.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
-              <ProductCard product={product} />
+        {hasProducts ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {products.map((product, index) => (
+                <div key={product.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <ProductCard product={product} />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="text-center animate-slide-up">
-          <Link
-            href="/shop"
-            className="inline-flex items-center gap-2 bg-gradient-brand hover:shadow-lg text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
-          >
-            <Sparkles className="h-4 w-4" />
-            Explore All Products
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
+            <div className="text-center animate-slide-up">
+              <Link
+                href="/shop"
+                className="inline-flex items-center gap-2 bg-gradient-brand hover:shadow-lg text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
+              >
+                <Sparkles className="h-4 w-4" />
+                Explore All Products
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
+              <ShoppingBag className="h-8 w-8 text-emerald-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-700 mb-2">Coming Soon</h3>
+            <p className="text-slate-600 mb-6">Our featured products are being carefully curated for you.</p>
+            <Link
+              href="/shop"
+              className="inline-flex items-center gap-2 bg-gradient-brand hover:shadow-lg text-white px-6 py-3 rounded-lg font-medium transition-all duration-300"
+            >
+              <Sparkles className="h-4 w-4" />
+              Browse All Products
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

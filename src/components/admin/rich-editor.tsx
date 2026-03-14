@@ -587,7 +587,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         }
         const data = await res.json();
         editor.chain().focus().setImage({ src: data.url, alt: file.name }).run();
-        toast.success("Image uploaded!", { id: "upload" });
+        toast.success(`Image uploaded${data.storage === 'r2' ? ' to R2' : ' locally'}!`, { id: "upload" });
       } catch (err: any) {
         toast.error(err.message || "Upload failed", { id: "upload" });
       }
@@ -780,7 +780,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         }
         const data = await res.json();
         editor.commands.updateAttributes("image", { src: data.url });
-        toast.success("Image replaced!", { id: "replace-upload" });
+        toast.success(`Image replaced${data.storage === 'r2' ? ' (uploaded to R2)' : ' (uploaded locally)'}!`, { id: "replace-upload" });
       } catch (err: any) {
         toast.error(err.message || "Upload failed", { id: "replace-upload" });
       }

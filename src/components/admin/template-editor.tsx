@@ -150,12 +150,15 @@ function MediaField({
     try {
       toast.loading("Uploading...", { id: "tpl-upload" });
       const res = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Upload failed");
+      }
       const data = await res.json();
       onChange(data.url);
-      toast.success("Uploaded!", { id: "tpl-upload" });
-    } catch {
-      toast.error("Upload failed", { id: "tpl-upload" });
+      toast.success(`Uploaded${data.storage === 'r2' ? ' to R2' : ' locally'}!`, { id: "tpl-upload" });
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed", { id: "tpl-upload" });
     }
     e.target.value = "";
   }, [onChange]);
