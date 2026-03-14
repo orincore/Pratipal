@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { Plus } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/types";
+import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
@@ -14,6 +15,40 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem);
+  const [adding, setAdding] = useState(false);
+
+  const handleAddToCart = async () => {
+    if (adding) return;
+    
+    setAdding(true);
+    try {
+      // Add to local cart first for immediate UI feedback
+      addItem(product);
+      
+      // Show success toast
+      toast.success(`${product.name} added to cart!`);
+      
+      // Then sync with server
+      const response = await fetch('/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          quantity: 1,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to sync cart with server:', await response.text());
+      }
+    } catch (error) {
+      console.warn('Failed to sync cart with server:', error);
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <div className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors group">
@@ -42,8 +77,9 @@ export function ProductCard({ product }: ProductCardProps) {
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8 rounded-full border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white"
-            onClick={() => addItem(product)}
+            className="h-8 w-8 rounded-full border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white disabled:opacity-50"
+            onClick={handleAddToCart}
+            disabled={adding}
           >
             <Plus className="h-4 w-4" />
           </Button>

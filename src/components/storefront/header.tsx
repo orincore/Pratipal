@@ -159,7 +159,7 @@ export function Header() {
               <div className="hidden sm:flex items-center gap-2">
                 <button
                   className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300"
-                  onClick={() => router.push("/order-history")}
+                  onClick={() => router.push("/account/orders")}
                   title="Order History"
                 >
                   <Package className="h-4 w-4" />
@@ -242,7 +242,7 @@ export function Header() {
                     className="w-full flex items-center justify-center gap-2 rounded-full bg-gray-100 text-gray-900 py-2 text-sm font-semibold"
                     onClick={() => {
                       setMenuOpen(false);
-                      router.push("/order-history");
+                      router.push("/account/orders");
                     }}
                   >
                     <Package className="h-4 w-4" /> Order History

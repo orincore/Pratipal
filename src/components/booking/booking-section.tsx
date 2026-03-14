@@ -134,6 +134,12 @@ export function BookingSection() {
     setLoading(true);
 
     try {
+      // Get the selected frequency option to get the proper label
+      const selectedFrequencyOption = selectedService?.frequency_options.find(
+        (option) => option.value === formData.frequency
+      );
+      const frequencyLabel = selectedFrequencyOption?.label || "One-time";
+
       // Create booking and Razorpay order
       const bookingRes = await fetch("/api/bookings/create", {
         method: "POST",
@@ -143,7 +149,7 @@ export function BookingSection() {
           service_id: selectedService?.id,
           service_name: selectedService?.title,
           service_category: selectedService?.category,
-          frequency_label: formData.sessionType,
+          frequency_label: frequencyLabel,
           customer_name: formData.customerName,
           customer_email: formData.customerEmail,
           customer_phone: formData.customerPhone,

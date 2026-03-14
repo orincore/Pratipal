@@ -29,6 +29,7 @@ import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/utils";
 import type { Product, HomepageSection } from "@/types";
 import { BookingSection } from "@/components/booking/booking-section";
+import { toast } from "sonner";
 
 type SectionKey = Extract<HomepageSection, "featured" | "best_sellers" | "new_arrivals" | "on_sale">;
 const SECTION_KEYS: SectionKey[] = ["featured", "best_sellers", "new_arrivals", "on_sale"];
@@ -177,7 +178,7 @@ function HeroSection() {
             <div className="relative max-w-lg w-full">
               <div className="relative rounded-2xl border-2 border-white/30 shadow-2xl bg-white/10 backdrop-blur-sm overflow-hidden">
                 <Image
-                  src="/assets/image1.jpeg"
+                  src="/assets/image1.jpg"
                   alt="Dr. Aparnaa Singh - Pratipal Healing"
                   width={640}
                   height={820}
@@ -638,6 +639,42 @@ function FeaturedProducts({ products }: { products: Product[] }) {
 
 function ProductCard({ product }: { product: Product }) {
   const addItem = useCartStore((s) => s.addItem);
+  const [adding, setAdding] = useState(false);
+
+  const handleAddToCart = async () => {
+    if (adding) return;
+    
+    setAdding(true);
+    try {
+      // Add to local cart first for immediate UI feedback
+      addItem(product);
+      
+      // Show success toast
+      toast.success(`${product.name} added to cart!`);
+      
+      // Then sync with server
+      const response = await fetch('/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          quantity: 1,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to sync cart with server:', await response.text());
+        // Don't remove from local cart as user might be offline
+      }
+    } catch (error) {
+      console.warn('Failed to sync cart with server:', error);
+      // Don't remove from local cart as user might be offline
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <div className="group bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 hover:border-emerald-200">
@@ -653,8 +690,9 @@ function ProductCard({ product }: { product: Product }) {
 
         {/* Add button */}
         <button
-          onClick={() => addItem(product)}
-          className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-gradient-brand hover:text-white border border-white/30"
+          onClick={handleAddToCart}
+          disabled={adding}
+          className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-gradient-brand hover:text-white border border-white/30 disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -670,11 +708,12 @@ function ProductCard({ product }: { product: Product }) {
             {formatPrice(product.price)}
           </span>
           <button
-            onClick={() => addItem(product)}
-            className="flex items-center gap-1.5 text-xs font-medium text-white bg-gradient-brand hover:shadow-md px-3 py-2 rounded-lg transition-all duration-300"
+            onClick={handleAddToCart}
+            disabled={adding}
+            className="flex items-center gap-1.5 text-xs font-medium text-white bg-gradient-brand hover:shadow-md px-3 py-2 rounded-lg transition-all duration-300 disabled:opacity-50"
           >
             <ShoppingBag className="h-3 w-3" /> 
-            Add
+            {adding ? 'Adding...' : 'Add'}
           </button>
         </div>
       </div>

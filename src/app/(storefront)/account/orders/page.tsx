@@ -34,8 +34,10 @@ interface ServiceBooking {
   customer_phone: string;
   amount: number;
   payment_status: "pending" | "paid" | "failed";
+  booking_status?: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
   razorpay_payment_id?: string;
   whatsapp_redirect_url?: string;
+  admin_notes?: string;
   created_at: string;
 }
 
@@ -420,6 +422,10 @@ function BookingCard({ booking }: { booking: ServiceBooking }) {
   };
   const meta = statusMeta[booking.payment_status];
 
+  // Check if frequency_label looks like a MongoDB ObjectId (24 hex characters)
+  const isObjectId = /^[0-9a-fA-F]{24}$/.test(booking.frequency_label);
+  const displayFrequency = isObjectId ? "Custom Session" : booking.frequency_label;
+
   return (
     <div className="rounded-2xl border bg-white shadow-sm">
       <div className="flex flex-col gap-2 border-b px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -439,6 +445,22 @@ function BookingCard({ booking }: { booking: ServiceBooking }) {
       </div>
 
       <div className="px-6 py-5 space-y-4">
+        {booking.booking_status && booking.booking_status !== "pending" && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Status:</span>
+              <Badge className={`${
+                booking.booking_status === "confirmed" ? "bg-blue-100 text-blue-800" :
+                booking.booking_status === "in_progress" ? "bg-purple-100 text-purple-800" :
+                booking.booking_status === "completed" ? "bg-green-100 text-green-800" :
+                booking.booking_status === "cancelled" ? "bg-red-100 text-red-800" :
+                "bg-gray-100 text-gray-800"
+              } px-3 py-1 text-xs font-semibold`}>
+                {booking.booking_status.replace("_", " ")}
+              </Badge>
+            </div>
+          </div>
+        )}
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <p className="text-sm font-semibold text-gray-900 mb-2">Service Details</p>
@@ -449,7 +471,7 @@ function BookingCard({ booking }: { booking: ServiceBooking }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Frequency:</span>
-                <span className="font-medium">{booking.frequency_label}</span>
+                <span className="font-medium">{displayFrequency}</span>
               </div>
               {booking.razorpay_payment_id && (
                 <div className="flex justify-between">

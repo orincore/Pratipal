@@ -64,13 +64,13 @@ export const useCartStore = create<CartStore>()(
             
             if (existing) {
               console.log('Item exists, incrementing quantity');
-              return {
-                items: state.items.map((item) =>
-                  item.product.id === sanitized.id
-                    ? { ...item, quantity: item.quantity + 1 }
-                    : item
-                ),
-              };
+              const newItems = state.items.map((item) =>
+                item.product.id === sanitized.id
+                  ? { ...item, quantity: item.quantity + 1 }
+                  : item
+              );
+              console.log('Updated cart items:', newItems);
+              return { items: newItems };
             }
             
             console.log('Adding new item to cart');
@@ -81,7 +81,14 @@ export const useCartStore = create<CartStore>()(
           
           // Log cart state after update
           setTimeout(() => {
-            console.log('Cart state after add:', get().items);
+            const currentState = get();
+            console.log('Cart state after add:', currentState.items);
+            console.log('Total items:', currentState.getItemCount());
+            console.log('Total price:', currentState.getTotal());
+            
+            // Force a re-render by checking localStorage
+            const stored = localStorage.getItem('pratipal-cart');
+            console.log('LocalStorage cart:', stored);
           }, 100);
         } catch (error) {
           console.error('Error adding item to cart:', error);
@@ -120,6 +127,26 @@ export const useCartStore = create<CartStore>()(
         try {
           console.log('Clearing cart');
           set({ items: [] });
+          
+          // Force immediate localStorage update
+          setTimeout(() => {
+            const stored = localStorage.getItem('pratipal-cart');
+            console.log('LocalStorage after clear:', stored);
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                if (parsed.state && parsed.state.items && parsed.state.items.length > 0) {
+                  console.log('Force clearing localStorage');
+                  localStorage.setItem('pratipal-cart', JSON.stringify({
+                    ...parsed,
+                    state: { items: [] }
+                  }));
+                }
+              } catch (e) {
+                console.error('Error force clearing localStorage:', e);
+              }
+            }
+          }, 100);
         } catch (error) {
           console.error('Error clearing cart:', error);
         }
@@ -149,7 +176,9 @@ export const useCartStore = create<CartStore>()(
       },
       getItemCount: () => {
         try {
-          return get().items.reduce((count, item) => count + item.quantity, 0);
+          const count = get().items.reduce((count, item) => count + item.quantity, 0);
+          console.log('Getting item count:', count, 'from items:', get().items);
+          return count;
         } catch (error) {
           console.error('Error counting items:', error);
           return 0;
@@ -184,9 +213,12 @@ export const useCartStore = create<CartStore>()(
             console.error('Error rehydrating cart:', error);
           } else {
             console.log('Cart rehydrated successfully:', state?.items);
+            console.log('Cart item count:', state?.getItemCount());
           }
         };
       },
+      // Add partialize to ensure we only persist what we need
+      partialize: (state) => ({ items: state.items }),
     }
   )
 );

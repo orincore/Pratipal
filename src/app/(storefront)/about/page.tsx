@@ -327,7 +327,7 @@ export default function AboutPage() {
             <div className="relative">
               <div className="aspect-[3/4] rounded-lg overflow-hidden bg-stone-100 border border-stone-200 shadow-lg folded-corner">
                 <img 
-                  src="/assets/image1.jpeg" 
+                  src="/assets/image2.jpg" 
                   alt="Dr. Aparnaa Singh" 
                   className="w-full h-full object-cover"
                 />
@@ -533,7 +533,7 @@ export default function AboutPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 aspect-[16/10] rounded-lg overflow-hidden bg-stone-100 border border-stone-200 shadow-lg folded-corner">
               <img 
-                src="/assets/image1.jpeg" 
+                src="/assets/image1.jpg" 
                 alt="Main healing space"
                 className="w-full h-full object-cover"
               />

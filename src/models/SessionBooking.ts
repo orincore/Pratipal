@@ -15,10 +15,12 @@ export interface ISessionBooking extends Document {
   session_time?: string;
   amount: number;
   payment_status: "pending" | "paid" | "failed";
+  booking_status: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   razorpay_signature?: string;
   whatsapp_redirect_url?: string;
+  admin_notes?: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -39,10 +41,12 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
     session_time: { type: String },
     amount: { type: Number, required: true },
     payment_status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
+    booking_status: { type: String, enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"], default: "pending" },
     razorpay_order_id: { type: String },
     razorpay_payment_id: { type: String },
     razorpay_signature: { type: String },
     whatsapp_redirect_url: { type: String },
+    admin_notes: { type: String },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

@@ -36,6 +36,7 @@ const sidebarItems = [
   { label: "Hero Sections", href: "/admin/hero-sections", icon: Presentation },
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Orders", href: "/admin/ecommerce/orders", icon: ShoppingBag },
+  { label: "Service Orders", href: "/admin/service-orders", icon: MessageCircle },
   { label: "Shipping Settings", href: "/admin/shipping", icon: Truck },
   { label: "Categories", href: "/admin/categories", icon: FolderTree },
   { label: "Landing Pages", href: "/admin/landing-pages", icon: FileText },

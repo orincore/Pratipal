@@ -207,50 +207,24 @@ export default function ContactsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <MessageSquare className="h-4 w-4 text-blue-600" />
-              <div className="ml-2">
-                <p className="text-sm font-medium text-muted-foreground">New</p>
-                <p className="text-2xl font-bold">{statusStats.new}</p>
+        {[
+          { key: "new", icon: MessageSquare, color: "text-blue-600", label: "New", value: statusStats.new },
+          { key: "in_progress", icon: Clock, color: "text-yellow-600", label: "In Progress", value: statusStats.in_progress },
+          { key: "resolved", icon: MessageSquare, color: "text-green-600", label: "Resolved", value: statusStats.resolved },
+          { key: "closed", icon: MessageSquare, color: "text-gray-600", label: "Closed", value: statusStats.closed },
+        ].map((stat) => (
+          <Card key={stat.key}>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                <div className="ml-2">
+                  <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Clock className="h-4 w-4 text-yellow-600" />
-              <div className="ml-2">
-                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold">{statusStats.in_progress}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <MessageSquare className="h-4 w-4 text-green-600" />
-              <div className="ml-2">
-                <p className="text-sm font-medium text-muted-foreground">Resolved</p>
-                <p className="text-2xl font-bold">{statusStats.resolved}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <MessageSquare className="h-4 w-4 text-gray-600" />
-              <div className="ml-2">
-                <p className="text-sm font-medium text-muted-foreground">Closed</p>
-                <p className="text-2xl font-bold">{statusStats.closed}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
       {/* Filters */}
       <Card>

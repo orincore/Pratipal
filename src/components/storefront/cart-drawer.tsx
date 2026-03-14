@@ -32,27 +32,51 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
+        
         if (Array.isArray(data.cart)) {
-          const mapped = data.cart.map((entry: any) => ({
-            id: entry.id,
-            product: {
-              id: entry.product?.id || entry.product_id,
-              name: entry.product?.name || "Product",
-              slug: entry.product?.slug || entry.product_id,
-              category: "candles",
-              price: entry.product?.sale_price || entry.product?.price || entry.price,
-              shortDescription:
-                entry.product?.short_description || entry.product?.description || "",
-              image:
-                entry.product?.featured_image || entry.product?.images?.[0] ||
-                "https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=600&q=80",
-              status: "active",
-              landingPages: [],
-            },
-            quantity: entry.quantity || 1,
-          }));
-          setItems(mapped);
+          if (data.cart.length === 0) {
+            // Server cart is empty, clear local cart too
+            setItems([]);
+          } else {
+            const mapped = data.cart.map((entry: any) => ({
+              id: entry.id,
+              product: {
+                id: entry.product?.id || entry.product_id,
+                name: entry.product?.name || "Product",
+                slug: entry.product?.slug || entry.product_id,
+                category: "candles",
+                price: entry.product?.sale_price || entry.product?.price || entry.price,
+                shortDescription:
+                  entry.product?.short_description || entry.product?.description || "",
+                image:
+                  entry.product?.featured_image || entry.product?.images?.[0] ||
+                  "https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=600&q=80",
+                status: "active",
+                landingPages: [],
+              },
+              quantity: entry.quantity || 1,
+            }));
+            
+            // Merge server cart with local cart instead of replacing
+            const currentItems = useCartStore.getState().items;
+            const mergedItems = [...mapped];
+            
+            // Add local items that aren't in server cart
+            currentItems.forEach(localItem => {
+              const existsInServer = mapped.some((serverItem: any) => 
+                serverItem.product.id === localItem.product.id
+              );
+              if (!existsInServer) {
+                mergedItems.push(localItem);
+              }
+            });
+            
+            setItems(mergedItems);
+          }
         }
+      } catch (error) {
+        console.warn('Failed to sync with server cart:', error);
+        // Keep local cart on error
       } finally {
         if (!cancelled) setFetching(false);
       }

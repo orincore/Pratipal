@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { cookies } from "next/headers";
 import getDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
@@ -40,10 +41,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Clear both customer cart and session cart
       const customer = await Customer.findOne({ email: order?.customer_email }).lean();
 
       if (customer) {
+        // Clear customer cart
         await CartItem.deleteMany({ customer_id: customer._id.toString() });
+      }
+
+      // Also clear session-based cart if exists
+      const cookieStore = await cookies();
+      const sessionId = cookieStore.get("cart_session")?.value;
+      if (sessionId) {
+        await CartItem.deleteMany({ session_id: sessionId });
       }
 
       return NextResponse.json({

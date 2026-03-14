@@ -409,7 +409,13 @@ export default function CheckoutPage() {
         }
 
         const data = await res.json();
+        
+        // Clear cart immediately for better UX
         clearCartStore();
+        
+        // Also clear server cart
+        fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
+        
         toast.success("Order placed successfully!");
         router.push(`/order-confirmation?orderId=${data.order.id}`);
       } else {
@@ -487,7 +493,13 @@ export default function CheckoutPage() {
       if (!res.ok) throw new Error("Payment verification failed");
 
       toast.success("Payment successful!");
+      
+      // Clear cart immediately for better UX
       clearCartStore();
+      
+      // Also clear server cart
+      fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
+      
       router.push(`/order-confirmation?orderId=${orderId}`);
     } catch (err: any) {
       toast.error(err.message || "Payment verification failed");
