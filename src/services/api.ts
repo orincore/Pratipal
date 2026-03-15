@@ -15,38 +15,27 @@ import type { Service } from "@/types";
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function getApiBaseUrl() {
-  // In production, use the current domain
+  // Client-side: always use relative URLs so the request goes to the same
+  // origin the browser is on. This avoids www vs non-www CORS issues entirely.
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  // Server-side (SSR / build time)
   if (process.env.NODE_ENV === "production") {
-    // Check for explicit API URL first
     if (process.env.NEXT_PUBLIC_API_URL) {
       return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
     }
-    
-    // In production, use the current domain
-    if (typeof window !== "undefined") {
-      return window.location.origin;
-    }
-    
-    // Server-side in production - use VERCEL_URL or fallback
     const vercelUrl = process.env.VERCEL_URL;
     if (vercelUrl) {
       return vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
     }
-    
-    // Fallback for production - use the production domain
-    return "https://pratipal.vercel.app";
+    return "https://www.pratipal.in";
   }
-  
-  // Development mode
+
+  // Development server-side
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SITE_URL;
   if (envUrl) return envUrl.replace(/\/$/, "");
-  
-  // During build time or server-side in development
-  if (typeof window === "undefined") {
-    return "http://localhost:3000";
-  }
-  
-  // Client-side development
   return "http://localhost:3000";
 }
 

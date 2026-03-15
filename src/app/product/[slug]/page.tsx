@@ -11,28 +11,26 @@ import { CustomerAuthProvider } from "@/lib/customer-auth-context";
 import { formatPrice } from "@/lib/utils";
 
 function resolveBaseUrl() {
-  // In production, use the current domain
+  // Client-side: use relative URLs to avoid www vs non-www CORS issues
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  // Server-side in production
   if (process.env.NODE_ENV === "production") {
-    // Check for explicit API URL first
     if (process.env.NEXT_PUBLIC_API_URL) {
       return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
     }
-    
-    // Server-side in production - use VERCEL_URL or fallback
     const vercelUrl = process.env.VERCEL_URL;
     if (vercelUrl) {
       return vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
     }
-    
-    // Fallback for production - use the production domain
-    return "https://pratipal.vercel.app";
+    return "https://www.pratipal.in";
   }
-  
-  // Development mode
+
+  // Development
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SITE_URL;
   if (envUrl) return envUrl.replace(/\/$/, "");
-  
-  // During build time or server-side in development
   return "http://localhost:3000";
 }
 
