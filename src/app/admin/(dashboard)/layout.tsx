@@ -23,6 +23,7 @@ import {
   BookOpen,
   MessageSquare,
   MessageCircle,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const sidebarItems = [
   { label: "Services", href: "/admin/services", icon: Presentation },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
   { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export default function DashboardLayout({
