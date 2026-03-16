@@ -16,6 +16,7 @@ export interface Product {
   slug: string;
   category: ProductCategory;
   price: number;
+  originalPrice?: number;
   shortDescription: string;
   image: string;
   status: ProductStatus;

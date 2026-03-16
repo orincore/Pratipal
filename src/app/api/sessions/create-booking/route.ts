@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
       session_time: "TBD",
       amount: amount,
       payment_status: "pending",
+      booking_type: "service",
+      order_type: "service",
     });
 
     return NextResponse.json({

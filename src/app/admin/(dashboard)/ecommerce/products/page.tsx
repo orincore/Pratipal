@@ -117,7 +117,16 @@ export default function EcommerceProductsPage() {
                     <td className="py-3 hidden md:table-cell text-muted-foreground">
                       {product.sku || "-"}
                     </td>
-                    <td className="py-3">₹{product.price.toFixed(2)}</td>
+                    <td className="py-3">
+                      {product.sale_price && product.sale_price < product.price ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-semibold text-emerald-600">₹{product.sale_price.toFixed(2)}</span>
+                          <span className="text-xs text-gray-400 line-through">₹{product.price.toFixed(2)}</span>
+                        </span>
+                      ) : (
+                        <span className="font-semibold">₹{product.price.toFixed(2)}</span>
+                      )}
+                    </td>
                     <td className="py-3 hidden sm:table-cell">
                       <Badge variant={product.stock_quantity > 0 ? "success" : "destructive"}>
                         {product.stock_quantity}

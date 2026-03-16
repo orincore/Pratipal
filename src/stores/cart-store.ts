@@ -177,10 +177,8 @@ export const useCartStore = create<CartStore>()(
       getItemCount: () => {
         try {
           const count = get().items.reduce((count, item) => count + item.quantity, 0);
-          console.log('Getting item count:', count, 'from items:', get().items);
           return count;
         } catch (error) {
-          console.error('Error counting items:', error);
           return 0;
         }
       },

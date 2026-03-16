@@ -1,5 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600&family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800;900&family=Dancing+Script:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap');
 
+/* ── Custom Thin Peacock Gradient Scrollbar ── */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #14b8a6 transparent;
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #10b981 0%, #14b8a6 20%, #06b6d4 40%, #3b82f6 60%, #6366f1 75%, #1e3a8a 90%, #1e1b4b 100%);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #059669 0%, #0d9488 20%, #0891b2 40%, #2563eb 60%, #4f46e5 75%, #1e3a8a 90%, #0f172a 100%);
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -573,4 +599,146 @@
       opacity: 1;
     }
   }
+}
+
+/* ================================================================
+   HERO SLIDESHOW – Ken Burns, content animations, progress bar
+   ================================================================ */
+
+/* Ken Burns zoom effect on active slide background */
+.hero-ken-burns {
+  animation: heroKenBurns 7s ease-out forwards;
+}
+
+@keyframes heroKenBurns {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.08);
+  }
+}
+
+/* Content staggered entrance */
+.hero-slide-content .hero-content-item {
+  opacity: 0;
+  transform: translateY(25px);
+  animation: heroContentIn 0.7s ease-out forwards;
+}
+
+.hero-slide-content .hero-content-item:nth-child(1) { animation-delay: 0.15s; }
+.hero-slide-content .hero-content-item:nth-child(2) { animation-delay: 0.3s; }
+.hero-slide-content .hero-content-item:nth-child(3) { animation-delay: 0.45s; }
+.hero-slide-content .hero-content-item:nth-child(4) { animation-delay: 0.55s; }
+.hero-slide-content .hero-content-item:nth-child(5) { animation-delay: 0.65s; }
+.hero-slide-content .hero-content-item:nth-child(6) { animation-delay: 0.75s; }
+
+@keyframes heroContentIn {
+  0% {
+    opacity: 0;
+    transform: translateY(25px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Feature card entrance from right */
+.hero-feature-card {
+  opacity: 0;
+  transform: translateX(40px);
+  animation: heroCardIn 0.9s ease-out 0.4s forwards;
+}
+
+@keyframes heroCardIn {
+  0% {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Progress bar on navigation dots */
+@keyframes hero-progress {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* Scroll indicator pulse */
+.hero-scroll-indicator {
+  animation: heroScrollPulse 2s ease-in-out infinite;
+}
+
+@keyframes heroScrollPulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* Hide scrollbar for horizontal scroll carousels */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Cart fly animation */
+@keyframes cart-fly {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3); opacity: 0; }
+}
+
+@keyframes cart-fly-scale {
+  0%   { transform: scale(1) rotate(0deg); }
+  40%  { transform: scale(1.15) rotate(-8deg); }
+  100% { transform: scale(0.4) rotate(12deg); }
+}
+
+@keyframes cart-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.45); }
+  70%  { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+
+.cart-icon-pop {
+  animation: cart-pop 400ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Cart item remove animation */
+@keyframes cart-item-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-6px) rotate(-1.5deg); }
+  40%  { transform: translateX(6px) rotate(1.5deg); }
+  60%  { transform: translateX(-4px) rotate(-1deg); }
+  80%  { transform: translateX(4px) rotate(1deg); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes cart-item-exit {
+  0%   { transform: scale(1) translateX(0); opacity: 1; max-height: 120px; margin-bottom: 0.75rem; }
+  30%  { transform: scale(0.97) translateX(8px); opacity: 0.8; }
+  100% { transform: scale(0.85) translateX(60px); opacity: 0; max-height: 0; margin-bottom: 0; padding: 0; }
+}
+
+.cart-item-removing {
+  animation: cart-item-shake 250ms ease-out, cart-item-exit 400ms ease-in 250ms forwards;
+  overflow: hidden;
+  pointer-events: none;
 }

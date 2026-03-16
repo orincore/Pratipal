@@ -8,7 +8,7 @@ export default function ProductNotFound() {
     <CustomerAuthProvider>
       <div className="bg-[#fff7f1] min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-[72px]">
           <div className="text-center max-w-md mx-auto">
             <div className="mb-8">
               <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center">

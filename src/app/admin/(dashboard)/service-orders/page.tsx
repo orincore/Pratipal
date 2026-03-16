@@ -113,6 +113,7 @@ export default function ServiceOrdersPage() {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
+        order_type: "service", // always filter to service only
         ...(filters.booking_status !== "all" && { booking_status: filters.booking_status }),
         ...(filters.payment_status !== "all" && { payment_status: filters.payment_status }),
         ...(filters.search && { search: filters.search }),
@@ -339,7 +340,7 @@ export default function ServiceOrdersPage() {
         <CardHeader>
           <CardTitle>Service Bookings</CardTitle>
           <CardDescription>
-            {pagination.total} total service orders
+            {pagination.total} total service bookings
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -369,6 +370,9 @@ export default function ServiceOrdersPage() {
                         <Badge className={getPaymentStatusBadgeVariant(booking.payment_status)}>
                           {booking.payment_status}
                         </Badge>
+                        {(booking as any).booking_type === "course" && (
+                          <Badge className="bg-blue-100 text-blue-800">Course</Badge>
+                        )}
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{booking.service_name}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">

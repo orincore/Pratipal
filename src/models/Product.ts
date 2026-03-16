@@ -21,6 +21,9 @@ export interface IProduct extends Document {
   weight?: number;
   dimensions: Record<string, any>;
   tags?: string[];
+  highlights?: string[];
+  additional_info?: { label: string; value: string }[];
+  care_instructions?: string;
   meta_title?: string;
   meta_description?: string;
   created_at: Date;
@@ -49,6 +52,12 @@ const ProductSchema = new Schema<IProduct>(
     weight: { type: Number },
     dimensions: { type: Schema.Types.Mixed, default: {} },
     tags: { type: [String] },
+    highlights: { type: [String] },
+    additional_info: {
+      type: [{ label: String, value: String }],
+      default: [],
+    },
+    care_instructions: { type: String },
     meta_title: { type: String },
     meta_description: { type: String },
   },

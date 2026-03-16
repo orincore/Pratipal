@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const booking_status = searchParams.get("booking_status");
     const payment_status = searchParams.get("payment_status");
+    const booking_type = searchParams.get("booking_type");
+    const order_type = searchParams.get("order_type");
     const search = searchParams.get("search");
 
     const { SessionBooking } = await getDB();
@@ -25,14 +27,42 @@ export async function GET(req: NextRequest) {
     if (payment_status && payment_status !== "all") {
       filter.payment_status = payment_status;
     }
-    
+
+    if (booking_type && booking_type !== "all") {
+      filter.booking_type = booking_type;
+    }
+
+    if (order_type && order_type !== "all") {
+      if (order_type === "service") {
+        // Exclude anything explicitly marked as course, include everything else
+        // (covers legacy records with no order_type/booking_type set, which are services by default)
+        filter.$nor = [
+          { order_type: "course" },
+          { booking_type: "course" },
+        ];
+      } else {
+        // For course: must be explicitly tagged
+        const typeConditions = [{ order_type }, { booking_type: order_type }];
+        if (filter.$and) {
+          filter.$and.push({ $or: typeConditions });
+        } else {
+          filter.$and = [{ $or: typeConditions }];
+        }
+      }
+    }
+
     if (search) {
-      filter.$or = [
+      const searchConditions = [
         { booking_number: { $regex: search, $options: "i" } },
         { customer_name: { $regex: search, $options: "i" } },
         { customer_email: { $regex: search, $options: "i" } },
         { service_name: { $regex: search, $options: "i" } },
       ];
+      if (filter.$and) {
+        filter.$and.push({ $or: searchConditions });
+      } else {
+        filter.$and = [{ $or: searchConditions }];
+      }
     }
 
     // Get total count
@@ -46,23 +76,15 @@ export async function GET(req: NextRequest) {
       .skip(skip)
       .limit(limit);
 
-    // Get status statistics
+    // Get status statistics scoped to the same filter
     const statusStats = await SessionBooking.aggregate([
-      {
-        $group: {
-          _id: "$booking_status",
-          count: { $sum: 1 }
-        }
-      }
+      { $match: filter },
+      { $group: { _id: "$booking_status", count: { $sum: 1 } } },
     ]);
 
     const paymentStats = await SessionBooking.aggregate([
-      {
-        $group: {
-          _id: "$payment_status",
-          count: { $sum: 1 }
-        }
-      }
+      { $match: filter },
+      { $group: { _id: "$payment_status", count: { $sum: 1 } } },
     ]);
 
     // Format stats

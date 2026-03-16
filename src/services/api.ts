@@ -46,12 +46,15 @@ function buildApiUrl(path: string) {
 }
 
 function mapEcomProductToProduct(ecomProduct: EcomProduct): Product {
+  const salePrice = ecomProduct.sale_price;
+  const basePrice = ecomProduct.price;
   return {
     id: ecomProduct.id,
     name: ecomProduct.name,
     slug: ecomProduct.slug,
     shortDescription: ecomProduct.short_description || "",
-    price: ecomProduct.sale_price || ecomProduct.price,
+    price: salePrice && salePrice < basePrice ? salePrice : basePrice,
+    originalPrice: salePrice && salePrice < basePrice ? basePrice : undefined,
     image: ecomProduct.featured_image || ecomProduct.images[0] || "/placeholder.jpg",
     category: (ecomProduct.category?.slug as ProductCategory) || "candles",
     status: ecomProduct.is_active ? "active" : "draft",

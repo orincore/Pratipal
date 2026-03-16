@@ -36,7 +36,7 @@ export default function CreateProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
-  const [initializingProduct, setInitializingProduct] = useState(false);
+  const [initializingProduct, setInitializingProduct] = useState(Boolean(editingProductId));
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState({
@@ -69,18 +69,34 @@ export default function CreateProductPage() {
       height: "",
     },
     tags: "",
+    highlights: "",
+    additional_info: [] as { label: string; value: string }[],
+    care_instructions: "",
     meta_title: "",
     meta_description: "",
     homepage_section: "featured",
   });
 
   useEffect(() => {
-    loadCategories();
-  }, []);
-
-  useEffect(() => {
-    if (!editingProductId) return;
-    loadProductForEdit(editingProductId);
+    if (editingProductId) {
+      // Load categories and product in parallel, set form data after both resolve
+      Promise.all([
+        fetch("/api/categories").then(r => r.json()).catch(() => ({ categories: [] })),
+        fetch(`/api/products/${editingProductId}`).then(r => r.json()).catch(() => null),
+      ]).then(([catData, prodData]) => {
+        setCategories(catData.categories || []);
+        if (prodData?.product) {
+          setFormData(getFormDataFromProduct(prodData.product));
+          setMediaFiles(buildMediaFilesFromProduct(prodData.product));
+        } else {
+          toast.error("Unable to load product");
+          router.push("/admin/ecommerce/products");
+        }
+        setInitializingProduct(false);
+      });
+    } else {
+      loadCategories();
+    }
   }, [editingProductId]);
 
   async function loadCategories() {
@@ -136,6 +152,9 @@ export default function CreateProductPage() {
         height: product.dimensions?.height ? product.dimensions.height.toString() : "",
       },
       tags: Array.isArray(product.tags) ? product.tags.join(", ") : product.tags || "",
+      highlights: Array.isArray(product.highlights) ? product.highlights.join("\n") : product.highlights || "",
+      additional_info: Array.isArray(product.additional_info) ? product.additional_info : [],
+      care_instructions: product.care_instructions || "",
       meta_title: product.meta_title || "",
       meta_description: product.meta_description || "",
       homepage_section: product.homepage_section || "featured",
@@ -318,6 +337,11 @@ export default function CreateProductPage() {
           height: formData.dimensions.height ? parseFloat(formData.dimensions.height) : undefined,
         },
         tags: formData.tags ? formData.tags.split(",").map((t) => t.trim()) : [],
+        highlights: formData.highlights
+          ? formData.highlights.split("\n").map((h) => h.trim()).filter(Boolean)
+          : [],
+        additional_info: formData.additional_info,
+        care_instructions: formData.care_instructions || undefined,
         meta_title: formData.meta_title,
         meta_description: formData.meta_description,
         homepage_section:

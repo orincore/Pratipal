@@ -7,6 +7,10 @@ export interface ISessionBooking extends Document {
   service_name: string;
   service_category: string;
   frequency_label: string;
+  /** @deprecated use order_type */
+  booking_type: "service" | "course";
+  /** Canonical type field — use this for filtering */
+  order_type: "service" | "course";
   customer_name: string;
   customer_email: string;
   customer_phone: string;
@@ -33,6 +37,8 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
     service_name: { type: String, required: true },
     service_category: { type: String, required: true },
     frequency_label: { type: String, required: true },
+    booking_type: { type: String, enum: ["service", "course"], default: "service" },
+    order_type:   { type: String, enum: ["service", "course"], default: "service" },
     customer_name: { type: String, required: true },
     customer_email: { type: String, required: true },
     customer_phone: { type: String, required: true },
@@ -41,7 +47,11 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
     session_time: { type: String },
     amount: { type: Number, required: true },
     payment_status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
-    booking_status: { type: String, enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"], default: "pending" },
+    booking_status: {
+      type: String,
+      enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"],
+      default: "pending",
+    },
     razorpay_order_id: { type: String },
     razorpay_payment_id: { type: String },
     razorpay_signature: { type: String },
@@ -64,5 +74,7 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
 SessionBookingSchema.index({ booking_number: 1 });
 SessionBookingSchema.index({ customer_email: 1 });
 SessionBookingSchema.index({ payment_status: 1 });
+SessionBookingSchema.index({ order_type: 1 });
 
-export default mongoose.models.SessionBooking || mongoose.model<ISessionBooking>("SessionBooking", SessionBookingSchema);
+export default mongoose.models.SessionBooking ||
+  mongoose.model<ISessionBooking>("SessionBooking", SessionBookingSchema);

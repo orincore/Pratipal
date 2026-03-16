@@ -1,4 +1,3 @@
-import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Mail, Phone, MapPin, Instagram, Facebook, Youtube } from "lucide-react";
@@ -7,68 +6,41 @@ import LogoMark from "@/app/assets/logo.png";
 export function Footer() {
   return (
     <footer>
-      <div className="bg-brand-cream py-14 md:py-20">
+      <div className="bg-[#f5efe4] py-8">
         <div className="container">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="relative h-12 w-12">
-                  <Image
-                    src={LogoMark}
-                    alt="Pratipal logo"
-                    fill
-                    sizes="48px"
-                    className="object-contain"
-                  />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {/* Brand */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="relative h-9 w-9">
+                  <Image src={LogoMark} alt="Pratipal logo" fill sizes="36px" className="object-contain" />
                 </div>
-                <h3 className="text-2xl font-serif font-bold text-brand-purple">
-                  Pratipal
-                </h3>
+                <h3 className="text-xl font-serif font-bold text-[#232d5f]">Pratipal</h3>
               </div>
-              <p className="text-sm text-brand-purple/50 font-sans leading-relaxed mb-5">
-                Handcrafted healing products rooted in ancient Ayurvedic wisdom
-                and crystal therapy. Every product is made with sacred intention
-                and pure ingredients.
+              <p className="text-xs text-[#232d5f]/60 leading-relaxed mb-3">
+                Handcrafted healing products rooted in ancient Ayurvedic wisdom and crystal therapy.
               </p>
-              <div className="flex items-center gap-3">
-                <a
-                  href="#"
-                  className="h-9 w-9 rounded-full bg-brand-purple/10 hover:bg-brand-purple text-brand-purple hover:text-white flex items-center justify-center transition-all duration-300"
-                >
-                  <Instagram className="h-4 w-4" />
-                </a>
-                <a
-                  href="#"
-                  className="h-9 w-9 rounded-full bg-brand-purple/10 hover:bg-brand-purple text-brand-purple hover:text-white flex items-center justify-center transition-all duration-300"
-                >
-                  <Facebook className="h-4 w-4" />
-                </a>
-                <a
-                  href="#"
-                  className="h-9 w-9 rounded-full bg-brand-purple/10 hover:bg-brand-purple text-brand-purple hover:text-white flex items-center justify-center transition-all duration-300"
-                >
-                  <Youtube className="h-4 w-4" />
-                </a>
+              <div className="flex items-center gap-2">
+                {[Instagram, Facebook, Youtube].map((Icon, i) => (
+                  <a key={i} href="#" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
+                    <Icon className="h-3.5 w-3.5" />
+                  </a>
+                ))}
               </div>
             </div>
 
+            {/* Quick Links */}
             <div>
-              <h4 className="text-xs font-sans uppercase tracking-[0.2em] text-brand-purple font-semibold mb-5">
-                Quick Links
-              </h4>
-              <ul className="space-y-3">
+              <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Quick Links</h4>
+              <ul className="space-y-2">
                 {[
-                  { label: "Shop All", href: "/" },
-                  { label: "Healing Candles", href: "/candles" },
-                  { label: "Essential Oils", href: "/essential-oil" },
-                  { label: "Intention Salts", href: "/mood-refresher" },
-                  { label: "Gift Boxes", href: "/" },
+                  { label: "Shop All", href: "/shop" },
+                  { label: "Courses", href: "/courses" },
+                  { label: "Booking", href: "/booking" },
+                  { label: "About", href: "/about" },
                 ].map((link) => (
                   <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm font-sans text-brand-purple/50 hover:text-brand-purple transition-colors"
-                    >
+                    <Link href={link.href} className="text-xs text-[#232d5f]/60 hover:text-[#232d5f] transition-colors">
                       {link.label}
                     </Link>
                   </li>
@@ -76,23 +48,13 @@ export function Footer() {
               </ul>
             </div>
 
+            {/* Help */}
             <div>
-              <h4 className="text-xs font-sans uppercase tracking-[0.2em] text-brand-purple font-semibold mb-5">
-                Help & Info
-              </h4>
-              <ul className="space-y-3">
-                {[
-                  "About Us",
-                  "Shipping Policy",
-                  "Return & Refund",
-                  "Privacy Policy",
-                  "Terms of Service",
-                ].map((label) => (
+              <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Help</h4>
+              <ul className="space-y-2">
+                {["Shipping Policy", "Return & Refund", "Privacy Policy", "Terms of Service"].map((label) => (
                   <li key={label}>
-                    <Link
-                      href="/"
-                      className="text-sm font-sans text-brand-purple/50 hover:text-brand-purple transition-colors"
-                    >
+                    <Link href="/" className="text-xs text-[#232d5f]/60 hover:text-[#232d5f] transition-colors">
                       {label}
                     </Link>
                   </li>
@@ -100,59 +62,35 @@ export function Footer() {
               </ul>
             </div>
 
+            {/* Contact */}
             <div>
-              <h4 className="text-xs font-sans uppercase tracking-[0.2em] text-brand-purple font-semibold mb-5">
-                Contact Us
-              </h4>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3">
-                  <Mail className="h-4 w-4 text-brand-gold mt-0.5 flex-shrink-0" />
-                  <span className="text-sm font-sans text-brand-purple/50">
-                    hello@pratipal.in
-                  </span>
+              <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Contact</h4>
+              <ul className="space-y-2">
+                <li className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
+                  <span className="text-xs text-[#232d5f]/60">hello@pratipal.in</span>
                 </li>
-                <li className="flex items-start gap-3">
-                  <Phone className="h-4 w-4 text-brand-gold mt-0.5 flex-shrink-0" />
-                  <span className="text-sm font-sans text-brand-purple/50">
-                    +91 98765 43210
-                  </span>
+                <li className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
+                  <span className="text-xs text-[#232d5f]/60">+91 98765 43210</span>
                 </li>
-                <li className="flex items-start gap-3">
-                  <MapPin className="h-4 w-4 text-brand-gold mt-0.5 flex-shrink-0" />
-                  <span className="text-sm font-sans text-brand-purple/50">
-                    Jaipur, Rajasthan, India
-                  </span>
+                <li className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
+                  <span className="text-xs text-[#232d5f]/60">Jaipur, Rajasthan</span>
                 </li>
               </ul>
-
-              <div className="mt-6 p-4 rounded-xl bg-brand-purple/5 border border-brand-purple/10">
-                <p className="text-[11px] font-sans text-brand-purple/40 uppercase tracking-wider mb-2">
-                  Trusted by
-                </p>
-                <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} className="h-4 w-4 text-brand-gold fill-brand-gold" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                  <span className="text-xs font-sans text-brand-purple/50 ml-1">
-                    4.9/5 (500+ reviews)
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-brand-purple py-5">
-        <div className="container flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-[11px] font-sans text-white/40 tracking-wider">
-            &copy; {new Date().getFullYear()} Pratipal. All rights reserved.
-          </p>
-          <p className="text-[11px] font-sans text-white/30 tracking-wider">
-            Handcrafted with love & intention in India 🇮🇳
-          </p>
+      <div className="bg-[#1b244a] py-3">
+        <div className="container">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-1 mb-2">
+            <p className="text-[11px] text-white/70 tracking-wider">&copy; {new Date().getFullYear()} Pratipal. All rights reserved.</p>
+            <p className="text-[11px] text-white/50 tracking-wider">Handcrafted with love in India 🇮🇳</p>
+          </div>
+          <div className="h-px bg-white/20 w-full" />
         </div>
       </div>
     </footer>

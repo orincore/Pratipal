@@ -7,6 +7,9 @@ import { Footer } from "@/components/storefront/footer";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Calendar, Mail, Phone, Home, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { CartAnimationProvider } from "@/lib/cart-animation-context";
+import { HeaderThemeProvider } from "@/lib/header-theme-context";
+import { CustomerAuthProvider } from "@/lib/customer-auth-context";
 
 function BookingSuccessContent() {
   const searchParams = useSearchParams();
@@ -48,10 +51,8 @@ function BookingSuccessContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-warm">
-      <Header />
-      
-      <main className="flex-1 container py-12">
+    <div className="bg-gradient-warm">
+      <div className="container py-12">
         <div className="max-w-2xl mx-auto">
           {/* Success Card */}
           <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
@@ -162,21 +163,25 @@ function BookingSuccessContent() {
             </p>
           </div>
         </div>
-      </main>
-
-      <Footer />
+      </div>
     </div>
   );
 }
 
 export default function BookingSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-brand-teal" />
-      </div>
-    }>
-      <BookingSuccessContent />
-    </Suspense>
+    <CustomerAuthProvider>
+      <HeaderThemeProvider>
+        <CartAnimationProvider>
+          <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+              <Loader2 className="h-12 w-12 animate-spin text-brand-teal" />
+            </div>
+          }>
+            <BookingSuccessContent />
+          </Suspense>
+        </CartAnimationProvider>
+      </HeaderThemeProvider>
+    </CustomerAuthProvider>
   );
 }

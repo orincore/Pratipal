@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Button, ButtonProps } from "@/components/ui/button";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore } from "@/stores/cart-store";
+import { useCartAnimation } from "@/lib/cart-animation-context";
 import type { Product as StoreProduct, ProductCategory } from "@/types";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=600&q=80";
@@ -35,19 +36,23 @@ export function AddToCartButton({
 }: AddToCartButtonProps) {
   const [loading, setLoading] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
+  const { triggerFly } = useCartAnimation();
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   async function handleAdd() {
     if (loading) return;
     setLoading(true);
+
+    // Trigger fly animation immediately from button position
+    if (btnRef.current) {
+      triggerFly(btnRef.current, product?.image);
+    }
+
     try {
       const res = await fetch("/api/cart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          product_id: productId,
-          variant_id: variantId,
-          quantity,
-        }),
+        body: JSON.stringify({ product_id: productId, variant_id: variantId, quantity }),
       });
 
       if (!res.ok) {
@@ -70,12 +75,8 @@ export function AddToCartButton({
           status: "active",
           landingPages: [],
         } as StoreProduct;
-        for (let i = 0; i < quantity; i++) {
-          addItem(storeProduct, serverCartId);
-        }
+        for (let i = 0; i < quantity; i++) addItem(storeProduct, serverCartId);
       }
-
-      toast.success("Added to cart");
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     } finally {
@@ -85,6 +86,7 @@ export function AddToCartButton({
 
   return (
     <Button
+      ref={btnRef}
       onClick={handleAdd}
       disabled={disabled || loading}
       {...buttonProps}

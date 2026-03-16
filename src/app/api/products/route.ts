@@ -105,6 +105,9 @@ export async function POST(req: NextRequest) {
       weight: body.weight,
       dimensions: body.dimensions || {},
       tags: body.tags || [],
+      highlights: body.highlights || [],
+      additional_info: body.additional_info || [],
+      care_instructions: body.care_instructions,
       meta_title: body.meta_title,
       meta_description: body.meta_description,
     });

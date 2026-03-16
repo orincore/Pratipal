@@ -27,11 +27,13 @@ export async function GET(req: NextRequest) {
       .sort({ created_at: -1 })
       .lean();
 
-    // Transform _id to id
+    // Transform _id to id and normalize order_type
+    // order_type may be missing on older records — resolve from booking_type
     const transformedBookings = bookings.map((booking: any) => ({
       ...booking,
       id: booking._id.toString(),
       _id: undefined,
+      order_type: booking.order_type ?? booking.booking_type ?? "service",
     }));
 
     return NextResponse.json({ bookings: transformedBookings });

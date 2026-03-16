@@ -1,378 +1,386 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Menu, X, Search, User, LogOut, Loader2, Package } from "lucide-react";
+import { ShoppingCart, Menu, X, Search, User, Loader2, BookOpen, ShoppingBag, Stethoscope } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { CartDrawer } from "./cart-drawer";
 import LogoMark from "@/app/assets/logo.png";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
-import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
+import { useRouter, usePathname } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
+import { useCartAnimation } from "@/lib/cart-animation-context";
+
+const navLinks = [
+  { href: "/", label: "Home" },
+  { href: "/courses", label: "Courses" },
+  { href: "/shop", label: "Products" },
+  { href: "/booking", label: "Services" },
+  { href: "/about", label: "About" },
+  { href: "/contact", label: "Contact Us" },
+];
+
+function parseRgb(color: string): [number, number, number] | null {
+  const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  return m ? [+m[1], +m[2], +m[3]] : null;
+}
+
+function luminance(r: number, g: number, b: number) {
+  const [rs, gs, bs] = [r, g, b].map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+function getEffectiveBg(el: Element | null): string {
+  while (el && el !== document.body) {
+    const bg = getComputedStyle(el).backgroundColor;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") return bg;
+    el = el.parentElement;
+  }
+  return getComputedStyle(document.body).backgroundColor || "rgb(255,255,255)";
+}
+
+function sampleIsDark(headerBottom: number): boolean {
+  const sampleY = headerBottom + 10;
+  const xs = [window.innerWidth * 0.15, window.innerWidth * 0.5, window.innerWidth * 0.85];
+  let darkVotes = 0;
+  for (const x of xs) {
+    const el = document.elementFromPoint(x, sampleY);
+    if (!el) continue;
+    const bg = getEffectiveBg(el);
+    const rgb = parseRgb(bg);
+    if (rgb && luminance(...rgb) < 0.35) darkVotes++;
+  }
+  return darkVotes >= 2;
+}
+
+type SearchResult = {
+  id: string;
+  kind: "product" | "course" | "service";
+  name: string;
+  subtitle?: string;
+  image?: string;
+  price?: number;
+  href: string;
+};
 
 export function Header() {
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const itemCount = useCartStore((s) => s.getItemCount());
-  const router = useRouter();
-  const { customer, logout, loading } = useCustomerAuth();
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const itemCount = useCartStore((s) => s.getItemCount());
+  const { customer, loading } = useCustomerAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { cartIconRef, popCount } = useCartAnimation();
 
+  const [popKey, setPopKey] = useState(0);
   useEffect(() => {
-    setMounted(true);
-    const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    if (popCount > 0) setPopKey((k) => k + 1);
+  }, [popCount]);
+
+  const [isDark, setIsDark] = useState(true);
+
+  const updateTheme = useCallback(() => {
+    const h = headerRef.current;
+    if (!h) return;
+    const rect = h.getBoundingClientRect();
+    setIsDark(sampleIsDark(rect.bottom));
+    setScrolled(window.scrollY > 20);
   }, []);
 
   useEffect(() => {
-    if (searchVisible && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [searchVisible]);
+    setMounted(true);
+    const t = setTimeout(updateTheme, 80);
+    window.addEventListener("scroll", updateTheme, { passive: true });
+    window.addEventListener("resize", updateTheme, { passive: true });
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("scroll", updateTheme);
+      window.removeEventListener("resize", updateTheme);
+    };
+  }, [updateTheme]);
 
-  const hasQuery = searchQuery.trim().length > 0;
-  const emptyState = useMemo(() => {
-    if (!hasQuery) {
-      return "Start typing to search our rituals";
-    }
-    if (searchLoading) {
-      return "Searching products...";
-    }
-    if (searchError) {
-      return searchError;
-    }
-    return searchResults.length === 0 ? "No products match your search" : null;
-  }, [hasQuery, searchLoading, searchError, searchResults.length]);
+  useEffect(() => {
+    const t = setTimeout(updateTheme, 120);
+    return () => clearTimeout(t);
+  }, [pathname, updateTheme]);
 
-  async function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!hasQuery) {
-      setSearchResults([]);
-      setSearchError("Please enter a product name");
-      return;
-    }
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  async function runSearch(q: string) {
+    if (!q.trim()) { setSearchResults([]); return; }
     setSearchLoading(true);
     setSearchError(null);
     try {
-      const res = await fetch(
-        `/api/products?search=${encodeURIComponent(searchQuery.trim())}&limit=10`,
-        { cache: "no-store" }
-      );
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Search failed");
+      const term = q.trim().toLowerCase();
+      const [pRes, cRes, sRes] = await Promise.all([
+        fetch(`/api/products?search=${encodeURIComponent(q.trim())}&limit=5`),
+        fetch(`/api/courses?limit=50`),
+        fetch(`/api/services`),
+      ]);
+      const results: SearchResult[] = [];
+
+      if (pRes.ok) {
+        const { products = [] } = await pRes.json();
+        products.slice(0, 4).forEach((p: any) => results.push({
+          id: p.id, kind: "product", name: p.name,
+          subtitle: p.short_description, image: p.featured_image,
+          price: p.sale_price || p.price, href: `/product/${p.slug}`,
+        }));
       }
-      const data = await res.json();
-      setSearchResults(data.products || []);
-    } catch (err: any) {
-      setSearchError(err.message || "Unable to search products");
-      setSearchResults([]);
+      if (cRes.ok) {
+        const { courses = [] } = await cRes.json();
+        courses
+          .filter((c: any) =>
+            c.title?.toLowerCase().includes(term) ||
+            c.description?.toLowerCase().includes(term)
+          )
+          .slice(0, 3)
+          .forEach((c: any) => results.push({
+            id: c.id, kind: "course", name: c.title,
+            subtitle: c.short_description || c.category,
+            image: c.thumbnail || c.image, price: c.price,
+            href: `/courses/${c.slug || c.id}`,
+          }));
+      }
+      if (sRes.ok) {
+        const { services = [] } = await sRes.json();
+        services
+          .filter((s: any) =>
+            s.name?.toLowerCase().includes(term) ||
+            s.description?.toLowerCase().includes(term) ||
+            s.category?.toLowerCase().includes(term)
+          )
+          .slice(0, 3)
+          .forEach((s: any) => results.push({
+            id: s.id, kind: "service", name: s.name,
+            subtitle: s.category || s.description,
+            image: s.image, price: s.price,
+            href: `/booking`,
+          }));
+      }
+      setSearchResults(results);
+    } catch {
+      setSearchError("Search failed");
     } finally {
       setSearchLoading(false);
     }
   }
 
-  function closeSearchBar() {
-    setSearchVisible(false);
+  function closeSearch() {
+    setSearchOpen(false);
     setSearchQuery("");
     setSearchResults([]);
     setSearchError(null);
-    setSearchLoading(false);
   }
 
-  const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/courses", label: "Courses" },
-    { href: "/shop", label: "Products" },
-    { href: "/about", label: "About Us" },
-    { href: "/contact", label: "Contact Us" },
-  ];
+  const hasDarkHero = pathname === "/" || pathname === "/courses" || pathname === "/booking" || pathname === "/contact" || pathname === "/shop";
+  const useWhite = hasDarkHero ? !scrolled : (!scrolled && isDark);
+  const iconCls = useWhite ? "text-white hover:bg-white/20" : "text-slate-700 hover:bg-black/5";
+  const navCls = useWhite ? "text-white hover:text-white hover:bg-white/20" : "text-slate-700 hover:text-emerald-700 hover:bg-black/5";
+  const borderCls = useWhite ? "border-white/20" : "border-black/10";
+
   return (
     <>
-     
-
       <header
-        className={`sticky top-0 z-40 w-full transition-all duration-300 ${
-          scrolled
-            ? "bg-white/95 backdrop-blur-md shadow-xl border-b border-emerald-100/50"
-            : "bg-white/90 backdrop-blur-sm"
-        }`}
+        ref={headerRef}
+        className="fixed top-0 inset-x-0 z-50 flex justify-center px-3 sm:px-6 pt-3 pointer-events-none"
       >
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              className="lg:hidden text-gray-600 hover:text-gray-900"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              {menuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
-            </button>
-            <Link href="/" className="flex items-center">
-              <div className="relative h-16 w-16">
-                <Image
-                  src={LogoMark}
-                  alt="Pratipal logo"
-                  fill
-                  sizes="64px"
-                  className="object-contain"
-                  priority
-                />
-              </div>
-            </Link>
-          </div>
-
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-sans tracking-wide">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="relative text-slate-700 hover:text-emerald-600 transition-all duration-300 uppercase font-semibold group"
+        <div
+          className={`pointer-events-auto w-full max-w-6xl rounded-2xl border transition-all duration-500 backdrop-blur-xl ${
+            scrolled
+              ? "bg-white/80 border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+              : "bg-white/10 border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
+          }`}
+        >
+          <div className="flex h-14 items-center justify-between px-4 sm:px-5">
+            <div className="flex items-center gap-2">
+              <button
+                className={`lg:hidden h-8 w-8 flex items-center justify-center rounded-xl transition ${iconCls}`}
+                onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="Toggle menu"
               >
-                {link.label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-peacock group-hover:w-full transition-all duration-300"></span>
+                {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </button>
+              <Link href="/" className="flex items-center">
+                <div className="relative h-10 w-10">
+                  <Image src={LogoMark} alt="Pratipal" fill sizes="40px" className="object-contain" priority />
+                </div>
               </Link>
-            ))}
-          </nav>
+            </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300"
-              onClick={() => setSearchVisible((prev) => !prev)}
-            >
-              <Search className="h-4 w-4" />
-            </button>
-            {mounted && !loading && customer ? (
-              <div className="hidden sm:flex items-center gap-2">
-                <button
-                  className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300"
-                  onClick={() => router.push("/account/orders")}
-                  title="Order History"
-                >
-                  <Package className="h-4 w-4" />
-                </button>
-                <button
-                  className="h-9 px-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-semibold uppercase tracking-wide flex items-center gap-2 hover:from-emerald-600 hover:to-teal-600 transition-all duration-300 shadow-sm"
-                  onClick={() => router.push("/account")}
-                >
-                  <User className="h-3.5 w-3.5" />
-                  {customer.first_name ? `Hi, ${customer.first_name}` : "My Account"}
-                </button>
-                <button
-                  className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all duration-300"
-                  onClick={async () => {
-                    if (loggingOut) return;
-                    setLoggingOut(true);
-                    await logout();
-                    setLoggingOut(false);
-                  }}
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="hidden sm:flex items-center gap-2">
-                <button
-                  className="h-9 px-3 rounded-lg bg-gradient-brand hover:shadow-md text-white text-xs font-semibold uppercase tracking-wide transition-all duration-300"
-                  onClick={() => router.push("/login")}
-                >
-                  Sign In
-                </button>
-                <button
-                  className="h-9 px-3 rounded-lg border-2 border-emerald-500 text-emerald-600 text-xs font-semibold uppercase tracking-wide hover:bg-emerald-500 hover:text-white transition-all duration-300"
-                  onClick={() => router.push("/register")}
-                >
-                  Join Now
-                </button>
-              </div>
-            )}
-            <button
-              className="relative h-9 w-9 flex items-center justify-center rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300"
-              onClick={() => setCartOpen(true)}
-            >
-              <ShoppingCart className="h-4 w-4" />
-              {mounted && itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-xs font-bold text-white flex items-center justify-center shadow-sm">
-                  {itemCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
+            <nav className="hidden lg:flex items-center gap-1">
+              {navLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={`px-3.5 py-1.5 text-sm font-medium rounded-xl transition-all duration-200 ${navCls}`}>
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
 
-        {menuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 px-6 py-5 space-y-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="block text-sm text-gray-700 hover:text-brand-secondary uppercase tracking-wider font-sans"
-                onClick={() => setMenuOpen(false)}
+            <div className="flex items-center gap-1">
+              <button
+                className={`h-8 w-8 flex items-center justify-center rounded-xl transition ${iconCls}`}
+                onClick={() => setSearchOpen((p) => !p)}
+                aria-label="Search"
               >
-                {link.label}
-              </Link>
-            ))}
-            <div className="pt-4 border-t border-gray-100 space-y-3">
-              {mounted && !loading && customer ? (
-                <>
-                  <p className="text-xs text-gray-500">Signed in as {customer.email}</p>
-                  <button
-                    className="w-full flex items-center justify-center gap-2 rounded-full bg-gray-100 text-gray-900 py-2 text-sm font-semibold"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/account");
-                    }}
-                  >
-                    <User className="h-4 w-4" /> Account
-                  </button>
-                  <button
-                    className="w-full flex items-center justify-center gap-2 rounded-full bg-gray-100 text-gray-900 py-2 text-sm font-semibold"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/account/orders");
-                    }}
-                  >
-                    <Package className="h-4 w-4" /> Order History
-                  </button>
-                  <button
-                    className="w-full flex items-center justify-center gap-2 rounded-full border border-gray-300 text-gray-700 py-2 text-sm"
-                    onClick={async () => {
-                      setMenuOpen(false);
-                      await logout();
-                    }}
-                  >
-                    <LogOut className="h-4 w-4" /> Sign Out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className="w-full rounded-full bg-brand-secondary text-white py-2 text-sm font-semibold"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/login");
-                    }}
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    className="w-full rounded-full border border-gray-300 text-gray-700 py-2 text-sm"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push("/register");
-                    }}
-                  >
-                    Create Account
-                  </button>
-                </>
+                <Search className="h-4 w-4" />
+              </button>
+
+              <button
+                ref={cartIconRef}
+                key={`cart-${popKey}`}
+                className={`relative h-8 w-8 flex items-center justify-center rounded-xl transition ${iconCls} ${popKey > 0 ? "cart-icon-pop" : ""}`}
+                onClick={() => setCartOpen(true)}
+                aria-label="Cart"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {mounted && itemCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-emerald-500 text-[10px] font-bold text-white flex items-center justify-center shadow">
+                    {itemCount > 9 ? "9+" : itemCount}
+                  </span>
+                )}
+              </button>
+
+              {mounted && !loading && (
+                customer ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      className={`h-8 w-8 flex items-center justify-center rounded-xl transition md:hidden ${iconCls}`}
+                      onClick={() => router.push("/account")}
+                      title="Account"
+                    >
+                      <User className="h-4 w-4" />
+                    </button>
+                    <button
+                      className="hidden md:flex items-center gap-1.5 h-8 px-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-700 text-white text-xs font-semibold transition"
+                      onClick={() => router.push("/account")}
+                    >
+                      <User className="h-3.5 w-3.5" />
+                      {customer.first_name ? `Hi, ${customer.first_name}` : "Account"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      className={`h-8 px-3 rounded-xl text-xs font-semibold transition ${iconCls}`}
+                      onClick={() => router.push("/login")}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      className="h-8 px-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-sm"
+                      onClick={() => router.push("/register")}
+                    >
+                      Join
+                    </button>
+                  </div>
+                )
               )}
             </div>
           </div>
-        )}
+
+          {/* Search panel */}
+          <div className={`overflow-hidden transition-all duration-300 ${searchOpen ? "max-h-[420px] opacity-100" : "max-h-0 opacity-0"}`}>
+            <div className="px-4 sm:px-5 pb-3 pt-1 border-t border-white/30">
+              <div className="flex items-center gap-2 bg-white/60 rounded-xl px-3 py-2">
+                <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); runSearch(e.target.value); }}
+                  onKeyDown={(e) => e.key === "Escape" && closeSearch()}
+                  placeholder="Search products, courses, services…"
+                  className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none"
+                />
+                {searchQuery && (
+                  <button onClick={closeSearch} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {(searchLoading || searchResults.length > 0 || searchError || (searchQuery && !searchLoading)) && (
+                <div className="mt-2 max-h-80 overflow-y-auto rounded-xl bg-white/90 backdrop-blur-sm border border-white/40 shadow-lg divide-y divide-black/5">
+                  {searchLoading && (
+                    <div className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                    </div>
+                  )}
+                  {searchError && (
+                    <div className="px-4 py-3 text-sm text-red-500">{searchError}</div>
+                  )}
+                  {!searchLoading && searchResults.length === 0 && !searchError && searchQuery && (
+                    <div className="px-4 py-3 text-sm text-slate-500">No results found for "{searchQuery}"</div>
+                  )}
+                  {!searchLoading && searchResults.map((r) => {
+                    const KindIcon = r.kind === "course" ? BookOpen : r.kind === "service" ? Stethoscope : ShoppingBag;
+                    const kindLabel = r.kind === "course" ? "Course" : r.kind === "service" ? "Service" : "Product";
+                    const kindColor = r.kind === "course"
+                      ? "bg-blue-100 text-blue-700"
+                      : r.kind === "service"
+                      ? "bg-purple-100 text-purple-700"
+                      : "bg-emerald-100 text-emerald-700";
+                    return (
+                      <button
+                        key={`${r.kind}-${r.id}`}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 hover:bg-emerald-50/60 transition text-left"
+                        onClick={() => { closeSearch(); router.push(r.href); }}
+                      >
+                        <div className="relative h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                          {r.image
+                            ? <Image src={r.image} alt={r.name} fill sizes="40px" className="object-cover" />
+                            : <div className="h-full w-full flex items-center justify-center"><KindIcon className="h-4 w-4 text-slate-400" /></div>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 line-clamp-1">{r.name}</p>
+                          {r.subtitle && <p className="text-xs text-slate-500 line-clamp-1">{r.subtitle}</p>}
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${kindColor}`}>{kindLabel}</span>
+                          {r.price != null && <span className="text-xs font-semibold text-emerald-700">{formatPrice(r.price)}</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile menu */}
+          <div className={`lg:hidden overflow-hidden transition-all duration-300 ${menuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"}`}>
+            <div className={`px-4 pb-4 pt-1 border-t space-y-1 ${borderCls}`}>
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`block px-3 py-2.5 text-sm font-medium rounded-xl transition ${navCls}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
       </header>
 
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
-
-      {searchVisible && (
-        <div className="border-t border-b border-gray-100 bg-white shadow-inner">
-          <div className="container py-4 space-y-4">
-            <form className="flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={handleSearchSubmit}>
-              <Input
-                ref={searchInputRef}
-                placeholder="Search products by name or description"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex items-center justify-center rounded-full bg-brand-secondary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-brand-accent transition"
-                  disabled={searchLoading}
-                >
-                  {searchLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Searching
-                    </>
-                  ) : (
-                    "Search"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-gray-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-700 hover:bg-gray-100 transition"
-                  onClick={closeSearchBar}
-                >
-                  Close
-                </button>
-              </div>
-            </form>
-            <div className="max-h-[360px] overflow-y-auto rounded-xl border bg-gray-50">
-              {searchError && !searchLoading && (
-                <div className="px-4 py-3 text-sm text-rose-600">{searchError}</div>
-              )}
-              {searchLoading && (
-                <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Looking for products…
-                </div>
-              )}
-              {!searchLoading && searchResults.length > 0 && (
-                <ul className="divide-y">
-                  {searchResults.map((product) => (
-                    <li key={product.id}>
-                      <button
-                        className="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-white"
-                        onClick={() => {
-                          closeSearchBar();
-                          router.push(`/product/${product.slug}`);
-                        }}
-                      >
-                        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-white shadow">
-                          {product.featured_image ? (
-                            <Image
-                              src={product.featured_image}
-                              alt={product.name}
-                              fill
-                              sizes="48px"
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="h-full w-full bg-gray-200" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold line-clamp-1">{product.name}</p>
-                          {product.short_description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">{product.short_description}</p>
-                          )}
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {formatPrice(product.sale_price || product.price)}
-                        </p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {!searchLoading && searchResults.length === 0 && !searchError && (
-                <div className="px-4 py-6 text-center text-sm text-muted-foreground">{emptyState}</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

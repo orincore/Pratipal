@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -44,7 +44,17 @@ type AddressFormState = {
 };
 
 export default function CheckoutPage() {
+  return (
+    <Suspense>
+      <CheckoutPageInner />
+    </Suspense>
+  );
+}
+
+function CheckoutPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const buyNowProductId = searchParams.get("buyNow");
   const { customer } = useCustomerAuth();
   const clearCartStore = useCartStore((state) => state.clearCart);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -199,13 +209,37 @@ export default function CheckoutPage() {
 
   async function loadCart() {
     try {
-      const res = await fetch("/api/cart");
-      const data = await res.json();
-      setCartItems(data.cart || []);
-      
-      if (data.cart.length === 0) {
-        toast.error("Your cart is empty");
-        router.push("/cart");
+      if (buyNowProductId) {
+        // Buy Now flow — fetch just this product, skip cart entirely
+        const res = await fetch(`/api/products/${buyNowProductId}`);
+        if (!res.ok) throw new Error("Product not found");
+        const data = await res.json();
+        const p = data.product || data;
+        const syntheticItem: CartItem = {
+          id: `buynow-${p.id}`,
+          product_id: p.id,
+          product: {
+            id: p.id,
+            name: p.name,
+            price: p.sale_price || p.price,
+            sale_price: p.sale_price,
+            featured_image: p.featured_image || p.images?.[0] || "",
+            sku: p.sku,
+          } as any,
+          quantity: 1,
+          price: p.sale_price || p.price,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setCartItems([syntheticItem]);
+      } else {
+        const res = await fetch("/api/cart");
+        const data = await res.json();
+        setCartItems(data.cart || []);
+        if (data.cart.length === 0) {
+          toast.error("Your cart is empty");
+          router.push("/cart");
+        }
       }
     } catch (err) {
       toast.error("Failed to load cart");
@@ -410,11 +444,11 @@ export default function CheckoutPage() {
 
         const data = await res.json();
         
-        // Clear cart immediately for better UX
-        clearCartStore();
-        
-        // Also clear server cart
-        fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
+        // Clear cart only if this was a normal cart checkout
+        if (!buyNowProductId) {
+          clearCartStore();
+          fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
+        }
         
         toast.success("Order placed successfully!");
         router.push(`/order-confirmation?orderId=${data.order.id}`);
@@ -494,11 +528,11 @@ export default function CheckoutPage() {
 
       toast.success("Payment successful!");
       
-      // Clear cart immediately for better UX
-      clearCartStore();
-      
-      // Also clear server cart
-      fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
+      // Clear cart only if this was a normal cart checkout
+      if (!buyNowProductId) {
+        clearCartStore();
+        fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
+      }
       
       router.push(`/order-confirmation?orderId=${orderId}`);
     } catch (err: any) {

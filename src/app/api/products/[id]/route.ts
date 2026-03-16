@@ -80,6 +80,9 @@ export async function PUT(
         weight: body.weight,
         dimensions: body.dimensions,
         tags: body.tags,
+        highlights: body.highlights,
+        additional_info: body.additional_info,
+        care_instructions: body.care_instructions,
         meta_title: body.meta_title,
         meta_description: body.meta_description,
       },
@@ -136,6 +139,9 @@ export async function PATCH(
     if (body.weight !== undefined) updateData.weight = body.weight;
     if (body.dimensions !== undefined) updateData.dimensions = body.dimensions;
     if (body.tags !== undefined) updateData.tags = body.tags;
+    if (body.highlights !== undefined) updateData.highlights = body.highlights;
+    if (body.additional_info !== undefined) updateData.additional_info = body.additional_info;
+    if (body.care_instructions !== undefined) updateData.care_instructions = body.care_instructions;
     if (body.meta_title !== undefined) updateData.meta_title = body.meta_title;
     if (body.meta_description !== undefined) updateData.meta_description = body.meta_description;
 

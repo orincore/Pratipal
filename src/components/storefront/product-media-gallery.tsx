@@ -17,16 +17,16 @@ export function ProductMediaGallery({ images, name, className }: ProductMediaGal
   ];
 
   return (
-    <div className={cn("space-y-4", className)}>
-      <div className="overflow-hidden rounded-[28px] bg-white shadow-sm border border-gray-100">
-        <div className="relative w-full h-[440px] md:h-[520px]">
+    <div className={cn("w-full space-y-4", className)}>
+      <div className="w-full overflow-hidden rounded-[28px] bg-white shadow-sm border border-gray-100">
+        <div className="relative w-full aspect-square">
           <Image
             key={safeImages[activeIndex]}
             src={safeImages[activeIndex]}
             alt={`${name} image ${activeIndex + 1}`}
             fill
             sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
+            className="object-cover object-center"
             priority
           />
         </div>

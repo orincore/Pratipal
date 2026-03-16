@@ -62,10 +62,15 @@ export function ProductDescriptionTabs({
         if (!description) {
           return <p className="text-sm text-muted-foreground">No description provided.</p>;
         }
+        // If the description contains no HTML tags, treat it as plain text and preserve newlines
+        const isPlainText = !/<[a-z][\s\S]*>/i.test(description);
+        const html = isPlainText
+          ? description.split("\n").map((line) => `<p>${line || "&nbsp;"}</p>`).join("")
+          : description;
         return (
           <div
             className="prose prose-neutral max-w-none text-gray-700"
-            dangerouslySetInnerHTML={{ __html: description }}
+            dangerouslySetInnerHTML={{ __html: html }}
           />
         );
     }

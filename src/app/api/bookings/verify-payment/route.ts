@@ -46,7 +46,24 @@ export async function POST(req: NextRequest) {
 
     // Generate WhatsApp redirect URL
     const whatsappNumber = "917605072424"; // +91 7605072424
-    const message = `Hi, I bought ${booking.service_name} for ₹${booking.amount}. Transaction ID: ${razorpay_payment_id}`;
+    const message = `Hi, I just booked a session on Pratipal!
+
+📋 *Booking Details*
+• Booking ID: ${booking.booking_number}
+• Service: ${booking.service_name}
+• Plan: ${booking.frequency_label}
+• Amount Paid: ₹${booking.amount}
+
+👤 *My Details*
+• Name: ${booking.customer_name}
+• Email: ${booking.customer_email}
+• Phone: ${booking.customer_phone}
+
+💳 *Payment*
+• Transaction ID: ${razorpay_payment_id}
+• Status: Confirmed ✅
+
+Please confirm my booking. Thank you!`;
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
     // Update booking
