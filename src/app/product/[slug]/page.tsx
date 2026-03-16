@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { ProductMediaGallery } from "@/components/storefront/product-media-gallery";
 import { ProductPurchasePanel } from "@/components/storefront/product-purchase-panel";
+import { ProductCard } from "@/components/storefront/product-card";
 import { Header } from "@/components/storefront/header";
 import { Footer } from "@/components/storefront/footer";
 import { CustomerAuthProvider } from "@/lib/customer-auth-context";
@@ -103,9 +104,9 @@ export default async function ProductPage({ params }: ProductParams) {
       <CustomerAuthProvider>
         <div className="min-h-screen flex flex-col bg-white">
           <Header />
-          <main className="flex-1 pt-[82px] pb-16">
+          <main className="flex-1 pt-20 sm:pt-[82px] pb-10 sm:pb-16">
             {/* Breadcrumb */}
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4">
               <nav className="flex items-center gap-2 text-xs text-gray-400 uppercase tracking-widest">
                 <Link href="/" className="hover:text-gray-700 transition">Home</Link>
                 <span>/</span>
@@ -120,26 +121,26 @@ export default async function ProductPage({ params }: ProductParams) {
             </div>
 
             {/* Main product section */}
-            <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <section className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
+              <div className="grid gap-5 sm:gap-10 lg:grid-cols-[480px_1fr]">
                 <ProductMediaGallery images={images} name={product.name} />
 
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {/* Category + Name */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5 sm:space-y-2">
                     {product.category?.name && (
                       <span className="inline-block text-[11px] uppercase tracking-[0.35em] text-emerald-600 font-semibold">
                         {product.category.name}
                       </span>
                     )}
                     <h1
-                      className="text-3xl sm:text-4xl text-[#1b244a] leading-tight"
+                      className="text-2xl sm:text-4xl text-[#1b244a] leading-tight"
                       style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
                     >
                       {product.name}
                     </h1>
                     {product.short_description && (
-                      <p className="text-base text-gray-500 leading-relaxed">
+                      <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                         {product.short_description}
                       </p>
                     )}
@@ -147,11 +148,11 @@ export default async function ProductPage({ params }: ProductParams) {
 
                   {/* Highlights */}
                   {product.highlights?.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 sm:space-y-2">
                       <p className="text-sm font-semibold text-[#1b244a] uppercase tracking-wider">
                         Why you'll love it
                       </p>
-                      <ul className="space-y-1.5">
+                      <ul className="space-y-1 sm:space-y-1.5">
                         {product.highlights.map((item: string) => (
                           <li key={item} className="flex items-start gap-2 text-sm text-gray-600">
                             <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
@@ -181,14 +182,14 @@ export default async function ProductPage({ params }: ProductParams) {
                   />
 
                   {/* Trust badges */}
-                  <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1 sm:pt-2">
                     {trustBadges.map(({ icon: Icon, label }) => (
                       <div
                         key={label}
-                        className="flex flex-col items-center gap-1.5 rounded-2xl bg-white border border-gray-100 p-3 text-center"
+                        className="flex flex-col items-center gap-1 sm:gap-1.5 rounded-xl sm:rounded-2xl bg-white border border-gray-100 p-2 sm:p-3 text-center"
                       >
-                        <Icon className="h-5 w-5 text-emerald-600" />
-                        <span className="text-[10px] text-gray-500 leading-tight">{label}</span>
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                        <span className="text-[9px] sm:text-[10px] text-gray-500 leading-tight">{label}</span>
                       </div>
                     ))}
                   </div>
@@ -198,10 +199,10 @@ export default async function ProductPage({ params }: ProductParams) {
 
             {/* Description */}
             {product.description && (
-              <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
-                <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8">
+              <section className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 mt-6 sm:mt-12">
+                <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 p-4 sm:p-8">
                   <h2
-                    className="text-xl text-[#1b244a] mb-4"
+                    className="text-lg sm:text-xl text-[#1b244a] mb-3 sm:mb-4"
                     style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
                   >
                     Description
@@ -213,7 +214,7 @@ export default async function ProductPage({ params }: ProductParams) {
                       : product.description;
                     return (
                       <div
-                        className="prose prose-neutral max-w-none text-gray-600"
+                        className="prose prose-neutral max-w-none text-gray-600 prose-sm sm:prose-base"
                         dangerouslySetInnerHTML={{ __html: html }}
                       />
                     );
@@ -224,12 +225,12 @@ export default async function ProductPage({ params }: ProductParams) {
 
             {/* Specs + Care instructions */}
             {(specs.length > 0 || product.care_instructions) && (
-              <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-                <div className="grid gap-6 sm:grid-cols-2">
+              <section className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-8">
+                <div className="grid gap-3 sm:gap-6 sm:grid-cols-2">
                   {specs.length > 0 && (
-                    <div className="bg-white rounded-3xl border border-gray-100 p-6 space-y-3">
+                    <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 p-4 sm:p-6 space-y-3">
                       <h2
-                        className="text-lg text-[#1b244a]"
+                        className="text-base sm:text-lg text-[#1b244a]"
                         style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
                       >
                         Product Specs
@@ -245,9 +246,9 @@ export default async function ProductPage({ params }: ProductParams) {
                     </div>
                   )}
                   {product.care_instructions && (
-                    <div className="bg-white rounded-3xl border border-gray-100 p-6 space-y-3">
+                    <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 p-4 sm:p-6 space-y-3">
                       <h2
-                        className="text-lg text-[#1b244a]"
+                        className="text-base sm:text-lg text-[#1b244a]"
                         style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
                       >
                         Care Instructions
@@ -263,12 +264,12 @@ export default async function ProductPage({ params }: ProductParams) {
 
             {/* Related products */}
             {relatedProducts.length > 0 && (
-              <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-14 space-y-6">
+              <section className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 mt-8 sm:mt-14 space-y-4 sm:space-y-6">
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-[0.4em] text-gray-400">You may also like</p>
                     <h2
-                      className="text-2xl sm:text-3xl text-[#1b244a] mt-1"
+                      className="text-xl sm:text-3xl text-[#1b244a] mt-1"
                       style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
                     >
                       Related Products
@@ -278,52 +279,29 @@ export default async function ProductPage({ params }: ProductParams) {
                     View all
                   </Link>
                 </div>
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                  {relatedProducts.map((item: any) => {
+                <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+                  {relatedProducts.map((item: any, i: number) => {
                     const itemPrice = item.sale_price && item.sale_price < item.price
                       ? item.sale_price
                       : item.price;
+                    const originalPrice = item.sale_price && item.sale_price < item.price
+                      ? item.price
+                      : undefined;
                     return (
-                      <Link
+                      <ProductCard
                         key={item.id}
-                        href={`/product/${item.slug}`}
-                        className="group rounded-3xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition"
-                      >
-                        <div className="relative h-52 w-full overflow-hidden bg-gray-50">
-                          {(item.featured_image || item.images?.[0]) ? (
-                            <Image
-                              src={item.featured_image || item.images[0]}
-                              alt={item.name}
-                              fill
-                              className="object-cover transition-transform duration-500 group-hover:scale-105"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-300">
-                              <Package className="h-10 w-10" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-4 space-y-1.5">
-                          {item.category?.name && (
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400">
-                              {item.category.name}
-                            </p>
-                          )}
-                          <h3 className="text-sm font-semibold text-[#1b244a] line-clamp-2">
-                            {item.name}
-                          </h3>
-                          <div className="flex items-center gap-2">
-                            <span className="text-base font-bold text-emerald-600">
-                              {formatPrice(itemPrice)}
-                            </span>
-                            {item.sale_price && item.sale_price < item.price && (
-                              <span className="text-xs text-gray-400 line-through">
-                                {formatPrice(item.price)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
+                        index={i}
+                        product={{
+                          id: item.id,
+                          name: item.name,
+                          slug: item.slug,
+                          image: item.featured_image || item.images?.[0] || "",
+                          price: itemPrice,
+                          originalPrice,
+                          shortDescription: item.short_description,
+                          category: item.category?.name,
+                        }}
+                      />
                     );
                   })}
                 </div>

@@ -102,71 +102,72 @@ function ProductCard({ product, index }: { product: NormProduct; index: number }
       onClick={() => router.push(`/product/${product.slug}`)}
     >
       {/* Image */}
-      <div className="relative h-[180px] overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50 flex-shrink-0">
+      <div className="relative w-full aspect-[3/4] sm:aspect-[3/4] overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50 flex-shrink-0">
         <Image
           src={product.image}
           alt={product.name}
           fill
-          className="object-cover transition-all duration-700 group-hover:scale-105"
+          className="object-cover object-center transition-all duration-700 group-hover:scale-105"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           placeholder="blur"
           blurDataURL={BLUR}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
         {product.category && (
-          <span className="absolute top-3 left-3 text-[10px] uppercase tracking-wider font-semibold text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full">
+          <span className="absolute top-2 left-2 sm:top-3 sm:left-3 text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold text-white bg-black/40 backdrop-blur-sm px-1.5 sm:px-2 py-0.5 rounded-full">
             {product.category}
           </span>
         )}
         {hasDiscount && (
-          <span className="absolute top-3 right-3 text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">
+          <span className="absolute top-2 right-2 sm:top-3 sm:right-3 text-[9px] sm:text-[10px] font-bold text-white bg-red-500 px-1.5 sm:px-2 py-0.5 rounded-full">
             -{discountPct}%
           </span>
         )}
       </div>
 
       {/* Body */}
-      <div className="flex flex-col flex-1 p-4 gap-2">
-        <h3 className="text-sm sm:text-base font-semibold text-slate-800 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
+      <div className="flex flex-col flex-1 p-2.5 sm:p-4 gap-1.5 sm:gap-2">
+        <h3 className="text-xs sm:text-base font-semibold text-slate-800 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
           {product.name}
         </h3>
-        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">
+        <p className="hidden sm:block text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">
           {product.shortDescription || "\u00A0"}
         </p>
 
         {/* Price */}
-        <div className="flex items-baseline gap-2 mt-auto pt-2 border-t border-gray-100">
-          <span className="text-base sm:text-lg font-bold text-emerald-700">
+        <div className="flex items-baseline gap-1.5 sm:gap-2 mt-auto pt-1.5 sm:pt-2 border-t border-gray-100">
+          <span className="text-sm sm:text-lg font-bold text-emerald-700">
             {formatPrice(product.price)}
           </span>
           {hasDiscount && (
-            <span className="text-xs text-slate-400 line-through">
+            <span className="text-[10px] sm:text-xs text-slate-400 line-through">
               {formatPrice(product.originalPrice!)}
             </span>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 mt-1">
+        <div className="flex gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
           <button
             ref={addBtnRef}
             onClick={handleAddToCart}
             disabled={adding}
-            className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1 text-[10px] sm:text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200 disabled:opacity-50"
           >
             <ShoppingBag className="h-3 w-3 flex-shrink-0" />
-            {adding ? "Adding…" : "Add to Cart"}
+            <span className="hidden xs:inline sm:inline">{adding ? "Adding…" : "Add"}</span>
+            <span className="xs:hidden sm:hidden">{adding ? "…" : "Cart"}</span>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); router.push(`/checkout?buyNow=${product.id}`); }}
-            className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold text-white bg-gradient-brand hover:shadow-md px-3 py-2 rounded-lg transition-all duration-200"
+            className="flex-1 flex items-center justify-center gap-1 text-[10px] sm:text-xs font-semibold text-white bg-gradient-brand hover:shadow-md px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all duration-200"
           >
             <Zap className="h-3 w-3 flex-shrink-0" />
-            Buy Now
+            Buy
           </button>
         </div>
 
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 group-hover:text-emerald-700 mt-0.5">
+        <span className="hidden sm:inline-flex items-center gap-1 text-xs font-medium text-emerald-600 group-hover:text-emerald-700 mt-0.5">
           View Details <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </span>
       </div>
@@ -182,13 +183,23 @@ export default function ShopPage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [sortBy, setSortBy] = useState<"default" | "price_asc" | "price_desc">("default");
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 30;
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     let alive = true;
     fetch("/api/products?limit=200", { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => { if (alive) setRaw(d.products || []); })
+      .then((d) => {
+        if (alive) {
+          // Shuffle once on load
+          const arr: ShopProduct[] = d.products || [];
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+          setRaw(arr);
+        }
+      })
       .catch(() => {})
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -229,19 +240,19 @@ export default function ShopPage() {
 
       {/* ── Hero strip ── */}
       <div
-        className="pt-20"
+        className="pt-16 sm:pt-20"
         style={{ background: "linear-gradient(120deg, #0f172a 0%, #1b244a 40%, #0d3d2e 75%, #134e3a 100%)" }}
       >
-        <div className="container max-w-6xl px-4 sm:px-6 py-6 sm:py-8 flex items-center justify-between gap-6">
+        <div className="container max-w-6xl px-4 sm:px-6 py-3 sm:py-8 flex items-center justify-between gap-6">
           <div>
             <p
-              className="text-[9px] uppercase tracking-[0.3em] font-semibold mb-1"
+              className="text-[9px] uppercase tracking-[0.3em] font-semibold mb-0.5 sm:mb-1"
               style={{ color: "#6ee7b7" }}
             >
               Our Collection
             </p>
             <h1
-              className="text-3xl sm:text-4xl font-bold text-white leading-tight"
+              className="text-xl sm:text-4xl font-bold text-white leading-tight"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               Shop Pratipal
@@ -272,26 +283,43 @@ export default function ShopPage() {
 
       {/* ── Sticky toolbar ── */}
       <div className="sticky top-[60px] z-30 bg-white/90 backdrop-blur-md border-b border-black/5 shadow-sm">
-        <div className="container max-w-6xl px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+        <div className="container max-w-6xl px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col sm:flex-row gap-2 sm:gap-2.5 items-stretch sm:items-center">
 
-          {/* Search */}
-          <div className="relative flex-1 max-w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products…"
-              className="w-full h-9 pl-8 pr-8 text-sm bg-gray-50 border border-black/8 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 placeholder:text-slate-400 transition"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          {/* Row 1 on mobile: Search + Sort side by side */}
+          <div className="flex gap-2 sm:contents">
+            {/* Search */}
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products…"
+                className="w-full h-8 sm:h-9 pl-8 pr-8 text-xs sm:text-sm bg-gray-50 border border-black/8 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 placeholder:text-slate-400 transition"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort — mobile only, inline with search */}
+            <div className="flex items-center gap-1 flex-shrink-0 sm:hidden">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="h-8 pl-2 pr-5 text-[11px] font-medium bg-gray-100 border-0 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 appearance-none cursor-pointer"
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+                <option value="default">Default</option>
+                <option value="price_asc">Low → High</option>
+                <option value="price_desc">High → Low</option>
+              </select>
+            </div>
           </div>
 
           {/* Category pills */}
@@ -300,7 +328,7 @@ export default function ShopPage() {
               <button
                 key={cat.slug}
                 onClick={() => setActiveCategory(cat.slug)}
-                className={`flex-shrink-0 h-7 px-3 rounded-full text-[11px] font-semibold transition-all duration-150 ${
+                className={`flex-shrink-0 h-6 sm:h-7 px-2.5 sm:px-3 rounded-full text-[10px] sm:text-[11px] font-semibold transition-all duration-150 ${
                   activeCategory === cat.slug
                     ? "bg-emerald-700 text-white shadow-sm"
                     : "bg-gray-100 text-slate-600 hover:bg-gray-200"
@@ -311,8 +339,8 @@ export default function ShopPage() {
             ))}
           </div>
 
-          {/* Sort */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Sort — desktop only */}
+          <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
             <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
             <select
               value={sortBy}
@@ -329,7 +357,7 @@ export default function ShopPage() {
       </div>
 
       {/* ── Results ── */}
-      <div className="container max-w-6xl px-4 sm:px-6 py-8">
+      <div className="container max-w-6xl px-3 sm:px-6 py-4 sm:py-8">
 
         {/* Count */}
         {!loading && filtered.length > 0 && (
@@ -358,7 +386,7 @@ export default function ShopPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-5">
               {paginated.map((product, i) => (
                 <ProductCard key={product.id} product={product} index={i} />
               ))}

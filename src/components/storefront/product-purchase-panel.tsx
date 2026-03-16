@@ -82,7 +82,7 @@ export function ProductPurchasePanel({
   const variantPrice = selectedVariant?.sale_price ?? selectedVariant?.price;
   const displayPrice = variantPrice ?? basePrice;
   const resolvedShareUrl = shareUrl || "";
-  const checkoutParams = new URLSearchParams({ product: productId });
+  const checkoutParams = new URLSearchParams({ buyNow: productId });
   if (selectedVariantId) checkoutParams.set("variant", selectedVariantId);
   if (quantity > 1) checkoutParams.set("quantity", quantity.toString());
   const checkoutUrl = `/checkout?${checkoutParams.toString()}`;
@@ -96,13 +96,13 @@ export function ProductPurchasePanel({
   }
 
   return (
-    <div className="space-y-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+    <div className="space-y-4 sm:space-y-6 rounded-2xl sm:rounded-3xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
       <div>
-        <div className="flex items-baseline gap-3">
-          <p className="text-3xl font-bold text-emerald-600">₹{displayPrice.toFixed(2)}</p>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <p className="text-2xl sm:text-3xl font-bold text-emerald-600">₹{displayPrice.toFixed(2)}</p>
           {compareAtPrice && compareAtPrice > displayPrice && (
             <>
-              <span className="text-sm text-gray-400 line-through">₹{compareAtPrice.toFixed(2)}</span>
+              <span className="text-xs sm:text-sm text-gray-400 line-through">₹{compareAtPrice.toFixed(2)}</span>
               <span className="text-xs font-semibold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">
                 {Math.round(((compareAtPrice - displayPrice) / compareAtPrice) * 100)}% off
               </span>
@@ -122,7 +122,7 @@ export function ProductPurchasePanel({
         <div className="space-y-2">
           <p className="text-sm font-semibold text-gray-700">Choose an option</p>
           <Select value={selectedVariantId} onValueChange={setSelectedVariantId}>
-            <SelectTrigger className="h-12 rounded-full bg-white">
+            <SelectTrigger className="h-10 sm:h-12 rounded-full bg-white">
               <SelectValue placeholder="Select variant" />
             </SelectTrigger>
             <SelectContent>
@@ -139,20 +139,20 @@ export function ProductPurchasePanel({
         </div>
       )}
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         <div className="flex items-center rounded-full border border-gray-200 bg-white">
           <button
             type="button"
             onClick={decrement}
-            className="h-12 w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
+            className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
           >
             <Minus className="h-4 w-4" />
           </button>
-          <span className="w-12 text-center font-semibold text-gray-900">{quantity}</span>
+          <span className="w-10 sm:w-12 text-center font-semibold text-gray-900">{quantity}</span>
           <button
             type="button"
             onClick={increment}
-            className="h-12 w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
+            className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -160,7 +160,7 @@ export function ProductPurchasePanel({
         <p className="text-sm text-gray-500">Quantity</p>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2 sm:gap-3">
         <AddToCartButton
           productId={productId}
           variantId={selectedVariantId}
@@ -174,22 +174,22 @@ export function ProductPurchasePanel({
             shortDescription: productMeta.shortDescription,
             category: productMeta.category,
           }}
-          className="h-12 rounded-full bg-[#1b244a] text-white text-base font-semibold shadow-md hover:bg-[#232d5f]"
+          className="h-10 sm:h-12 rounded-full bg-[#1b244a] text-white text-sm sm:text-base font-semibold shadow-md hover:bg-[#232d5f]"
         >
           Add to Cart
         </AddToCartButton>
         <Button
           asChild
           variant="outline"
-          className="h-12 rounded-full border-emerald-600 text-emerald-600 font-semibold hover:bg-emerald-600 hover:text-white"
+          className="h-10 sm:h-12 rounded-full border-emerald-600 text-emerald-600 font-semibold hover:bg-emerald-600 hover:text-white"
         >
           <a href={checkoutUrl}>Buy Now</a>
         </Button>
       </div>
 
-      <div className="border-t border-gray-200 pt-4 text-sm text-gray-500">
+      <div className="border-t border-gray-200 pt-3 sm:pt-4 text-sm text-gray-500">
         <p className="font-semibold text-gray-700 mb-2">Share</p>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {shareTargets.map((target) => (
             <a
               key={target.label}

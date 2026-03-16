@@ -55,7 +55,7 @@ function CheckoutPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const buyNowProductId = searchParams.get("buyNow");
-  const { customer } = useCustomerAuth();
+  const { customer, loading: authLoading } = useCustomerAuth();
   const clearCartStore = useCartStore((state) => state.clearCart);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -541,6 +541,54 @@ function CheckoutPageInner() {
     } finally {
       setProcessing(false);
     }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600" />
+      </div>
+    );
+  }
+
+  if (!customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-sm w-full text-center space-y-5">
+          <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
+            <Shield className="h-7 w-7 text-emerald-600" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+              Sign in to continue
+            </h2>
+            <p className="text-sm text-gray-500">
+              You need to be signed in to access checkout.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={() => router.push(`/login?redirect=/checkout${buyNowProductId ? `?buyNow=${buyNowProductId}` : ""}`)}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => router.push(`/register?redirect=/checkout${buyNowProductId ? `?buyNow=${buyNowProductId}` : ""}`)}
+              className="w-full border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition-colors"
+            >
+              Create Account
+            </button>
+            <button
+              onClick={() => router.back()}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors pt-1"
+            >
+              Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {

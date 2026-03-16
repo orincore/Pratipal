@@ -77,7 +77,8 @@ interface RazorpayInstance {
 // ── Booking Modal ───────────────────────────────────────────────────────────
 function BookingModal({ service, onClose }: { service: ServiceItem; onClose: () => void }) {
   const { customer } = useCustomerAuth();
-  const [selectedFreq, setSelectedFreq] = useState<FrequencyOption>(service.frequency_options[0]);
+  const safeOptions = service.frequency_options?.length ? service.frequency_options : [{ label: "Single Session", value: "single", price: service.base_price }];
+  const [selectedFreq, setSelectedFreq] = useState<FrequencyOption>(safeOptions[0]);
   const [name, setName] = useState(customer ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim() : "");
   const [email, setEmail] = useState(customer?.email ?? "");
   const [phone, setPhone] = useState(customer?.phone ?? "");
@@ -232,11 +233,11 @@ function BookingModal({ service, onClose }: { service: ServiceItem; onClose: () 
           <p className="text-sm text-slate-600 leading-relaxed">{service.description}</p>
 
           {/* Frequency selector */}
-          {service.frequency_options.length > 1 && (
+          {safeOptions.length > 1 && (
             <div>
               <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Choose Plan</p>
               <div className="grid grid-cols-1 gap-2">
-                {service.frequency_options.map((opt) => (
+                {safeOptions.map((opt) => (
                   <label
                     key={opt.value}
                     className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
@@ -370,7 +371,17 @@ export function BookingPageClient() {
   useEffect(() => {
     fetch("/api/services")
       .then((r) => r.json())
-      .then((d) => setServices(d.services?.length ? d.services : FALLBACK_SERVICES))
+      .then((d) => {
+        const list: ServiceItem[] = d.services?.length ? d.services : FALLBACK_SERVICES;
+        setServices(list);
+        // Auto-open modal if ?service=id is in URL
+        const params = new URLSearchParams(window.location.search);
+        const sid = params.get("service");
+        if (sid) {
+          const match = list.find((s) => s.id === sid);
+          if (match) setSelectedService(match);
+        }
+      })
       .catch(() => setServices(FALLBACK_SERVICES))
       .finally(() => setLoading(false));
   }, []);
@@ -445,7 +456,11 @@ export function BookingPageClient() {
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
               {services.map((service) => (
-                <div key={service.id} className="snap-start flex-shrink-0 w-[72vw] sm:w-auto group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 hover:border-emerald-200 transition-all duration-300 flex flex-col">
+                <div
+                  key={service.id}
+                  onClick={() => setSelectedService(service)}
+                  className="snap-start flex-shrink-0 w-[72vw] sm:w-auto group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 hover:border-emerald-200 transition-all duration-300 flex flex-col cursor-pointer"
+                >
                   <div className="relative h-36 sm:h-48 flex-shrink-0 overflow-hidden">
                     <Image src={service.image_url || "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&h=600&fit=crop"} alt={service.title} fill className="object-cover transition-transform duration-700 group-hover:scale-105" sizes="(max-width: 640px) 72vw, (max-width: 1024px) 50vw, 33vw" placeholder="blur" blurDataURL={BLUR} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
@@ -454,17 +469,27 @@ export function BookingPageClient() {
                   <div className="p-3 sm:p-5 flex flex-col flex-1">
                     <h3 className="text-sm sm:text-lg font-serif font-semibold text-gray-900 mb-1 leading-snug group-hover:text-emerald-700 transition-colors">{service.title}</h3>
                     <p className="text-xs sm:text-sm text-slate-500 leading-relaxed line-clamp-2 sm:line-clamp-3 flex-1">{service.description}</p>
-                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                       <div>
                         <p className="text-[10px] text-slate-400 uppercase tracking-wider">From</p>
                         <p className="text-base sm:text-xl font-bold text-emerald-700">{formatPrice(startingPrice(service))}</p>
                       </div>
-                      <button
-                        onClick={() => setSelectedService(service)}
-                        className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] sm:text-xs font-semibold px-3 py-2 rounded-xl transition-all duration-200"
-                      >
-                        <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />Book Now
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedService(service); }}
+                          className="inline-flex items-center gap-1 text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[10px] sm:text-xs font-semibold px-2.5 py-2 rounded-xl transition-all duration-200"
+                        >
+                          <ArrowRight className="h-3 w-3" />
+                          <span className="hidden sm:inline">View Details</span>
+                          <span className="sm:hidden">Details</span>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedService(service); }}
+                          className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] sm:text-xs font-semibold px-3 py-2 rounded-xl transition-all duration-200"
+                        >
+                          <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />Book Now
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

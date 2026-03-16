@@ -7,7 +7,7 @@ const CUSTOMER_COOKIE_NAME = "customer_session";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, rememberMe } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     });
 
     const cookieOpts = getSessionCookieOptions();
+    const THIRTY_DAYS = 30 * 24 * 60 * 60;
 
     const response = NextResponse.json({
       customer: {
@@ -58,9 +59,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log("customer-login: setting cookie", CUSTOMER_COOKIE_NAME);
     response.cookies.set(CUSTOMER_COOKIE_NAME, token, {
-      maxAge: cookieOpts.maxAge,
+      // rememberMe → persistent 30-day cookie; otherwise session cookie (expires on browser close)
+      ...(rememberMe ? { maxAge: THIRTY_DAYS } : {}),
       httpOnly: cookieOpts.httpOnly,
       secure: cookieOpts.secure,
       sameSite: cookieOpts.sameSite,

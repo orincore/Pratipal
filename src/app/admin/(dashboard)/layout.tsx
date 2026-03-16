@@ -34,7 +34,7 @@ import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-con
 const sidebarItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Homepage", href: "/admin/homepage", icon: Home },
-  { label: "Products", href: "/admin/products", icon: Package },
+  { label: "Products", href: "/admin/ecommerce/products", icon: Package },
   { label: "Orders", href: "/admin/ecommerce/orders", icon: ShoppingBag },
   { label: "Service Orders", href: "/admin/service-orders", icon: MessageCircle },
   { label: "Course Orders", href: "/admin/course-orders", icon: BookOpen },

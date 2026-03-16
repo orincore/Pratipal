@@ -29,10 +29,13 @@ export async function GET(
     
     if (data.category_id) {
       data.category = {
-        id: data.category_id._id?.toString() || data.category_id,
+        id: data.category_id._id?.toString() || data.category_id.toString(),
         name: data.category_id.name,
         slug: data.category_id.slug
       };
+      // Store the raw string ID separately for form use
+      data.category_id_str = data.category_id._id?.toString() || data.category_id.toString();
+      delete data.category_id;
     }
 
     return NextResponse.json({ product: data });

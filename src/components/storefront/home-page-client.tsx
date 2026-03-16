@@ -24,6 +24,7 @@ import { formatPrice } from "@/lib/utils";
 import type { Product, HomepageSection } from "@/types";
 import { BookingSection } from "@/components/booking/booking-section";
 import { toast } from "sonner";
+import { ProductCard } from "@/components/storefront/product-card";
 
 type SectionKey = Extract<HomepageSection, "featured" | "best_sellers" | "new_arrivals" | "on_sale">;
 const SECTION_KEYS: SectionKey[] = ["featured", "best_sellers", "new_arrivals", "on_sale"];
@@ -80,9 +81,8 @@ export function HomePageClient({ products }: HomePageClientProps) {
   );
 
   const featuredProducts = useMemo(() => {
-    const result = selectSectionProducts("featured", (product) => product.status === "active");
-    return result;
-  }, [selectSectionProducts]);
+    return products.filter((p) => p.status === "active");
+  }, [products]);
 
   return (
     <div className={`bg-white transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
@@ -592,9 +592,9 @@ function ApproachSection() {
           {approaches.map((approach, index) => (
             <div
               key={index}
-              className="group bg-gradient-to-br from-white to-gray-50 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-brand-teal/30"
+              className="group bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-brand-teal/30"
             >
-              <div className="relative h-44 w-full overflow-hidden">
+              <div className="relative h-44 w-full overflow-hidden rounded-t-3xl">
                 <Image
                   src={approach.image}
                   alt={`${approach.title} approach visual`}
@@ -614,7 +614,7 @@ function ApproachSection() {
                 <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">
                   {approach.title}
                 </h3>
-                <p className="text-gray-600 leading-relaxed">
+                <p className="text-gray-600 leading-relaxed pb-4">
                   {approach.description}
                 </p>
               </div>
@@ -627,9 +627,18 @@ function ApproachSection() {
 }
 
 function FeaturedProducts({ products }: { products: Product[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  function scroll(dir: "left" | "right") {
+    if (!scrollRef.current) return;
+    const cols = window.innerWidth < 640 ? 2 : 4;
+    const cardW = scrollRef.current.clientWidth / cols;
+    scrollRef.current.scrollBy({ left: dir === "left" ? -cardW : cardW, behavior: "smooth" });
+  }
+
   return (
     <section className="py-8 sm:py-10 bg-gradient-to-br from-slate-50 to-emerald-50/30">
-      <div className="container px-4 sm:px-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 rounded-full mb-4">
@@ -646,13 +655,45 @@ function FeaturedProducts({ products }: { products: Product[] }) {
 
         {products.length > 0 ? (
           <>
-            <div className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory scrollbar-hide mb-8 -mx-4 px-4 sm:-mx-6 sm:px-6">
-              {products.map((product, index) => (
-                <div key={product.id} className="snap-start flex-shrink-0 w-[260px] sm:w-[280px] h-[420px]">
-                  <ProductCard product={product} index={index} />
-                </div>
-              ))}
+            {/* Carousel */}
+            <div className="relative mb-8">
+              {/* Left arrow */}
+              <button
+                onClick={() => scroll("left")}
+                className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-slate-600 hover:text-emerald-700 hover:border-emerald-200 transition"
+                aria-label="Scroll left"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <div
+                ref={scrollRef}
+                className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory scrollbar-hide"
+              >
+                {products.map((product, index) => (
+                  <div
+                    key={product.id}
+                    className="snap-start flex-shrink-0 w-[calc(50%-6px)] sm:w-[calc(25%-9px)]"
+                  >
+                    <ProductCard product={product} index={index} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Right arrow */}
+              <button
+                onClick={() => scroll("right")}
+                className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-slate-600 hover:text-emerald-700 hover:border-emerald-200 transition"
+                aria-label="Scroll right"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
+
             <div className="text-center">
               <Link
                 href="/shop"
@@ -685,125 +726,6 @@ function FeaturedProducts({ products }: { products: Product[] }) {
     </section>
   );
 }
-
-function ProductCard({ product, index }: { product: Product; index: number }) {
-  const addItem = useCartStore((s) => s.addItem);
-  const router = useRouter();
-  const [adding, setAdding] = useState(false);
-  const { triggerFly } = useCartAnimation();
-  const addBtnRef = useRef<HTMLButtonElement>(null);
-
-  const handleAddToCart = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (adding) return;
-    setAdding(true);
-    if (addBtnRef.current) triggerFly(addBtnRef.current, product.image);
-    try {
-      addItem(product);
-      await fetch("/api/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: product.id, quantity: 1 }),
-      });
-    } catch {
-      // cart already updated locally
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const hasDiscount = product.originalPrice && product.originalPrice > product.price;
-  const discountPct = hasDiscount
-    ? Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)
-    : 0;
-
-  const productUrl = `/product/${product.slug}`;
-
-  return (
-    <div
-      className="group flex flex-col h-full bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 hover:border-emerald-200 transition-all duration-300 cursor-pointer"
-      style={{ animationDelay: `${index * 0.08}s` }}
-      onClick={() => window.location.href = productUrl}
-    >
-      {/* Image */}
-      <div className="relative h-[180px] overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50 flex-shrink-0">
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          className="object-cover transition-all duration-700 group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-          placeholder="blur"
-          blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTJlOGYwIi8+PC9zdmc+"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-
-        {/* Category badge */}
-        <span className="absolute top-3 left-3 text-[10px] uppercase tracking-wider font-semibold text-white bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full">
-          {product.category}
-        </span>
-
-        {/* Discount badge */}
-        {hasDiscount && (
-          <span className="absolute top-3 right-3 text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">
-            -{discountPct}%
-          </span>
-        )}
-      </div>
-
-      {/* Body */}
-      <div className="flex flex-col flex-1 p-4 gap-2">
-        <h3 className="text-sm sm:text-base font-semibold text-slate-800 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
-          {product.name}
-        </h3>
-
-        {/* Description — always 2 lines height */}
-        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">
-          {product.shortDescription || "\u00A0"}
-        </p>
-
-        {/* Price row */}
-        <div className="flex items-baseline gap-2 mt-auto pt-2 border-t border-gray-100">
-          <span className="text-base sm:text-lg font-bold text-emerald-700">
-            {formatPrice(product.price)}
-          </span>
-          {hasDiscount && (
-            <span className="text-xs text-slate-400 line-through">
-              {formatPrice(product.originalPrice!)}
-            </span>
-          )}
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2 mt-1">
-          <button
-            ref={addBtnRef}
-            onClick={handleAddToCart}
-            disabled={adding}
-            className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-lg transition-all duration-200 disabled:opacity-50"
-          >
-            <ShoppingBag className="h-3 w-3 flex-shrink-0" />
-            {adding ? "Adding…" : "Add to Cart"}
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); router.push(`/checkout?buyNow=${product.id}`); }}
-            className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold text-white bg-gradient-brand hover:shadow-md px-3 py-2 rounded-lg transition-all duration-200"
-          >
-            <Zap className="h-3 w-3 flex-shrink-0" />
-            Buy Now
-          </button>
-        </div>
-
-        {/* View details */}
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 group-hover:text-emerald-700 mt-0.5">
-          View Details <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-        </span>
-      </div>
-    </div>
-  );
-}
-
 
 
 function TestimonialsSection() {

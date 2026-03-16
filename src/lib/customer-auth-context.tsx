@@ -6,7 +6,7 @@ import { Customer } from "./ecommerce-types";
 interface CustomerAuthContextType {
   customer: Customer | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (data: {
     email: string;
     password: string;
@@ -50,11 +50,11 @@ export function CustomerAuthProvider({
     }
   }
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, rememberMe = false) {
     const res = await fetch("/api/auth/customer-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
       credentials: "include",
     });
 

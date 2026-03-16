@@ -211,7 +211,7 @@ export const useCartStore = create<CartStore>()(
             console.error('Error rehydrating cart:', error);
           } else {
             console.log('Cart rehydrated successfully:', state?.items);
-            console.log('Cart item count:', state?.getItemCount());
+            
           }
         };
       },

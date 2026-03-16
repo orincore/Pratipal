@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Search } from "lucide-react";
+import { Plus, Pencil, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ import { toast } from "sonner";
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -34,6 +36,21 @@ export default function AdminProducts() {
 
   function openEdit(product: Product) {
     router.push(`/admin/ecommerce/products/create?productId=${product.id}`);
+  }
+
+  async function handleDelete(id: string) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete product");
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      toast.success("Product deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete product");
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteId(null);
+    }
   }
 
   return (
@@ -103,13 +120,44 @@ export default function AdminProducts() {
                       </Badge>
                     </td>
                     <td className="py-3">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEdit(product)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2 items-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEdit(product)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+
+                        {confirmDeleteId === product.id ? (
+                          <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+                            <span className="text-xs text-red-700 font-medium whitespace-nowrap">Sure?</span>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              disabled={deleting}
+                              className="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 px-2 py-0.5 rounded transition-colors"
+                            >
+                              {deleting ? "…" : "Yes"}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              disabled={deleting}
+                              className="text-xs font-semibold text-gray-500 hover:text-gray-800 px-1.5 py-0.5 rounded transition-colors"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setConfirmDeleteId(product.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

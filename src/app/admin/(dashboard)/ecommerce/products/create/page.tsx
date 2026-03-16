@@ -141,7 +141,7 @@ export default function CreateProductPage() {
       stock_quantity: product.stock_quantity?.toString() || "0",
       stock_status: product.stock_status || "in_stock",
       manage_stock: product.manage_stock ?? true,
-      category_id: product.category_id || product.category?.id || "",
+      category_id: product.category?.id || product.category_id_str || (typeof product.category_id === "string" ? product.category_id : "") ,
       featured_image: product.featured_image || "",
       is_featured: product.is_featured ?? false,
       is_active: product.is_active ?? true,
