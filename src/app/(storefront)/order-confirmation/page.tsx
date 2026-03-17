@@ -16,6 +16,15 @@ function OrderConfirmationContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Push a home entry so back button lands on "/" instead of checkout
+    window.history.pushState(null, "", "/");
+    window.history.pushState(null, "", window.location.href);
+    const handlePop = () => { window.location.href = "/"; };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
+
+  useEffect(() => {
     if (orderId) {
       loadOrder(orderId);
     }

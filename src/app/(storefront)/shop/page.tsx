@@ -130,7 +130,7 @@ function ProductCard({ product, index }: { product: NormProduct; index: number }
         <h3 className="text-xs sm:text-base font-semibold text-slate-800 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
           {product.name}
         </h3>
-        <p className="hidden sm:block text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">
+        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 min-h-[2.5rem]">
           {product.shortDescription || "\u00A0"}
         </p>
 

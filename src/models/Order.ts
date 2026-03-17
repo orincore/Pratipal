@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrder extends Document {
   order_number: string;
-  customer_id?: mongoose.Types.ObjectId;
+  customer_id?: string;
   customer_email: string;
   customer_name: string;
   status: "pending" | "processing" | "completed" | "cancelled" | "refunded" | "failed";
@@ -28,7 +28,7 @@ export interface IOrder extends Document {
 const OrderSchema = new Schema<IOrder>(
   {
     order_number: { type: String, required: true, unique: true },
-    customer_id: { type: Schema.Types.ObjectId, ref: "Customer" },
+    customer_id: { type: String, ref: "Customer" },
     customer_email: { type: String, required: true },
     customer_name: { type: String, required: true },
     status: { type: String, enum: ["pending", "processing", "completed", "cancelled", "refunded", "failed"], default: "pending" },

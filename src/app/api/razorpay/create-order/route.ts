@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
       order_id: order._id.toString(),
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
+      key_id: process.env.RAZORPAY_KEY_ID,
     });
   } catch (err: any) {
     console.error("Razorpay order creation error:", err);

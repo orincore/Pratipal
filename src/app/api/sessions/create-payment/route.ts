@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      key_id: razorpayKeyId,
       booking,
     });
   } catch (error) {

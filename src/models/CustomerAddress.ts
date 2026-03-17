@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ICustomerAddress extends Document {
-  customer_id: mongoose.Types.ObjectId;
+  customer_id: string;
   address_type: "shipping" | "billing";
   first_name: string;
   last_name: string;
@@ -20,7 +20,7 @@ export interface ICustomerAddress extends Document {
 
 const CustomerAddressSchema = new Schema<ICustomerAddress>(
   {
-    customer_id: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
+    customer_id: { type: String, ref: "Customer", required: true },
     address_type: { type: String, enum: ["shipping", "billing"], default: "shipping" },
     first_name: { type: String, required: true },
     last_name: { type: String, required: true },
