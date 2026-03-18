@@ -29,8 +29,10 @@ export async function POST(req: NextRequest) {
     const awbRaw = body?.awb ?? body?.awb_code ?? body?.shipment?.awb;
     const awb: string | undefined = awbRaw != null ? String(awbRaw) : undefined;
 
+    // Parse order_id as a number — Shiprocket test payloads send dummy strings, skip those
+    const rawOrderId = body?.order_id ?? body?.shipment?.order_id;
     const srOrderId: number | undefined =
-      body?.order_id ?? body?.shipment?.order_id;
+      rawOrderId != null && !isNaN(Number(rawOrderId)) ? Number(rawOrderId) : undefined;
 
     // Shiprocket sends both current_status and shipment_status; prefer current_status
     const srStatus: string | undefined =
