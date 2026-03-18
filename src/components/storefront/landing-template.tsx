@@ -30,6 +30,7 @@ const VIDEO_REGEX = /\.(mp4|webm|ogg)$/i;
 const YOUTUBE_PATTERNS = [
   /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
   /youtube\.com\/embed\/([^&\n?#]+)/,
+  /youtube\.com\/shorts\/([^&\n?#]+)/,
 ];
 const mediaKey = (...parts: (string | number)[]) => parts.join(".");
 
@@ -68,6 +69,263 @@ function Marquee({ items, color }: { items: string[]; color: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Video Testimonials Slider — 1 card mobile / 3 cards desktop, same pattern
+// as Featured Products. Active (most visible) card plays, others pause.
+// ---------------------------------------------------------------------------
+function VideoTestimonialsSlider({ items, primaryColor }: {
+  items: { url: string; name: string; role: string }[];
+  primaryColor: string;
+}) {
+  const n = items.length;
+
+  // Stable key based on content — prevents tripled from rebuilding on re-renders
+  // when the parent passes a new array reference with the same data
+  const itemsKey = useMemo(() => items.map((it) => it.url).join("|"), [items]);
+
+  // Triple the list: clone-before + real + clone-after for infinite illusion
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tripled = useMemo(() => [...items, ...items, ...items], [itemsKey]);
+
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const videoRefs = React.useRef<(HTMLVideoElement | null)[]>([]);
+  // activeIdx is an index into `tripled`; start at first real item (index n)
+  const [activeIdx, setActiveIdx] = useState(n);
+  const isJumping = React.useRef(false);
+  // Track whether we've seeded the scroll position yet
+  const seeded = React.useRef(false);
+
+  const extractYTId = (url: string) => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+      /youtube\.com\/embed\/([^&\n?#]+)/,
+      /youtube\.com\/shorts\/([^&\n?#]+)/,
+    ];
+    for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+    return null;
+  };
+
+  // Extract Instagram post/reel shortcode from various URL formats
+  const extractIGId = (url: string) => {
+    const patterns = [
+      /instagram\.com\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/,
+      /instagram\.com\/reels?\/([A-Za-z0-9_-]+)/,
+    ];
+    for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+    return null;
+  };
+
+  const getMediaType = (url: string): "youtube" | "instagram" | "video" | "empty" => {
+    if (!url) return "empty";
+    if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
+    if (url.includes("instagram.com")) return "instagram";
+    if (/\.(mp4|webm|ogg)$/i.test(url)) return "video";
+    return "empty";
+  };
+
+  const getStep = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return 0;
+    const isMobile = window.innerWidth < 640;
+    const cardW = isMobile ? el.clientWidth : el.clientWidth / 3;
+    return cardW + 16; // 16 = gap-4
+  }, []);
+
+  // On desktop 3 cards are visible; the center card is the "active" one,
+  // which is leftmost index + 1. On mobile only 1 card is visible so offset = 0.
+  const getActiveOffset = React.useCallback(() => {
+    return window.innerWidth >= 640 ? 1 : 0;
+  }, []);
+
+  // Silently jump scroll position to a tripled index
+  const jumpTo = React.useCallback((idx: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    isJumping.current = true;
+    // Jump to idx - offset so the center card lands on idx
+    el.scrollLeft = (idx - getActiveOffset()) * getStep();
+    requestAnimationFrame(() => { isJumping.current = false; });
+  }, [getStep, getActiveOffset]);
+
+  // Seed to first real item — only once, and only after tripled is stable
+  useEffect(() => {
+    if (seeded.current) return;
+    const raf = requestAnimationFrame(() => {
+      jumpTo(n);
+      seeded.current = true;
+    });
+    return () => cancelAnimationFrame(raf);
+  // itemsKey ensures we re-seed only when content actually changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey, n]);
+
+  // Scroll listener: track active card + wrap at boundaries
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (isJumping.current) return;
+      const step = getStep();
+      if (step === 0) return;
+      // leftmost visible card index + offset = center (active) card index
+      const leftmost = Math.round(el.scrollLeft / step);
+      const idx = leftmost + getActiveOffset();
+      setActiveIdx(idx);
+      if (idx < n) { jumpTo(idx + n); setActiveIdx(idx + n); }
+      if (idx >= n * 2) { jumpTo(idx - n); setActiveIdx(idx - n); }
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [n, jumpTo, getStep, getActiveOffset]);
+
+  // Play active native video, pause + reset others
+  useEffect(() => {
+    videoRefs.current.forEach((el, i) => {
+      if (!el) return;
+      if (i === activeIdx) { el.play().catch(() => {}); }
+      else { el.pause(); el.currentTime = 0; }
+    });
+  }, [activeIdx]);
+
+  function scrollBy(dir: "left" | "right") {
+    const el = scrollRef.current;
+    if (!el) return;
+    const step = getStep();
+    el.scrollBy({ left: dir === "left" ? -step : step, behavior: "smooth" });
+  }
+
+  if (n === 0) return null;
+
+  const realActive = ((activeIdx % n) + n) % n;
+
+  return (
+    <div className="relative">
+      {/* Left arrow */}
+      <button
+        type="button"
+        onClick={() => scrollBy("left")}
+        className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-600 hover:text-gray-900 hover:border-gray-300 transition"
+        aria-label="Previous"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+
+      {/* Scrollable track — no snap so silent jumps are invisible */}
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scrollbar-hide"
+        style={{ scrollSnapType: "none" }}
+      >
+        {tripled.map((item, i) => {
+          const isActive = i === activeIdx;
+          const type = getMediaType(item.url);
+          const ytId = type === "youtube" ? extractYTId(item.url) : null;
+          const igId = type === "instagram" ? extractIGId(item.url) : null;
+
+          const ytSrc = ytId
+            ? `https://www.youtube.com/embed/${ytId}?${isActive ? "autoplay=1&" : ""}mute=1&loop=1&playlist=${ytId}&rel=0&modestbranding=1&playsinline=1`
+            : null;
+          // Instagram embed with autoplay
+          const igSrc = igId
+            ? `https://www.instagram.com/p/${igId}/embed/?autoplay=1&muted=1`
+            : null;
+
+          return (
+            <div
+              key={i}
+              className="flex-shrink-0 w-full sm:w-[calc(33.333%-11px)] transition-all duration-300"
+              style={{ opacity: isActive ? 1 : 0.5, transform: isActive ? "scale(1)" : "scale(0.95)" }}
+            >
+              <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-100 bg-white flex flex-col">
+                {/* Video area — portrait 9:16 for all types */}
+                <div
+                  className="relative bg-black overflow-hidden"
+                  style={{ aspectRatio: "9/16" }}
+                >
+                  {type === "youtube" && ytSrc ? (
+                    <iframe
+                      src={ytSrc}
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : type === "instagram" && igSrc ? (
+                    <iframe
+                      src={igSrc}
+                      className="absolute inset-0 w-full h-full bg-white"
+                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  ) : type === "video" ? (
+                    <video
+                      ref={(el) => { videoRefs.current[i] = el; }}
+                      src={item.url}
+                      muted
+                      playsInline
+                      loop={false}
+                      onEnded={() => scrollBy("right")}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                      <svg className="h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {/* Author */}
+                {(item.name || item.role) && (
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    <div
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {item.name ? item.name.charAt(0).toUpperCase() : "?"}
+                    </div>
+                    <div className="min-w-0">
+                      {item.name && <p className="text-sm font-semibold text-gray-900 truncate">{item.name}</p>}
+                      {item.role && <p className="text-xs text-gray-500 truncate">{item.role}</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Right arrow */}
+      <button
+        type="button"
+        onClick={() => scrollBy("right")}
+        className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-600 hover:text-gray-900 hover:border-gray-300 transition"
+        aria-label="Next"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+
+      {/* Dot indicators mapped to real items */}
+      {n > 1 && (
+        <div className="flex justify-center gap-1.5 mt-5">
+          {items.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => { jumpTo(n + i); setActiveIdx(n + i); }}
+              className="h-2 rounded-full transition-all duration-300"
+              style={{
+                width: i === realActive ? 24 : 8,
+                backgroundColor: i === realActive ? primaryColor : "#d1d5db",
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Template Component
 // ---------------------------------------------------------------------------
 interface LandingTemplateProps {
@@ -80,7 +338,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
   const t = normalizeTemplateData(data);
   const c = t.colors;
   const router = useRouter();
-  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'program', 'invitation', 'bonus', 'footer'];
+  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'invitation', 'bonus', 'footer'];
   const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
   const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
   const mediaSettings = t.mediaSettings || {};
@@ -205,6 +463,14 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     }
     return slides;
   }, [t.hero.heroMedia, t.hero.heroImage, t.hero.highlightedWord]);
+
+  // Stable reference for video testimonial items — prevents slider from re-initializing
+  // when parent re-renders produce a new array reference with the same content
+  const videoTestimonialItems = useMemo(
+    () => t.videoTestimonials.items,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(t.videoTestimonials.items)]
+  );
 
   const [currentHeroSlide, setCurrentHeroSlide] = useState(0);
 
@@ -672,6 +938,24 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+      );
+
+      case 'videoTestimonials':
+        return t.videoTestimonials.visible && t.videoTestimonials.items.length > 0 && (
+        <section className="py-20 lg:py-28 overflow-hidden" style={{ backgroundColor: hexToRgba(c.darkBg, 0.04) }}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="text-center mb-10">
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                {t.videoTestimonials.title}
+              </h2>
+              <p className="text-lg text-gray-600 font-body">{t.videoTestimonials.subtitle}</p>
+            </div>
+            <VideoTestimonialsSlider
+              items={videoTestimonialItems}
+              primaryColor={c.primary}
+            />
           </div>
         </section>
       );

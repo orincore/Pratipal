@@ -91,6 +91,19 @@ export interface TestimonialsSection {
   visible: boolean;
 }
 
+export interface VideoTestimonialItem {
+  url: string;       // uploaded video URL or YouTube link
+  name: string;
+  role: string;
+}
+
+export interface VideoTestimonialsSection {
+  title: string;
+  subtitle: string;
+  items: VideoTestimonialItem[];
+  visible: boolean;
+}
+
 export interface ProgramPoint {
   title: string;
   description: string;
@@ -191,6 +204,7 @@ export interface LandingTemplateData {
   gallery: GallerySection;
   stats: StatsSection;
   testimonials: TestimonialsSection;
+  videoTestimonials: VideoTestimonialsSection;
   program: ProgramSection;
   bonus: BonusSection;
   invitation: InvitationSection;
@@ -204,7 +218,7 @@ export interface LandingTemplateData {
 // Default template data (placeholder content)
 // ---------------------------------------------------------------------------
 export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
-  sectionOrder: ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'program', 'invitation', 'bonus', 'footer'],
+  sectionOrder: ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'invitation', 'bonus', 'footer'],
   mediaSettings: {},
   colors: {
     primary: "#F5A623",
@@ -342,6 +356,12 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ],
     visible: true,
   },
+  videoTestimonials: {
+    title: "Hear It From Them",
+    subtitle: "Real video testimonials from our community",
+    items: [],
+    visible: false,
+  },
   program: {
     title: "What You'll Learn",
     subtitle: "A comprehensive program designed for lasting transformation",
@@ -420,6 +440,7 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     gallery: { ...DEFAULT_TEMPLATE_DATA.gallery, ...data.gallery },
     stats: { ...DEFAULT_TEMPLATE_DATA.stats, ...data.stats },
     testimonials: { ...DEFAULT_TEMPLATE_DATA.testimonials, ...data.testimonials },
+    videoTestimonials: { ...DEFAULT_TEMPLATE_DATA.videoTestimonials, ...data.videoTestimonials },
     program: { ...DEFAULT_TEMPLATE_DATA.program, ...data.program },
     bonus: { ...DEFAULT_TEMPLATE_DATA.bonus, ...data.bonus },
     invitation: { ...DEFAULT_TEMPLATE_DATA.invitation, ...data.invitation },

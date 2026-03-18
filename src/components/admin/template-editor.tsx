@@ -130,9 +130,10 @@ function MediaField({
   onClearSettings?: () => void;
 }) {
   const fileRef = React.useRef<HTMLInputElement>(null);
-  const [mediaType, setMediaType] = useState<'link' | 'upload' | 'youtube'>(() => {
+  const [mediaType, setMediaType] = useState<'link' | 'upload' | 'youtube' | 'instagram'>(() => {
     if (!value) return 'link';
     if (value.includes('youtube.com') || value.includes('youtu.be')) return 'youtube';
+    if (value.includes('instagram.com')) return 'instagram';
     if (value.match(/\.(mp4|webm|ogg)$/i)) return 'link';
     return 'link';
   });
@@ -167,6 +168,7 @@ function MediaField({
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
       /youtube\.com\/embed\/([^&\n?#]+)/,
+      /youtube\.com\/shorts\/([^&\n?#]+)/,
     ];
     for (const pattern of patterns) {
       const match = url.match(pattern);
@@ -176,8 +178,9 @@ function MediaField({
   };
 
   const isYouTube = value.includes('youtube.com') || value.includes('youtu.be');
+  const isInstagram = value.includes('instagram.com');
   const isVideo = value.match(/\.(mp4|webm|ogg)$/i);
-  const isImage = !isYouTube && !isVideo;
+  const isImage = !isYouTube && !isInstagram && !isVideo;
   const youtubeId = isYouTube ? extractYouTubeId(value) : null;
   const youtubeEmbedUrl = youtubeId
     ? (() => {
@@ -191,6 +194,17 @@ function MediaField({
         return `https://www.youtube.com/embed/${youtubeId}?${params.toString()}`;
       })()
     : null;
+
+  const extractInstagramId = (url: string) => {
+    const patterns = [
+      /instagram\.com\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/,
+      /instagram\.com\/reels?\/([A-Za-z0-9_-]+)/,
+    ];
+    for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+    return null;
+  };
+  const igId = isInstagram ? extractInstagramId(value) : null;
+  const igEmbedUrl = igId ? `https://www.instagram.com/p/${igId}/embed/captioned/` : null;
 
   return (
     <div>
@@ -223,6 +237,15 @@ function MediaField({
           onClick={() => setMediaType('youtube')}
         >
           <Youtube className="h-3 w-3 mr-1" /> YouTube
+        </Button>
+        <Button
+          type="button"
+          variant={mediaType === 'instagram' ? 'default' : 'outline'}
+          size="sm"
+          className="h-7 text-[10px] flex-1"
+          onClick={() => setMediaType('instagram')}
+        >
+          <Video className="h-3 w-3 mr-1" /> Instagram
         </Button>
       </div>
 
@@ -259,6 +282,15 @@ function MediaField({
         />
       )}
 
+      {mediaType === 'instagram' && (
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 text-xs bg-gray-50 border-gray-200"
+          placeholder="Paste Instagram post/reel URL..."
+        />
+      )}
+
       {mediaType === 'youtube' && onSettingsChange && (
         <div className="mt-3 space-y-2 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
           <div className="flex items-center justify-between">
@@ -286,6 +318,15 @@ function MediaField({
                 src={youtubeEmbedUrl || ''}
                 className="w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          ) : isInstagram && igEmbedUrl ? (
+            <div className="rounded-lg border border-gray-200 overflow-hidden" style={{ aspectRatio: '4/5', maxHeight: 320 }}>
+              <iframe
+                src={igEmbedUrl}
+                className="w-full h-full bg-white"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
                 allowFullScreen
               />
             </div>
@@ -352,7 +393,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
   const [draggedSection, setDraggedSection] = useState<string | null>(null);
   
   const canonicalSections = useMemo(
-    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'program', 'invitation', 'bonus', 'footer'],
+    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'invitation', 'bonus', 'footer'],
     []
   );
   const sectionOrder = useMemo(() => {
@@ -1049,6 +1090,71 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         )})}
         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("testimonials", { items: [...data.testimonials.items, { name: "", quote: "", image: "", role: "" }] })}>
           <Plus className="h-3 w-3 mr-1" /> Add Testimonial
+        </Button>
+      </Section>
+    ),
+    videoTestimonials: (
+      <Section
+        key="videoTestimonials"
+        title="Video Testimonials"
+        icon={<Video className="h-4 w-4" />}
+        draggable
+        onDragStart={handleDragStart('videoTestimonials')}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop('videoTestimonials')}
+      >
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show video testimonials</Label>
+          <Switch
+            checked={data.videoTestimonials.visible}
+            onCheckedChange={(v) => update("videoTestimonials", { visible: v })}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.videoTestimonials.title} onChange={(e) => update("videoTestimonials", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.videoTestimonials.subtitle} onChange={(e) => update("videoTestimonials", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <p className="text-[11px] text-gray-400">Upload video files or paste YouTube links. Videos autoplay muted when visible on screen.</p>
+        {data.videoTestimonials.items.map((item, i) => {
+          const vtKey = mediaKey("videoTestimonials", "items", i, "url");
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Video {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
+                  clearMediaSettings(vtKey);
+                  update("videoTestimonials", { items: data.videoTestimonials.items.filter((_, j) => j !== i) });
+                }}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <MediaField
+                label="Video (upload or YouTube link)"
+                value={item.url}
+                onChange={(v) => {
+                  const arr = [...data.videoTestimonials.items];
+                  arr[i] = { ...arr[i], url: v };
+                  update("videoTestimonials", { items: arr });
+                }}
+                settings={mediaSettings[vtKey]}
+                onSettingsChange={(value) => handleMediaSettingsChange(vtKey, value)}
+                onClearSettings={() => clearMediaSettings(vtKey)}
+              />
+              <Input value={item.name} onChange={(e) => {
+                const arr = [...data.videoTestimonials.items]; arr[i] = { ...arr[i], name: e.target.value }; update("videoTestimonials", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Person's name" />
+              <Input value={item.role} onChange={(e) => {
+                const arr = [...data.videoTestimonials.items]; arr[i] = { ...arr[i], role: e.target.value }; update("videoTestimonials", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Role / title" />
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("videoTestimonials", { items: [...data.videoTestimonials.items, { url: "", name: "", role: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Video
         </Button>
       </Section>
     ),
