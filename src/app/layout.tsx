@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
+import Script from "next/script";
 import LogoMark from "@/app/assets/logo.png";
 import { FloatingActionButton } from "@/components/ui/floating-action-button";
 
@@ -48,6 +49,12 @@ export default function RootLayout({
         {children}
         <FloatingActionButton />
         <Toaster position="bottom-right" richColors />
+        {/* Trustpilot bootstrap — loaded once, works across all pages */}
+        <Script
+          id="trustpilot-bootstrap"
+          src="//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );
