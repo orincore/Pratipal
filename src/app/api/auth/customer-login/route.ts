@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { signToken, getSessionCookieOptions } from "@/lib/auth";
 import getDB from "@/lib/db";
+import { sendMail, loginNotificationHtml } from "@/lib/mailer";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -67,6 +68,18 @@ export async function POST(req: NextRequest) {
       sameSite: cookieOpts.sameSite,
       path: cookieOpts.path,
     });
+
+    // Fire-and-forget login notification
+    const name = [customerDoc.first_name, customerDoc.last_name].filter(Boolean).join(" ") || "Customer";
+    sendMail({
+      to: customerDoc.email,
+      subject: "New login to your Pratipal account",
+      html: loginNotificationHtml({
+        name,
+        email: customerDoc.email,
+        time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }),
+      }),
+    }).catch(() => {}); // never block the response
 
     return response;
   } catch (err: any) {

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, Plus, Trash2, Pencil, X, Check, ExternalLink } from "lucide-react";
+import { Star, Plus, Trash2, Pencil, X, Check, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AdminLoader } from "@/components/admin/admin-loader";
 
 interface Review {
   _id: string;
@@ -203,7 +204,7 @@ export default function ReviewsAdminPage() {
 
       {/* List */}
       {loading ? (
-        <div className="text-center py-16 text-gray-400">Loading…</div>
+        <AdminLoader />
       ) : reviews.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Star className="h-10 w-10 mx-auto mb-3 opacity-30" />

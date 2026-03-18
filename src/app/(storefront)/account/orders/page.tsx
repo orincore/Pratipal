@@ -257,6 +257,40 @@ export default function AccountOrdersPage() {
   );
 }
 
+// ── CustomerTrackingTimeline ───────────────────────────────────────────────
+const CUST_TRACKING_META: Record<string, { label: string; color: string; dot: string }> = {
+  order_received:   { label: "Order Received",    color: "text-gray-700",    dot: "bg-gray-400" },
+  processing:       { label: "Processing",         color: "text-blue-700",    dot: "bg-blue-500" },
+  packed:           { label: "Packed",             color: "text-amber-700",   dot: "bg-amber-500" },
+  shipped:          { label: "Shipped",            color: "text-indigo-700",  dot: "bg-indigo-500" },
+  out_for_delivery: { label: "Out for Delivery",   color: "text-purple-700",  dot: "bg-purple-500" },
+  delivered:        { label: "Delivered",          color: "text-emerald-700", dot: "bg-emerald-500" },
+  cancelled:        { label: "Cancelled",          color: "text-rose-700",    dot: "bg-rose-500" },
+};
+
+function CustomerTrackingTimeline({ history }: { history: Array<{ status: string; message?: string | null; timestamp: string }> }) {
+  return (
+    <ol className="relative border-l border-gray-200 ml-2 space-y-3">
+      {[...history].reverse().map((h, i) => {
+        const meta = CUST_TRACKING_META[h.status] ?? { label: h.status, color: "text-gray-700", dot: "bg-gray-400" };
+        const dt = new Date(h.timestamp);
+        return (
+          <li key={i} className="ml-4">
+            <span className={`absolute -left-1.5 mt-1 h-3 w-3 rounded-full border-2 border-white ${meta.dot}`} />
+            <p className={`text-xs font-semibold ${meta.color}`}>{meta.label}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+              {" · "}
+              {dt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+            {h.message && <p className="text-[11px] text-gray-500 mt-0.5">{h.message}</p>}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 // ── OrderCard ──────────────────────────────────────────────────────────────
 function OrderCard({ order, onOrderUpdated }: { order: OrdersResponse; onOrderUpdated: (o: OrdersResponse) => void }) {
   const meta = STATUS_META[order.status as StatusKey] ?? STATUS_META.pending;
@@ -366,6 +400,14 @@ function OrderCard({ order, onOrderUpdated }: { order: OrdersResponse; onOrderUp
             <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs space-y-1">
               {order.tracking_number && <p><span className="text-muted-foreground">Tracking #:</span> {order.tracking_number}</p>}
               {order.tracking_url && <a href={order.tracking_url} target="_blank" rel="noreferrer" className="text-blue-600 underline">View carrier page</a>}
+            </div>
+          )}
+
+          {/* Tracking history */}
+          {order.tracking_history && order.tracking_history.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-700 mb-2">Tracking History</p>
+              <CustomerTrackingTimeline history={order.tracking_history} />
             </div>
           )}
 
@@ -570,6 +612,12 @@ function OrderCardDesktop({ order, onOrderUpdated }: { order: OrdersResponse; on
                 {order.tracking_url && <a href={order.tracking_url} target="_blank" rel="noreferrer" className="text-brand-primary text-sm underline">View carrier page</a>}
                 {order.tracking_message && <p className="text-muted-foreground">{order.tracking_message}</p>}
               </div>
+              {order.tracking_history && order.tracking_history.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-semibold text-gray-900 mb-3">History</p>
+                  <CustomerTrackingTimeline history={order.tracking_history} />
+                </div>
+              )}
             </div>
           )}
 

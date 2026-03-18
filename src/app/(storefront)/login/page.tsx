@@ -1,7 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { Suspense, useState, useEffect } from "react";import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Leaf, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -153,6 +152,30 @@ function LoginForm({ onSwitch, redirect }: { onSwitch: () => void; redirect: str
   );
 }
 
+// Top 20 country codes
+const COUNTRY_CODES = [
+  { code: "+91", flag: "🇮🇳", name: "India" },
+  { code: "+1",  flag: "🇺🇸", name: "USA/Canada" },
+  { code: "+44", flag: "🇬🇧", name: "UK" },
+  { code: "+61", flag: "🇦🇺", name: "Australia" },
+  { code: "+971", flag: "🇦🇪", name: "UAE" },
+  { code: "+65", flag: "🇸🇬", name: "Singapore" },
+  { code: "+60", flag: "🇲🇾", name: "Malaysia" },
+  { code: "+64", flag: "🇳🇿", name: "New Zealand" },
+  { code: "+27", flag: "🇿🇦", name: "South Africa" },
+  { code: "+49", flag: "🇩🇪", name: "Germany" },
+  { code: "+33", flag: "🇫🇷", name: "France" },
+  { code: "+39", flag: "🇮🇹", name: "Italy" },
+  { code: "+34", flag: "🇪🇸", name: "Spain" },
+  { code: "+81", flag: "🇯🇵", name: "Japan" },
+  { code: "+82", flag: "🇰🇷", name: "South Korea" },
+  { code: "+86", flag: "🇨🇳", name: "China" },
+  { code: "+55", flag: "🇧🇷", name: "Brazil" },
+  { code: "+52", flag: "🇲🇽", name: "Mexico" },
+  { code: "+7",  flag: "🇷🇺", name: "Russia" },
+  { code: "+92", flag: "🇵🇰", name: "Pakistan" },
+];
+
 function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const router = useRouter();
   const { register } = useCustomerAuth();
@@ -160,15 +183,80 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const [success, setSuccess] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [showCp, setShowCp] = useState(false);
+
+  // OTP state
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpCooldown, setOtpCooldown] = useState(0);
+
+  const [countryCode, setCountryCode] = useState("+91");
   const [form, setForm] = useState({
     email: "", password: "", confirmPassword: "",
     first_name: "", last_name: "", phone: "", acceptTerms: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Cooldown timer
+  React.useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const t = setTimeout(() => setOtpCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [otpCooldown]);
+
   function set(f: string, v: any) {
     setForm((p) => ({ ...p, [f]: v }));
     if (errors[f]) setErrors((p) => ({ ...p, [f]: "" }));
+    // Reset OTP if email changes
+    if (f === "email") { setOtpSent(false); setOtpVerified(false); setOtpValue(""); setOtpError(""); }
+  }
+
+  async function sendOtp() {
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setErrors((p) => ({ ...p, email: "Enter a valid email first" }));
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError("");
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setOtpSent(true);
+      setOtpCooldown(60);
+      toast.success("OTP sent to " + form.email);
+    } catch (err: any) {
+      setOtpError(err.message || "Failed to send OTP");
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  async function verifyOtp() {
+    if (otpValue.length !== 6) { setOtpError("Enter the 6-digit code"); return; }
+    setOtpLoading(true);
+    setOtpError("");
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, otp: otpValue }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setOtpVerified(true);
+      toast.success("Email verified!");
+    } catch (err: any) {
+      setOtpError(err.message || "Verification failed");
+    } finally {
+      setOtpLoading(false);
+    }
   }
 
   function validate() {
@@ -176,9 +264,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
     if (!form.first_name) e.first_name = "Required";
     if (!form.last_name) e.last_name = "Required";
     if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Valid email required";
-    if (!form.phone || !/^[+]?[\d\s-]{10,}$/.test(form.phone)) e.phone = "Valid phone required";
+    if (!otpVerified) e.email = "Please verify your email";
+    if (!form.phone || form.phone.length < 7) e.phone = "Valid phone required";
     if (!form.password || form.password.length < 8) e.password = "Min 8 characters";
-    if (form.password !== form.confirmPassword) e.confirmPassword = "Passwords don't match";
+    if (form.password !== form.confirmPassword) e.confirmPassword = "Passwords don\'t match";
     if (!form.acceptTerms) e.acceptTerms = "You must accept the terms";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -189,7 +278,13 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
     if (!validate()) { toast.error("Please fix the errors below"); return; }
     setLoading(true);
     try {
-      await register({ email: form.email, password: form.password, first_name: form.first_name, last_name: form.last_name, phone: form.phone });
+      await register({
+        email: form.email,
+        password: form.password,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        phone: countryCode + form.phone,
+      });
       setSuccess(true);
       toast.success("Welcome to Pratipal!");
       setTimeout(() => router.push("/"), 600);
@@ -202,9 +297,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   return (
     <div style={{ transition: "opacity 0.5s, transform 0.5s", opacity: success ? 0 : 1, transform: success ? "scale(0.95) translateY(16px)" : "scale(1) translateY(0)" }}>
       <div className="space-y-1.5 mb-6">
-        <h1 className="text-3xl text-[#1b244a] font-cormorant" style={{ fontWeight: 600 }}>
-          Create account
-        </h1>
+        <h1 className="text-3xl text-[#1b244a] font-cormorant" style={{ fontWeight: 600 }}>Create account</h1>
         <p className="text-sm text-gray-500">Join thousands of families on their healing journey</p>
       </div>
 
@@ -218,12 +311,84 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
           </Field>
         </div>
 
+        {/* Email + OTP */}
         <Field label="Email address" error={errors.email}>
-          <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" className={inputCls(errors.email)} />
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              placeholder="you@example.com"
+              disabled={otpVerified}
+              className={inputCls(errors.email) + " flex-1 " + (otpVerified ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "")}
+            />
+            {!otpVerified && (
+              <button
+                type="button"
+                onClick={sendOtp}
+                disabled={otpLoading || otpCooldown > 0}
+                className="flex-shrink-0 h-11 px-3 text-xs font-semibold rounded-xl border border-emerald-400 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
+              >
+                {otpLoading ? "Sending…" : otpCooldown > 0 ? `${otpCooldown}s` : otpSent ? "Resend" : "Send OTP"}
+              </button>
+            )}
+            {otpVerified && (
+              <div className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+            )}
+          </div>
+          {/* OTP input */}
+          {otpSent && !otpVerified && (
+            <div className="mt-2 space-y-1.5">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpValue}
+                  onChange={(e) => { setOtpValue(e.target.value.replace(/\D/g, "")); setOtpError(""); }}
+                  placeholder="Enter 6-digit code"
+                  className={inputCls(otpError) + " flex-1 tracking-widest text-center font-mono text-lg"}
+                />
+                <button
+                  type="button"
+                  onClick={verifyOtp}
+                  disabled={otpLoading || otpValue.length !== 6}
+                  className="flex-shrink-0 h-11 px-4 text-xs font-semibold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  {otpLoading ? "…" : "Verify"}
+                </button>
+              </div>
+              {otpError && <p className="text-xs text-red-500">{otpError}</p>}
+            </div>
+          )}
         </Field>
 
+        {/* Phone with country code */}
         <Field label="Phone number" error={errors.phone}>
-          <input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+91 98765 43210" className={inputCls(errors.phone)} />
+          <div className="flex gap-2">
+            <select
+              value={countryCode}
+              onChange={(e) => setCountryCode(e.target.value)}
+              className="h-11 pl-2 pr-1 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition flex-shrink-0"
+            >
+              {COUNTRY_CODES.map((c) => (
+                <option key={c.code + c.name} value={c.code}>
+                  {c.flag} {c.code}
+                </option>
+              ))}
+            </select>
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
+              placeholder="98765 43210"
+              maxLength={15}
+              className={inputCls(errors.phone) + " flex-1"}
+            />
+          </div>
         </Field>
 
         <Field label="Password" error={errors.password} hint="Min 8 characters">
@@ -259,8 +424,9 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
 
         <button
           type="submit"
-          disabled={loading || success}
-          className="w-full h-11 flex items-center justify-center gap-2 font-semibold text-sm rounded-xl transition-all duration-300 disabled:cursor-not-allowed mt-1 text-white"
+          disabled={loading || success || !form.acceptTerms}
+          title={!form.acceptTerms ? "Please accept the Terms and Privacy Policy" : undefined}
+          className="w-full h-11 flex items-center justify-center gap-2 font-semibold text-sm rounded-xl transition-all duration-300 mt-1 text-white disabled:cursor-not-allowed disabled:opacity-60"
           style={{ background: success ? "#059669" : loading ? "#374151" : "linear-gradient(135deg, #1b244a 0%, #059669 100%)" }}
         >
           {loading ? (
@@ -276,14 +442,13 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
       <div className="mt-5 text-center">
         <p className="text-sm text-gray-500">
           Already have an account?{" "}
-          <button onClick={onSwitch} className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors">
-            Sign in
-          </button>
+          <button onClick={onSwitch} className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors">Sign in</button>
         </p>
       </div>
     </div>
   );
 }
+
 
 function AuthPageContent() {
   const searchParams = useSearchParams();

@@ -3,6 +3,7 @@ import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import getDB from "@/lib/db";
 import { IWeightTier } from "@/models/ShippingSettings";
+import { sendMail, orderConfirmationHtml } from "@/lib/mailer";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -199,7 +200,7 @@ export async function POST(req: NextRequest) {
 
     const order = await Order.create({
       order_number: orderNumber,
-      customer_id: resolvedCustomerId,
+      customer_id: resolvedCustomerId ?? undefined,
       customer_email,
       customer_name,
       status: "pending",
@@ -237,6 +238,30 @@ export async function POST(req: NextRequest) {
     // Clear customer cart
     if (resolvedCustomerId) {
       await CartItem.deleteMany({ customer_id: resolvedCustomerId });
+    }
+
+    // Send order confirmation email for COD orders
+    if (payment_method === "cod") {
+      sendMail({
+        to: customer_email,
+        subject: `Order Confirmed — ${orderNumber}`,
+        html: orderConfirmationHtml({
+          orderNumber,
+          customerName: customer_name,
+          items: orderItems.map((i) => ({
+            product_name: i.product_name,
+            quantity: i.quantity,
+            price: i.price,
+            subtotal: i.subtotal,
+          })),
+          subtotal,
+          tax,
+          shippingCost: shipping_cost,
+          total,
+          paymentMethod: "cod",
+          shippingAddress: shipping_address,
+        }),
+      }).catch(() => {});
     }
 
     return NextResponse.json({

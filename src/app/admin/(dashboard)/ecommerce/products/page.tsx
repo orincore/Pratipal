@@ -3,19 +3,21 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { Product as EcomProduct } from "@/lib/ecommerce-types";
+import { AdminLoader } from "@/components/admin/admin-loader";
 
 export default function EcommerceProductsPage() {
   const [products, setProducts] = useState<EcomProduct[]>([]);
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,8 +31,12 @@ export default function EcommerceProductsPage() {
       setProducts(data.products || []);
     } catch (err) {
       toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
     }
   }
+
+  if (loading) return <AdminLoader />;
 
   const filtered = products.filter(
     (p) =>

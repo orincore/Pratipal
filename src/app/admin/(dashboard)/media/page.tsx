@@ -9,15 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMediaItems } from "@/services/api";
 import type { MediaItem } from "@/types";
 import { toast } from "sonner";
+import { AdminLoader } from "@/components/admin/admin-loader";
 
 export default function AdminMedia() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getMediaItems().then(setMedia);
+    getMediaItems().then((data) => { setMedia(data); setLoading(false); });
   }, []);
+
+  if (loading) return <AdminLoader />;
 
   const filtered = media.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase())

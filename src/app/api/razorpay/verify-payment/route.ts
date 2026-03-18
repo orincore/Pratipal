@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import getDB from "@/lib/db";
+import { sendMail, orderConfirmationHtml } from "@/lib/mailer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
       });
 
       const order = await Order.findById(order_id).lean();
-      const orderItems = await OrderItem.find({ order_id }).lean();
+      const orderItems = await OrderItem.find({ order_id: order?._id }).lean();
 
       if (orderItems && orderItems.length > 0) {
         for (const item of orderItems) {
@@ -54,6 +55,34 @@ export async function POST(req: NextRequest) {
       const sessionId = cookieStore.get("cart_session")?.value;
       if (sessionId) {
         await CartItem.deleteMany({ session_id: sessionId });
+      }
+
+      // Send order confirmation email
+      if (order) {
+        sendMail({
+          to: order.customer_email,
+          subject: `Order Confirmed — ${order.order_number}`,
+          html: orderConfirmationHtml({
+            orderNumber: order.order_number,
+            customerName: order.customer_name,
+            items: orderItems.map((i: any) => ({
+              product_name: i.product_name,
+              quantity: i.quantity,
+              price: i.price,
+              subtotal: i.subtotal,
+            })),
+            subtotal: order.subtotal,
+            tax: order.tax,
+            shippingCost: order.shipping_cost,
+            total: order.total,
+            paymentMethod: order.payment_method || "online",
+            shippingAddress: order.shipping_address || {},
+          }),
+        }).catch((mailErr: any) => {
+          console.error("Order confirmation email failed:", mailErr?.message || mailErr);
+        });
+      } else {
+        console.warn("Skipping confirmation email — order not found for id:", order_id);
       }
 
       return NextResponse.json({

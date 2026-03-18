@@ -1,26 +1,66 @@
-import { NextResponse } from "next/server";
-import { sendMail } from "@/lib/mailer";
+import { NextRequest, NextResponse } from "next/server";
+import { sendMail, orderConfirmationHtml, trackingUpdateHtml, orderCancelledHtml } from "@/lib/mailer";
 
-export async function GET() {
+const TEST_TO = "suradkaradarsh@gmail.com";
+
+export async function GET(req: NextRequest) {
+  const type = new URL(req.url).searchParams.get("type") || "order_confirmation";
+
   try {
-    const info = await sendMail({
-      to: "suradkaradarsh@gmail.com",
-      subject: "Test Email from Pratipal",
-      html: `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-          <h2 style="color: #1b244a;">Hello from Pratipal 👋</h2>
-          <p style="color: #555;">This is a test email sent via Nodemailer using the Google Workspace account <strong>connect@pratipal.in</strong>.</p>
-          <p style="color: #555;">If you received this, the email setup is working correctly.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-          <p style="color: #aaa; font-size: 12px;">Pratipal &mdash; connect@pratipal.in</p>
-        </div>
-      `,
-      text: "Hello from Pratipal! This is a test email sent via Nodemailer.",
-    });
+    let subject = "";
+    let html = "";
 
-    return NextResponse.json({ success: true, messageId: info.messageId });
-  } catch (error: any) {
-    console.error("Test email error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (type === "order_confirmation") {
+      subject = "Order Confirmed — TEST-ORD-001";
+      html = orderConfirmationHtml({
+        orderNumber: "TEST-ORD-001",
+        customerName: "Adarsh Suradkar",
+        items: [
+          { product_name: "Rose Quartz Crystal", quantity: 2, price: 499, subtotal: 998 },
+          { product_name: "Lavender Essential Oil", quantity: 1, price: 299, subtotal: 299 },
+        ],
+        subtotal: 1297,
+        tax: 233.46,
+        shippingCost: 50,
+        total: 1580.46,
+        paymentMethod: "online",
+        shippingAddress: {
+          address_line1: "123 Healing Street",
+          address_line2: "Apt 4B",
+          city: "Mumbai",
+          state: "Maharashtra",
+          postal_code: "400001",
+          country: "India",
+        },
+      });
+    } else if (type === "tracking") {
+      subject = "Order Update — TEST-ORD-001";
+      html = trackingUpdateHtml({
+        orderNumber: "TEST-ORD-001",
+        customerName: "Adarsh Suradkar",
+        trackingStatus: "shipped",
+        trackingNumber: "TESTAWB123456",
+        trackingUrl: "https://shiprocket.co/tracking/TESTAWB123456",
+        trackingMessage: "Your order has been picked up by the courier.",
+        total: 1580.46,
+      });
+    } else if (type === "cancelled") {
+      subject = "Order Cancelled — TEST-ORD-001";
+      html = orderCancelledHtml({
+        orderNumber: "TEST-ORD-001",
+        customerName: "Adarsh Suradkar",
+        reason: "Item out of stock",
+        total: 1580.46,
+        cancelledBy: "admin",
+      });
+    } else {
+      return NextResponse.json({ error: "Unknown type. Use: order_confirmation | tracking | cancelled" }, { status: 400 });
+    }
+
+    const info = await sendMail({ to: TEST_TO, subject, html });
+    return NextResponse.json({ success: true, type, messageId: info.messageId });
+  } catch (err: any) {
+    console.error("Test email error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import getDB from "@/lib/db";
+import { sendMail, welcomeEmailHtml } from "@/lib/mailer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +39,14 @@ export async function POST(req: NextRequest) {
       verification_token: verificationToken,
       is_verified: false,
     });
+
+    // Fire-and-forget welcome email
+    const displayName = first_name || email.split("@")[0];
+    sendMail({
+      to: email,
+      subject: "Welcome to Pratipal 🌿",
+      html: welcomeEmailHtml({ name: displayName }),
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

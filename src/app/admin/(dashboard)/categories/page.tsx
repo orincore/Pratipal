@@ -23,15 +23,17 @@ import {
 } from "@/services/api";
 import type { Category } from "@/types";
 import { toast } from "sonner";
+import { AdminLoader } from "@/components/admin/admin-loader";
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [editCat, setEditCat] = useState<Category | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getCategories().then(setCategories);
+    getCategories().then((data) => { setCategories(data); setLoading(false); });
   }, []);
 
   function openNew() {
@@ -93,6 +95,8 @@ export default function AdminCategories() {
       prev.map((c) => (c.id === updated.id ? updated : c))
     );
   }
+
+  if (loading) return <AdminLoader />;
 
   return (
     <div>

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Package, FolderTree, FileText, TrendingUp } from "lucide-react";
+import { Package, FolderTree, FileText, TrendingUp, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminLoader } from "@/components/admin/admin-loader";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -11,6 +12,7 @@ export default function AdminDashboard() {
     landingPages: 0,
     activeProducts: 11,
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -25,10 +27,14 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         console.error("Failed to load stats:", error);
+      } finally {
+        setLoading(false);
       }
     }
     load();
   }, []);
+
+  if (loading) return <AdminLoader />;
 
   const cards = [
     {

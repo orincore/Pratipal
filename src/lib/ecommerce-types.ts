@@ -136,6 +136,7 @@ export interface Order {
   tracking_status?: TrackingStatus;
   tracking_message?: string;
   tracking_updated_at?: string;
+  tracking_history?: Array<{ status: string; message?: string; timestamp: string }>;
   shipped_at?: string;
   completed_at?: string;
   items?: OrderItem[];

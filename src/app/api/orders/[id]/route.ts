@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { requireCustomerSession } from "@/lib/customer-session";
 import getDB from "@/lib/db";
+import { sendMail, orderCancelledHtml } from "@/lib/mailer";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -99,8 +100,8 @@ export async function PATCH(req: NextRequest, context: Context) {
     const updated = await Order.findByIdAndUpdate(
       id,
       {
-        status: "cancelled",
-        tracking_status: "cancelled",
+        $set: { status: "cancelled", tracking_status: "cancelled" },
+        $push: { tracking_history: { status: "cancelled", message: cancellationMessage, timestamp: new Date().toISOString() } },
       },
       { new: true }
     ).lean();
@@ -121,6 +122,19 @@ export async function PATCH(req: NextRequest, context: Context) {
         _id: undefined
       }))
     };
+
+    // Send cancellation email
+    sendMail({
+      to: updated.customer_email,
+      subject: `Order Cancelled — ${updated.order_number}`,
+      html: orderCancelledHtml({
+        orderNumber: updated.order_number,
+        customerName: updated.customer_name,
+        reason: body.reason || undefined,
+        total: updated.total,
+        cancelledBy: isAdmin ? "admin" : "customer",
+      }),
+    }).catch(() => {});
 
     return NextResponse.json({ order: orderData });
   } catch (err: any) {

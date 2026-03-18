@@ -6,6 +6,7 @@ import {
   COOKIE_NAME,
 } from "@/lib/auth";
 import getDB from "@/lib/db";
+import { sendMail, loginNotificationHtml } from "@/lib/mailer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,6 +71,18 @@ export async function POST(req: NextRequest) {
       sameSite: cookieOpts.sameSite,
       path: cookieOpts.path,
     });
+
+    // Fire-and-forget login notification
+    sendMail({
+      to: user.email,
+      subject: "New admin login to Pratipal",
+      html: loginNotificationHtml({
+        name: user.full_name || "Admin",
+        email: user.email,
+        time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }),
+        isAdmin: true,
+      }),
+    }).catch(() => {});
 
     return response;
   } catch (err: any) {
