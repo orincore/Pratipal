@@ -1377,6 +1377,70 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
             className="text-xs mt-1 bg-gray-50 border-gray-200"
           />
         </div>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-xs text-gray-600 font-semibold">Thank You Page Buttons</Label>
+            <button
+              type="button"
+              className="text-xs text-violet-600 hover:text-violet-800 font-medium"
+              onClick={() => {
+                const buttons = [...(data.invitation.thankYouButtons || []), { label: "", url: "", icon: "none" as const }];
+                update("invitation", { thankYouButtons: buttons });
+              }}
+            >
+              + Add Button
+            </button>
+          </div>
+          {(data.invitation.thankYouButtons || []).map((btn, i) => (
+            <div key={i} className="border border-gray-200 rounded-xl p-3 mb-2 space-y-2 bg-gray-50/60">
+              <div className="flex gap-2">
+                <Input
+                  value={btn.label}
+                  onChange={(e) => {
+                    const buttons = [...(data.invitation.thankYouButtons || [])];
+                    buttons[i] = { ...buttons[i], label: e.target.value };
+                    update("invitation", { thankYouButtons: buttons });
+                  }}
+                  placeholder="Button label"
+                  className="h-7 text-xs bg-white border-gray-200 flex-1"
+                />
+                <button
+                  type="button"
+                  className="text-xs text-red-400 hover:text-red-600 px-1"
+                  onClick={() => {
+                    const buttons = (data.invitation.thankYouButtons || []).filter((_, idx) => idx !== i);
+                    update("invitation", { thankYouButtons: buttons });
+                  }}
+                >✕</button>
+              </div>
+              <Input
+                value={btn.url}
+                onChange={(e) => {
+                  const buttons = [...(data.invitation.thankYouButtons || [])];
+                  buttons[i] = { ...buttons[i], url: e.target.value };
+                  update("invitation", { thankYouButtons: buttons });
+                }}
+                placeholder="https://..."
+                className="h-7 text-xs bg-white border-gray-200"
+              />
+              <select
+                value={btn.icon}
+                onChange={(e) => {
+                  const buttons = [...(data.invitation.thankYouButtons || [])];
+                  buttons[i] = { ...buttons[i], icon: e.target.value as any };
+                  update("invitation", { thankYouButtons: buttons });
+                }}
+                className="w-full h-7 text-xs rounded-md border border-gray-200 bg-white px-2"
+              >
+                <option value="none">No icon</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
+                <option value="x">X (Twitter)</option>
+              </select>
+            </div>
+          ))}
+        </div>
       </Section>
     );
       })()

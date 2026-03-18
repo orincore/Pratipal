@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { LandingTemplateData } from "@/lib/template-types";
 import { DEFAULT_MEDIA_SETTINGS, normalizeTemplateData } from "@/lib/template-types";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,7 @@ interface LandingTemplateProps {
 export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTemplateProps) {
   const t = normalizeTemplateData(data);
   const c = t.colors;
+  const router = useRouter();
   const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'program', 'invitation', 'bonus', 'footer'];
   const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
   const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
@@ -86,6 +88,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     firstName: "",
     email: "",
     whatsapp: "",
+    countryCode: "+91",
     gender: "female" as "female" | "male",
   });
   const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
@@ -122,13 +125,16 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       landingPageSlug: pageSlug,
       firstName: invitationForm.firstName.trim(),
       email: invitationForm.email.trim(),
-      whatsappNumber: invitationForm.whatsapp.trim(),
+      whatsappNumber: invitationForm.whatsapp.trim()
+        ? `${invitationForm.countryCode}${invitationForm.whatsapp.trim().replace(/^0+/, "")}`
+        : "",
       gender: invitationForm.gender,
     };
 
     try {
       if (isPreviewMode) {
         await new Promise((resolve) => setTimeout(resolve, 600));
+        // In preview mode, just show a brief success indicator then close
         setInvitationSuccess(true);
         resetInvitationForm();
         return;
@@ -145,7 +151,19 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
 
-      setInvitationSuccess(true);
+      // Redirect to thank-you page
+      const params = new URLSearchParams({
+        title: t.invitation.successTitle,
+        description: t.invitation.successDescription,
+        color: c.primary,
+        colors: encodeURIComponent(JSON.stringify(c)),
+      });
+      if (pageSlug) params.set("from", pageSlug);
+      const buttons = t.invitation.thankYouButtons || [];
+      if (buttons.length > 0) {
+        params.set("buttons", encodeURIComponent(JSON.stringify(buttons)));
+      }
+      router.push(`/thank-you?${params.toString()}`);
       resetInvitationForm();
     } catch (err: any) {
       setInvitationError(err.message || "Unable to submit right now. Please try again later.");
@@ -356,89 +374,76 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       case 'hero':
         return (
           t.hero.visible && (
-            <section className="py-14 sm:py-20" style={{ backgroundColor: c.heroBg }}>
-              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="relative overflow-hidden rounded-[36px] border border-black/5 shadow-2xl">
-                  <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
-                    {/* Media */}
-                    <div className="relative order-1 min-h-[320px] sm:min-h-[420px] lg:order-2">
-                      <div className="absolute inset-0">{renderHeroCarousel()}</div>
-                      <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-black/35 via-transparent to-transparent" />
-                    </div>
-
-                    {/* Content */}
-                    <div className="order-2 lg:order-1 bg-white/95 backdrop-blur-sm px-6 sm:px-10 py-10 lg:py-14 space-y-6">
-                      {t.hero.badge && (
-                        <span
-                          className="inline-flex px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider"
-                          style={{ backgroundColor: hexToRgba(c.primary, 0.1), color: c.primary }}
-                        >
-                          {t.hero.badge}
+            <section className="py-8 sm:py-12" style={{ backgroundColor: c.heroBg }}>
+              <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="rounded-3xl border border-black/5 shadow-xl overflow-hidden bg-white/95">
+                  {/* Content */}
+                  <div className="px-6 sm:px-10 pt-8 sm:pt-10 pb-6 space-y-5">
+                    {t.hero.badge && (
+                      <span
+                        className="inline-flex px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider"
+                        style={{ backgroundColor: hexToRgba(c.primary, 0.1), color: c.primary }}
+                      >
+                        {t.hero.badge}
+                      </span>
+                    )}
+                    <h1 className="font-display text-[clamp(1.6rem,3.5vw,2.8rem)] leading-tight font-bold text-gray-900">
+                      {t.hero.headline}{" "}
+                      {t.hero.highlightedWord && (
+                        <span className="relative inline-block">
+                          <span style={{ color: c.secondary }}>{t.hero.highlightedWord}</span>
+                          <svg className="absolute -bottom-1 left-0 w-full" viewBox="0 0 200 10" fill="none">
+                            <path d="M2 7 C50 2, 150 2, 198 7" stroke={c.primary} strokeWidth="3" strokeLinecap="round" />
+                          </svg>
                         </span>
                       )}
+                    </h1>
 
-                      <div className="space-y-4">
-                        <h1 className="font-display text-[clamp(2.2rem,4vw,3.8rem)] leading-tight font-bold text-gray-900">
-                          {t.hero.headline}{" "}
-                          {t.hero.highlightedWord && (
-                            <span className="relative inline-block">
-                              <span style={{ color: c.secondary }}>{t.hero.highlightedWord}</span>
-                              <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
-                                <path d="M2 8 C50 2, 150 2, 198 8" stroke={c.primary} strokeWidth="4" strokeLinecap="round" />
-                              </svg>
-                            </span>
-                          )}
-                        </h1>
-                        {hasContent(t.hero.subheadline) && (
-                          <p className="text-base sm:text-lg text-gray-600 font-body leading-relaxed">
-                            {t.hero.subheadline}
-                          </p>
-                        )}
-                      </div>
-
-                      {Array.isArray(t.hero.bulletPoints) && t.hero.bulletPoints.filter(Boolean).length > 0 && (
-                        <ul className="space-y-3">
-                          {t.hero.bulletPoints.filter(Boolean).map((point, i) => (
-                            <li key={i} className="flex items-start gap-3 text-gray-700 font-body">
-                              <span
-                                className="mt-1 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center text-white text-xs"
-                                style={{ backgroundColor: c.primary }}
-                              >
-                                ✓
-                              </span>
-                              {point}
-                            </li>
+                  {/* Media — right after title, natural aspect ratio */}
+                  {heroSlides.length > 0 && (
+                    <div className="w-full aspect-video relative rounded-xl overflow-hidden">
+                      <div className="absolute inset-0">{renderHeroCarousel()}</div>
+                    </div>
+                  )}
+                    {hasContent(t.hero.subheadline) && (
+                      <p className="text-sm sm:text-base text-gray-600 font-body leading-relaxed">
+                        {t.hero.subheadline}
+                      </p>
+                    )}
+                    {Array.isArray(t.hero.bulletPoints) && t.hero.bulletPoints.filter(Boolean).length > 0 && (
+                      <ul className="grid sm:grid-cols-2 gap-2">
+                        {t.hero.bulletPoints.filter(Boolean).map((point, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-gray-700 font-body">
+                            <span
+                              className="mt-0.5 flex-shrink-0 h-4 w-4 rounded-full flex items-center justify-center text-white text-[10px]"
+                              style={{ backgroundColor: c.primary }}
+                            >✓</span>
+                            {point}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex flex-wrap items-center gap-4 pt-1">
+                      <a
+                        href={resolveLink(t.hero.ctaButtonLink)}
+                        className="inline-flex items-center px-6 py-3 rounded-full text-white font-semibold text-sm sm:text-base shadow-md transition-all duration-300 hover:-translate-y-0.5"
+                        style={{ backgroundColor: c.primary }}
+                      >
+                        {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
+                        <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                      </a>
+                      {Array.isArray(t.hero.floatingStats) && t.hero.floatingStats.length > 0 && (
+                        <div className="flex gap-5">
+                          {t.hero.floatingStats.map((stat, i) => (
+                            <div key={i} className="text-center">
+                              <div className="text-lg font-bold font-display" style={{ color: c.secondary }}>{stat.value}</div>
+                              <div className="text-[10px] text-gray-500 font-body uppercase tracking-wider">{stat.label}</div>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       )}
-
-                      <div className="flex flex-wrap items-center gap-5 pt-2">
-                        <a
-                          href={resolveLink(t.hero.ctaButtonLink)}
-                          className="inline-flex items-center px-7 sm:px-8 py-3.5 sm:py-4 rounded-full text-white font-semibold text-base sm:text-lg shadow-lg transition-all duration-300 hover:-translate-y-0.5"
-                          style={{ backgroundColor: c.primary }}
-                        >
-                          {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
-                          <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                          </svg>
-                        </a>
-
-                        {Array.isArray(t.hero.floatingStats) && t.hero.floatingStats.length > 0 && (
-                          <div className="flex flex-wrap gap-6">
-                            {t.hero.floatingStats.map((stat, i) => (
-                              <div key={i} className="text-center">
-                                <div className="text-xl font-bold font-display" style={{ color: c.secondary }}>
-                                  {stat.value}
-                                </div>
-                                <div className="text-[11px] text-gray-500 font-body uppercase tracking-wider">
-                                  {stat.label}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -859,13 +864,41 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">WhatsApp Number (Optional)</Label>
-                      <Input
-                        value={invitationForm.whatsapp}
-                        onChange={(e) => updateInvitationForm("whatsapp", e.target.value)}
-                        placeholder="Include country code"
-                        className="h-11 mt-1 rounded-xl"
-                      />
+                      <Label className="text-xs text-gray-500">WhatsApp Number</Label>
+                      <div className="flex gap-2 mt-1">
+                        <select
+                          value={invitationForm.countryCode}
+                          onChange={(e) => updateInvitationForm("countryCode", e.target.value)}
+                          className="h-11 rounded-xl border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-[90px] flex-shrink-0"
+                        >
+                          <option value="+91">🇮🇳 +91</option>
+                          <option value="+1">🇺🇸 +1</option>
+                          <option value="+44">🇬🇧 +44</option>
+                          <option value="+61">🇦🇺 +61</option>
+                          <option value="+971">🇦🇪 +971</option>
+                          <option value="+65">🇸🇬 +65</option>
+                          <option value="+60">🇲🇾 +60</option>
+                          <option value="+64">🇳🇿 +64</option>
+                          <option value="+27">🇿🇦 +27</option>
+                          <option value="+49">🇩🇪 +49</option>
+                          <option value="+33">🇫🇷 +33</option>
+                          <option value="+81">🇯🇵 +81</option>
+                          <option value="+86">🇨🇳 +86</option>
+                          <option value="+55">🇧🇷 +55</option>
+                          <option value="+52">🇲🇽 +52</option>
+                          <option value="+92">🇵🇰 +92</option>
+                          <option value="+880">🇧🇩 +880</option>
+                          <option value="+94">🇱🇰 +94</option>
+                          <option value="+977">🇳🇵 +977</option>
+                        </select>
+                        <Input
+                          value={invitationForm.whatsapp}
+                          onChange={(e) => updateInvitationForm("whatsapp", e.target.value)}
+                          placeholder="98765 43210"
+                          className="h-11 rounded-xl flex-1"
+                          type="tel"
+                        />
+                      </div>
                     </div>
                     <div>
                       <Label className="text-xs text-gray-500">Gender</Label>

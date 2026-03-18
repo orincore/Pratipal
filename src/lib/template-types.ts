@@ -118,6 +118,12 @@ export interface BonusSection {
   enabled: boolean;
 }
 
+export interface ThankYouButton {
+  label: string;
+  url: string;
+  icon: "whatsapp" | "facebook" | "instagram" | "x" | "none";
+}
+
 export interface InvitationSection {
   enabled: boolean;
   badgeEmoji: string;
@@ -138,6 +144,7 @@ export interface InvitationSection {
   successTitle: string;
   successDescription: string;
   supportText: string;
+  thankYouButtons?: ThankYouButton[];
 }
 
 export interface FooterCTA {
@@ -378,6 +385,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     successTitle: "You're on the list!",
     successDescription: "We'll send your private invitation link via email and WhatsApp shortly.",
     supportText: "Join 200,000+ women shifting their state.",
+    thankYouButtons: [],
   },
   footer: {
     cta: {
