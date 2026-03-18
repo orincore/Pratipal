@@ -34,7 +34,6 @@ import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-con
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Homepage", href: "/admin/homepage", icon: Home },
   { label: "Products", href: "/admin/ecommerce/products", icon: Package },
   { label: "Orders", href: "/admin/ecommerce/orders", icon: ShoppingBag },
   { label: "Service Orders", href: "/admin/service-orders", icon: MessageCircle },
@@ -42,6 +41,7 @@ const sidebarItems = [
   { label: "Shipping Settings", href: "/admin/shipping", icon: Truck },
   { label: "Categories", href: "/admin/categories", icon: FolderTree },
   { label: "Landing Pages", href: "/admin/landing-pages", icon: FileText },
+  { label: "Blogs", href: "/admin/blogs", icon: FileText },
   { label: "Services", href: "/admin/services", icon: Presentation },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
   { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },

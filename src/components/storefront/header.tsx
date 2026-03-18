@@ -17,6 +17,7 @@ const navLinks = [
   { href: "/courses", label: "Courses" },
   { href: "/shop", label: "Products" },
   { href: "/booking", label: "Services" },
+  { href: "/blogs", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact Us" },
 ];
@@ -188,7 +189,7 @@ export function Header() {
     setSearchError(null);
   }
 
-  const hasDarkHero = pathname === "/" || pathname === "/courses" || pathname === "/booking" || pathname === "/contact" || pathname === "/shop";
+  const hasDarkHero = pathname === "/" || pathname === "/courses" || pathname === "/booking" || pathname === "/contact" || pathname === "/shop" || pathname === "/blogs";
   const useWhite = hasDarkHero ? !scrolled : (!scrolled && isDark);
   const iconCls = useWhite ? "text-white hover:bg-white/20" : "text-slate-700 hover:bg-black/5";
   const navCls = useWhite ? "text-white hover:text-white hover:bg-white/20" : "text-slate-700 hover:text-emerald-700 hover:bg-black/5";

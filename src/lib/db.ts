@@ -15,6 +15,7 @@ import ShippingSettings from "@/models/ShippingSettings";
 import SessionBooking from "@/models/SessionBooking";
 import Service from "@/models/Service";
 import Course from "@/models/Course";
+import Blog from "@/models/Blog";
 
 export async function getDB() {
   await connectDB();
@@ -35,6 +36,7 @@ export async function getDB() {
     SessionBooking,
     Service,
     Course,
+    Blog,
   };
 }
 
