@@ -4,18 +4,19 @@ import { mapShiprocketStatus } from "@/lib/shiprocket";
 import { sendMail, trackingUpdateHtml, orderCancelledHtml } from "@/lib/mailer";
 
 /**
- * Shiprocket webhook
+ * Shipping status webhook (Shiprocket)
  * Configure in Shiprocket dashboard → Settings → Webhooks
- * URL: https://pratipal.in/api/shiprocket/webhook
+ * URL: https://pratipal.in/api/shipping/track
+ * Token: passed via x-api-key header
  *
  * Shiprocket sends a POST with JSON body on every shipment status change.
  */
 export async function POST(req: NextRequest) {
   try {
-    // Optional: verify secret header
+    // Verify token sent by Shiprocket in x-api-key header
     const secret = process.env.SHIPROCKET_WEBHOOK_SECRET;
     if (secret) {
-      const incoming = req.headers.get("x-shiprocket-secret") || req.headers.get("authorization");
+      const incoming = req.headers.get("x-api-key") || req.headers.get("authorization");
       if (incoming !== secret) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
