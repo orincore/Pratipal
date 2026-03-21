@@ -10,6 +10,7 @@ import {
   Phone,
   CalendarClock,
   ChevronLeft,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ interface InvitationRequest {
   first_name: string;
   email: string;
   whatsapp_number: string | null;
-  gender: string | null;
+  location: string | null;
   created_at: string;
 }
 
@@ -63,11 +64,47 @@ export default function LandingPageInvitationsPage() {
     if (!search.trim()) return invitations;
     const query = search.toLowerCase();
     return invitations.filter((inv) =>
-      [inv.first_name, inv.email, inv.whatsapp_number]
+      [inv.first_name, inv.email, inv.whatsapp_number, inv.location]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(query))
     );
   }, [invitations, search]);
+
+  const downloadCSV = useCallback(() => {
+    // Prepare CSV headers
+    const headers = ['Name', 'Email', 'WhatsApp', 'Location', 'Submitted At'];
+    
+    // Prepare CSV rows
+    const rows = filteredInvitations.map(inv => [
+      inv.first_name,
+      inv.email,
+      inv.whatsapp_number || '',
+      inv.location || '',
+      new Date(inv.created_at).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    ]);
+    
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `invitations-${landingPageId}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [filteredInvitations, landingPageId]);
 
   return (
     <div className="flex flex-col bg-gray-50 rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[700px]">
@@ -98,9 +135,19 @@ export default function LandingPageInvitationsPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, email or WhatsApp"
+              placeholder="Search name, email, WhatsApp or location"
               className="h-9 text-xs w-64"
             />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-9 text-xs" 
+              onClick={downloadCSV}
+              disabled={filteredInvitations.length === 0}
+            >
+              <Download className="h-3.5 w-3.5 mr-1" />
+              Export CSV
+            </Button>
             <Button variant="outline" size="sm" className="h-9 text-xs" onClick={fetchInvitations} disabled={loading}>
               <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -132,9 +179,13 @@ export default function LandingPageInvitationsPage() {
                   <div>
                     <div className="flex items-center gap-3">
                       <p className="text-base font-semibold text-gray-900">{inv.first_name}</p>
-                      {inv.gender && (
-                        <Badge variant="outline" className="text-[11px] uppercase tracking-wider">
-                          {inv.gender}
+                      {inv.location && (
+                        <Badge variant="outline" className="text-[11px] flex items-center gap-1">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {inv.location}
                         </Badge>
                       )}
                     </div>

@@ -6,7 +6,7 @@ export interface IInvitationRequest extends Document {
   first_name: string;
   email: string;
   whatsapp_number?: string;
-  gender?: string;
+  location?: string;
   created_at: Date;
 }
 
@@ -17,10 +17,11 @@ const InvitationRequestSchema = new Schema<IInvitationRequest>(
     first_name: { type: String, required: true },
     email: { type: String, required: true },
     whatsapp_number: { type: String },
-    gender: { type: String },
+    location: { type: String },
     created_at: { type: Date, default: Date.now },
   },
   {
+    strict: true,
     toJSON: {
       transform: (_: any, ret: any) => {
         ret.id = ret._id.toString();
@@ -34,4 +35,7 @@ const InvitationRequestSchema = new Schema<IInvitationRequest>(
 
 InvitationRequestSchema.index({ landing_page_id: 1 });
 
-export default mongoose.models.InvitationRequest || mongoose.model<IInvitationRequest>("InvitationRequest", InvitationRequestSchema);
+// Force re-register to pick up schema changes (safe for dev + prod)
+delete (mongoose.models as any).InvitationRequest;
+
+export default mongoose.model<IInvitationRequest>("InvitationRequest", InvitationRequestSchema);

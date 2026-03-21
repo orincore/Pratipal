@@ -24,15 +24,16 @@ export async function POST(req: NextRequest) {
 
     const { InvitationRequest } = await getDB();
 
-    await InvitationRequest.create({
-      landing_page_id: sanitizeText(body.landingPageId) || null,
-      landing_page_slug: sanitizeText(body.landingPageSlug) || null,
+    const invitationData = {
+      landing_page_id: sanitizeText(body.landingPageId) || undefined,
+      landing_page_slug: sanitizeText(body.landingPageSlug) || undefined,
       first_name: firstName,
       email,
-      whatsapp_number: whatsappNumber || null,
-      location: location || null,
-    });
+      whatsapp_number: whatsappNumber || undefined,
+      location: location || undefined,
+    };
 
+    await InvitationRequest.create(invitationData);
     // Send confirmation email to user
     await sendMail({
       to: email,

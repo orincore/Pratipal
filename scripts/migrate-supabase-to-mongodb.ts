@@ -416,7 +416,7 @@ async function migrateInvitationRequests() {
       first_name: request.first_name,
       email: request.email,
       whatsapp_number: request.whatsapp_number,
-      gender: request.gender,
+      location: request.gender ?? request.location,
       created_at: request.created_at,
     });
   }
