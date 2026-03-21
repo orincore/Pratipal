@@ -242,6 +242,7 @@ export async function POST(req: NextRequest) {
 
     // Send order confirmation email for COD orders
     if (payment_method === "cod") {
+      // Send confirmation to customer
       sendMail({
         to: customer_email,
         subject: `Order Confirmed — ${orderNumber}`,
@@ -262,6 +263,57 @@ export async function POST(req: NextRequest) {
           shippingAddress: shipping_address,
         }),
       }).catch(() => {});
+
+      // Send notification to admin
+      const adminEmail = process.env.ADMIN_EMAIL;
+      if (adminEmail) {
+        const itemsList = orderItems.map(i => `• ${i.product_name} × ${i.quantity} — ₹${i.subtotal.toFixed(2)}`).join('\n');
+        const addr = shipping_address;
+        const addrLine = [addr.address_line1, addr.address_line2, addr.city, addr.state, addr.pincode || addr.postal_code, addr.country]
+          .filter(Boolean).join(", ");
+        
+        sendMail({
+          to: adminEmail,
+          subject: `New Order: ${orderNumber} — ₹${total.toFixed(2)}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px;">
+              <div style="background:#fff;border-radius:10px;padding:28px;border:1px solid #e5e7eb;">
+                <div style="text-align:center;margin-bottom:24px;">
+                  <div style="display:inline-block;background:linear-gradient(135deg,#1b244a,#059669);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;color:#fff;margin-bottom:12px;">🛍️</div>
+                  <h2 style="margin:0 0 8px;font-size:22px;color:#111827;">New Order Received</h2>
+                  <p style="color:#6b7280;font-size:14px;margin:0;">Order #${orderNumber}</p>
+                </div>
+                <div style="background:#f0fdf4;border-radius:12px;padding:20px;margin-bottom:20px;border:1px solid #bbf7d0;">
+                  <p style="font-size:14px;color:#166534;font-weight:600;margin:0 0 12px;">Customer Details:</p>
+                  <p style="font-size:14px;color:#374151;margin:6px 0;"><strong>Name:</strong> ${customer_name}</p>
+                  <p style="font-size:14px;color:#374151;margin:6px 0;"><strong>Email:</strong> <a href="mailto:${customer_email}" style="color:#059669;">${customer_email}</a></p>
+                  <p style="font-size:14px;color:#374151;margin:6px 0;"><strong>Payment:</strong> ${payment_method === "cod" ? "Cash on Delivery" : "Online Payment"}</p>
+                </div>
+                <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
+                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Order Items:</strong></p>
+                  <p style="font-size:13px;color:#6b7280;margin:0;white-space:pre-wrap;">${itemsList}</p>
+                </div>
+                <div style="background:#fef3c7;border-radius:10px;padding:16px;margin-bottom:16px;">
+                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Order Total:</strong></p>
+                  <p style="font-size:13px;color:#6b7280;margin:4px 0;">Subtotal: ₹${subtotal.toFixed(2)}</p>
+                  <p style="font-size:13px;color:#6b7280;margin:4px 0;">Tax (18%): ₹${tax.toFixed(2)}</p>
+                  <p style="font-size:13px;color:#6b7280;margin:4px 0;">Shipping: ${shipping_cost === 0 ? 'Free' : '₹' + shipping_cost.toFixed(2)}</p>
+                  <p style="font-size:16px;color:#111827;font-weight:700;margin:8px 0 0;border-top:1px solid #fde68a;padding-top:8px;">Total: ₹${total.toFixed(2)}</p>
+                </div>
+                <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
+                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Shipping Address:</strong></p>
+                  <p style="font-size:13px;color:#6b7280;margin:0;">${addrLine || "—"}</p>
+                </div>
+                ${notes ? `<div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
+                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Order Notes:</strong></p>
+                  <p style="font-size:13px;color:#6b7280;margin:0;white-space:pre-wrap;">${notes}</p>
+                </div>` : ''}
+                <p style="color:#6b7280;font-size:13px;margin:0;">Received at: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST</p>
+              </div>
+            </div>
+          `,
+        }).catch(() => {});
+      }
     }
 
     return NextResponse.json({

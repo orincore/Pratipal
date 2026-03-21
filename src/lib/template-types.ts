@@ -131,6 +131,16 @@ export interface BonusSection {
   enabled: boolean;
 }
 
+export interface ContentBlockSection {
+  enabled: boolean;
+  layout: "media-left" | "media-right";
+  mediaType: "image" | "video" | "youtube";
+  mediaUrl: string;
+  textFormat: "plain" | "bullets";
+  heading?: string;
+  content: string; // Plain text or bullet points (one per line)
+}
+
 export interface ThankYouButton {
   label: string;
   url: string;
@@ -151,6 +161,7 @@ export interface InvitationSection {
   venueValue: string;
   availabilityText: string;
   buttonText: string;
+  buttonTextColor?: string;  // text color for invitation buttons
   formTitle: string;
   formHighlights: string[];
   formButtonText: string;
@@ -207,18 +218,20 @@ export interface LandingTemplateData {
   videoTestimonials: VideoTestimonialsSection;
   program: ProgramSection;
   bonus: BonusSection;
+  contentBlocks?: ContentBlockSection[];
   invitation: InvitationSection;
   footer: FooterSection;
   floatingButton: FloatingButtonSettings;
   sectionOrder?: string[];
   mediaSettings?: Record<string, MediaFieldOptions>;
+  sectionBg?: Record<string, string>; // per-section background color overrides
 }
 
 // ---------------------------------------------------------------------------
 // Default template data (placeholder content)
 // ---------------------------------------------------------------------------
 export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
-  sectionOrder: ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'invitation', 'bonus', 'footer'],
+  sectionOrder: ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'footer'],
   mediaSettings: {},
   colors: {
     primary: "#F5A623",
@@ -366,12 +379,12 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     title: "What You'll Learn",
     subtitle: "A comprehensive program designed for lasting transformation",
     points: [
-      { title: "Frequency Mapping", description: "Identify your current energetic frequency and understand what's blocking you", icon: "🎯" },
-      { title: "Pattern Breaking", description: "Learn proven techniques to break free from limiting subconscious patterns", icon: "💡" },
-      { title: "Alignment Protocol", description: "Step-by-step process to align your energy with your deepest desires", icon: "⚡" },
-      { title: "Manifestation Mastery", description: "Advanced techniques to manifest your goals with ease and flow", icon: "🌟" },
-      { title: "Community Support", description: "Join a tribe of like-minded individuals on the same journey", icon: "🤝" },
-      { title: "Lifetime Access", description: "Get lifetime access to all materials, updates, and future bonuses", icon: "♾️" },
+      { title: "Frequency Mapping", description: "Identify your current energetic frequency and understand what's blocking you", icon: "Target" },
+      { title: "Pattern Breaking", description: "Learn proven techniques to break free from limiting subconscious patterns", icon: "Lightbulb" },
+      { title: "Alignment Protocol", description: "Step-by-step process to align your energy with your deepest desires", icon: "Zap" },
+      { title: "Manifestation Mastery", description: "Advanced techniques to manifest your goals with ease and flow", icon: "Sparkles" },
+      { title: "Community Support", description: "Join a tribe of like-minded individuals on the same journey", icon: "Users" },
+      { title: "Lifetime Access", description: "Get lifetime access to all materials, updates, and future bonuses", icon: "Gem" },
     ],
     ctaButtonText: "Enroll Now",
     ctaButtonLink: "#register",
@@ -385,6 +398,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ],
     enabled: true,
   },
+  contentBlocks: [],
   invitation: {
     enabled: true,
     badgeEmoji: "🔥",
@@ -443,10 +457,12 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     videoTestimonials: { ...DEFAULT_TEMPLATE_DATA.videoTestimonials, ...data.videoTestimonials },
     program: { ...DEFAULT_TEMPLATE_DATA.program, ...data.program },
     bonus: { ...DEFAULT_TEMPLATE_DATA.bonus, ...data.bonus },
+    contentBlocks: data.contentBlocks || [],
     invitation: { ...DEFAULT_TEMPLATE_DATA.invitation, ...data.invitation },
     footer: { ...DEFAULT_TEMPLATE_DATA.footer, ...data.footer },
     floatingButton: { ...DEFAULT_TEMPLATE_DATA.floatingButton, ...data.floatingButton },
     sectionOrder: data.sectionOrder || DEFAULT_TEMPLATE_DATA.sectionOrder,
     mediaSettings: data.mediaSettings || DEFAULT_TEMPLATE_DATA.mediaSettings,
+    sectionBg: data.sectionBg || {},
   };
 }

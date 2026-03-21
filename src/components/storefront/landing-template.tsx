@@ -14,7 +14,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight, Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles, Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe, Camera, Smile, Coffee, Rocket, Award, MessageSquare, Lock } from "lucide-react";
+
+// Icon resolver for why-section cards
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles,
+  Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe,
+  Camera, Smile, Coffee, Rocket, Award, CheckCircle2, CalendarDays, Clock3,
+};
+function ProgramIcon({ name, className, style }: { name?: string; className?: string; style?: React.CSSProperties }) {
+  const Icon = name ? (ICON_MAP[name] ?? Sparkles) : Sparkles;
+  return <Icon className={className} style={style} />;
+}
 
 // ---------------------------------------------------------------------------
 // Helper: hex to rgba
@@ -337,8 +348,10 @@ interface LandingTemplateProps {
 export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTemplateProps) {
   const t = normalizeTemplateData(data);
   const c = t.colors;
+  // Returns override bg color for a section, or falls back to the provided default
+  const sbg = (key: string, fallback: string) => (t.sectionBg?.[key]) || fallback;
   const router = useRouter();
-  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'invitation', 'bonus', 'footer'];
+  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'footer'];
   const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
   const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
   const mediaSettings = t.mediaSettings || {};
@@ -347,7 +360,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     email: "",
     whatsapp: "",
     countryCode: "+91",
-    gender: "female" as "female" | "male",
+    location: "",
   });
   const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
   const [invitationLoading, setInvitationLoading] = useState(false);
@@ -386,7 +399,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       whatsappNumber: invitationForm.whatsapp.trim()
         ? `${invitationForm.countryCode}${invitationForm.whatsapp.trim().replace(/^0+/, "")}`
         : "",
-      gender: invitationForm.gender,
+      location: invitationForm.location.trim(),
     };
 
     try {
@@ -439,16 +452,16 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     switch (t.floatingButton.section) {
       case "hero":
         if (!t.hero.visible || !hasContent(t.hero.ctaButtonText)) return null;
-        return { label: t.hero.ctaButtonText, href: resolveLink(t.hero.ctaButtonLink) };
+        return { label: t.hero.ctaButtonText, action: () => setInvitationDialogOpen(true) };
       case "program":
         if (!t.program.visible || !hasContent(t.program.ctaButtonText)) return null;
-        return { label: t.program.ctaButtonText, href: resolveLink(t.program.ctaButtonLink) };
+        return { label: t.program.ctaButtonText, action: () => setInvitationDialogOpen(true) };
       case "invitation":
         if (!t.invitation.enabled || !hasContent(t.invitation.buttonText)) return null;
         return { label: t.invitation.buttonText, action: () => setInvitationDialogOpen(true) };
       case "footer":
         if (!t.footer.enabled || !hasContent(t.footer.cta.ctaButtonText)) return null;
-        return { label: t.footer.cta.ctaButtonText, href: resolveLink(t.footer.cta.ctaButtonLink) };
+        return { label: t.footer.cta.ctaButtonText, action: () => setInvitationDialogOpen(true) };
       default:
         return null;
     }
@@ -640,7 +653,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       case 'hero':
         return (
           t.hero.visible && (
-            <section className="py-8 sm:py-12" style={{ backgroundColor: c.heroBg }}>
+            <section className="py-8 sm:py-12" style={{ backgroundColor: sbg('hero', c.heroBg) }}>
               <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="rounded-3xl border border-black/5 shadow-xl overflow-hidden bg-white/95">
                   {/* Content */}
@@ -690,8 +703,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                       </ul>
                     )}
                     <div className="flex flex-wrap items-center gap-4 pt-1">
-                      <a
-                        href={resolveLink(t.hero.ctaButtonLink)}
+                      <button
+                        type="button"
+                        onClick={() => setInvitationDialogOpen(true)}
                         className="inline-flex items-center px-6 py-3 rounded-full text-white font-semibold text-sm sm:text-base shadow-md transition-all duration-300 hover:-translate-y-0.5"
                         style={{ backgroundColor: c.primary }}
                       >
@@ -699,7 +713,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                         <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                         </svg>
-                      </a>
+                      </button>
                       {Array.isArray(t.hero.floatingStats) && t.hero.floatingStats.length > 0 && (
                         <div className="flex gap-5">
                           {t.hero.floatingStats.map((stat, i) => (
@@ -723,7 +737,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'why':
         return t.why.visible && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: c.bodyBg }}>
+        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('why', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
@@ -760,7 +774,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'about':
         return t.about.visible && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: hexToRgba(c.primary, 0.04) }}>
+        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('about', hexToRgba(c.primary, 0.04)) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="relative">
@@ -805,7 +819,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'logos':
         return t.logos.enabled && t.logos.logos.length > 0 && (
-        <section className="py-12 border-y border-gray-100" style={{ backgroundColor: c.bodyBg }}>
+        <section className="py-12 border-y border-gray-100" style={{ backgroundColor: sbg('logos', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <p className="text-center text-xs font-semibold text-gray-400 uppercase tracking-widest mb-8">
               {t.logos.title}
@@ -832,7 +846,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'gallery':
         return t.gallery.visible && t.gallery.images.length > 0 && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: c.bodyBg }}>
+        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('gallery', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-12">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">{t.gallery.title}</h2>
@@ -859,7 +873,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'stats':
         return t.stats.visible && (
-        <section className="py-20 lg:py-28 relative overflow-hidden" style={{ backgroundColor: c.darkBg }}>
+        <section className="py-20 lg:py-28 relative overflow-hidden" style={{ backgroundColor: sbg('stats', c.darkBg) }}>
           {t.stats.backgroundImage && (
             <div
               className="absolute inset-0 opacity-20 bg-cover bg-center"
@@ -879,20 +893,21 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                 </div>
               ))}
             </div>
-            <a
-              href={t.stats.ctaButtonLink}
+            <button
+              type="button"
+              onClick={() => setInvitationDialogOpen(true)}
               className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
               style={{ backgroundColor: c.primary }}
             >
               {t.stats.ctaButtonText}
-            </a>
+            </button>
           </div>
         </section>
       );
       
       case 'testimonials':
         return t.testimonials.visible && t.testimonials.items.length > 0 && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: c.bodyBg }}>
+        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('testimonials', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
@@ -944,7 +959,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
 
       case 'videoTestimonials':
         return t.videoTestimonials.visible && t.videoTestimonials.items.length > 0 && (
-        <section className="py-20 lg:py-28 overflow-hidden" style={{ backgroundColor: hexToRgba(c.darkBg, 0.04) }}>
+        <section className="py-20 lg:py-28 overflow-hidden" style={{ backgroundColor: sbg('videoTestimonials', hexToRgba(c.darkBg, 0.04)) }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-10">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
@@ -962,40 +977,53 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'program':
         return t.program.visible && (
-      <section className="py-20 lg:py-28" style={{ backgroundColor: hexToRgba(c.secondary, 0.04) }}>
+      <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('program', hexToRgba(c.secondary, 0.04)) }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
               {t.program.title}
             </h2>
-            <p className="text-lg text-gray-600 font-body">{t.program.subtitle}</p>
+            <p className="text-base sm:text-lg text-gray-600 font-body">{t.program.subtitle}</p>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {t.program.points.map((point, i) => (
               <div
                 key={i}
-                className="rounded-2xl p-6 bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 group"
+                className="flex items-center gap-3 sm:gap-4 rounded-2xl px-4 sm:px-5 py-3.5 sm:py-4 shadow-sm"
+                style={{
+                  background: `linear-gradient(135deg, ${hexToRgba(c.secondary, 0.18)} 0%, ${hexToRgba(c.secondary, 0.32)} 100%)`,
+                }}
               >
-                <div
-                  className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl mb-4 transition-transform group-hover:scale-110"
-                  style={{ backgroundColor: hexToRgba(c.primary, 0.1) }}
-                >
-                  {point.icon}
+                {/* Icon box */}
+                <div className="flex-shrink-0 h-12 w-12 sm:h-14 sm:w-14 rounded-xl sm:rounded-2xl bg-white shadow-sm flex items-center justify-center">
+                  <ProgramIcon
+                    name={point.icon}
+                    className="h-6 w-6 sm:h-7 sm:w-7"
+                    style={{ color: c.primary } as React.CSSProperties}
+                  />
                 </div>
-                <h3 className="font-display text-lg font-bold text-gray-900 mb-2">{point.title}</h3>
-                <p className="text-gray-600 font-body text-sm leading-relaxed">{point.description}</p>
+                {/* Text */}
+                <div className="min-w-0 flex-1">
+                  <p className="font-display text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 leading-tight line-clamp-2">
+                    {point.title}
+                  </p>
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-gray-500 mt-0.5 line-clamp-2">
+                    {point.description}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
           <div className="text-center mt-12">
-            <a
-              href={t.program.ctaButtonLink}
-              className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+            <button
+              type="button"
+              onClick={() => setInvitationDialogOpen(true)}
+              className="inline-flex items-center px-8 sm:px-10 py-3 sm:py-4 rounded-full text-white font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
               style={{ backgroundColor: c.primary }}
             >
               {t.program.ctaButtonText}
-              <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-            </a>
+              <svg className="ml-2 h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+            </button>
           </div>
         </div>
       </section>
@@ -1003,7 +1031,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'bonus':
         return t.bonus.enabled && t.bonus.items.length > 0 && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: c.bodyBg }}>
+        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('bonus', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-12">
               {t.bonus.title}
@@ -1040,7 +1068,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'invitation':
         return t.invitation.enabled && (
-        <section className="py-12 sm:py-14" style={{ backgroundColor: hexToRgba(c.primary, 0.06) }}>
+        <section className="py-12 sm:py-14" style={{ backgroundColor: sbg('invitation', hexToRgba(c.primary, 0.06)) }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="bg-white rounded-[32px] shadow-xl p-6 sm:p-8 lg:p-10 relative overflow-hidden">
               <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full" style={{ background: hexToRgba(c.primary, 0.12) }} />
@@ -1094,7 +1122,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                   <Button
                     size="lg"
                     className="w-full sm:w-auto text-base font-semibold h-14 rounded-2xl px-10"
-                    style={{ backgroundColor: c.primary, color: "#1B1F3A" }}
+                    style={{ backgroundColor: c.primary, color: t.invitation.buttonTextColor || "#1B1F3A" }}
                     onClick={() => setInvitationDialogOpen(true)}
                   >
                     {t.invitation.buttonText}
@@ -1108,31 +1136,31 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
           </div>
 
           <Dialog open={invitationDialogOpen} onOpenChange={handleInvitationDialogChange}>
-            <DialogContent className="w-[95vw] max-w-2xl rounded-3xl border-0 p-0 overflow-hidden">
-              <div className="flex flex-col md:flex-row">
-                <div className="flex-1 p-6 sm:p-8">
+            <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] rounded-3xl border-0 p-0 overflow-hidden">
+              <div className="flex flex-col md:flex-row max-h-[90vh]">
+                <div className="flex-1 p-6 sm:p-8 overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle className="font-display text-2xl text-violet-900">{t.invitation.formTitle}</DialogTitle>
-                    <DialogDescription className="text-gray-500 text-sm">
+                    <DialogTitle className="font-display text-xl sm:text-2xl text-violet-900">{t.invitation.formTitle}</DialogTitle>
+                    <DialogDescription className="text-gray-500 text-xs sm:text-sm">
                       {t.invitation.subtitle}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="flex flex-wrap gap-2 mt-4">
                     {t.invitation.formHighlights.map((item, i) => (
-                      <span key={i} className="text-[11px] font-semibold uppercase tracking-wide bg-purple-100 text-purple-600 px-3 py-1 rounded-full">
+                      <span key={i} className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide bg-purple-100 text-purple-600 px-2.5 sm:px-3 py-1 rounded-full">
                         ✓ {item}
                       </span>
                     ))}
                   </div>
 
-                  <form className="mt-6 space-y-4" onSubmit={handleInvitationSubmit}>
+                  <form className="mt-6 space-y-3.5 sm:space-y-4" onSubmit={handleInvitationSubmit}>
                     <div>
                       <Label className="text-xs text-gray-500">Your First Name</Label>
                       <Input
                         value={invitationForm.firstName}
                         onChange={(e) => updateInvitationForm("firstName", e.target.value)}
                         placeholder="Enter your name"
-                        className="h-11 mt-1 rounded-xl"
+                        className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
                         required
                       />
                     </div>
@@ -1143,7 +1171,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                         value={invitationForm.email}
                         onChange={(e) => updateInvitationForm("email", e.target.value)}
                         placeholder="you@example.com"
-                        className="h-11 mt-1 rounded-xl"
+                        className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
                         required
                       />
                     </div>
@@ -1153,7 +1181,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                         <select
                           value={invitationForm.countryCode}
                           onChange={(e) => updateInvitationForm("countryCode", e.target.value)}
-                          className="h-11 rounded-xl border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-[90px] flex-shrink-0"
+                          className="h-10 sm:h-11 rounded-xl border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring w-[80px] sm:w-[90px] flex-shrink-0"
                         >
                           <option value="+91">🇮🇳 +91</option>
                           <option value="+1">🇺🇸 +1</option>
@@ -1179,29 +1207,19 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                           value={invitationForm.whatsapp}
                           onChange={(e) => updateInvitationForm("whatsapp", e.target.value)}
                           placeholder="98765 43210"
-                          className="h-11 rounded-xl flex-1"
+                          className="h-10 sm:h-11 rounded-xl flex-1 text-sm"
                           type="tel"
                         />
                       </div>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Gender</Label>
-                      <div className="grid grid-cols-2 gap-3 mt-1">
-                        {(["female", "male"] as const).map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => updateInvitationForm("gender", option)}
-                            className={`rounded-2xl border px-3 py-3 text-sm font-medium transition ${
-                              invitationForm.gender === option
-                                ? "border-violet-500 text-violet-600 bg-violet-50"
-                                : "border-gray-200 text-gray-500"
-                            }`}
-                          >
-                            {option === "female" ? "Female" : "Male"}
-                          </button>
-                        ))}
-                      </div>
+                      <Label className="text-xs text-gray-500">Location (City, Country)</Label>
+                      <Input
+                        value={invitationForm.location}
+                        onChange={(e) => updateInvitationForm("location", e.target.value)}
+                        placeholder="e.g. Mumbai, India"
+                        className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
+                      />
                     </div>
 
                     {invitationError && (
@@ -1220,39 +1238,45 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                       <Button
                         type="submit"
                         disabled={invitationLoading}
-                        className="w-full h-12 rounded-2xl text-base font-semibold"
-                        style={{ backgroundColor: c.primary, color: "#1B1F3A" }}
+                        className="w-full h-11 sm:h-12 rounded-2xl text-sm sm:text-base font-semibold"
+                        style={{ backgroundColor: c.primary, color: t.invitation.buttonTextColor || "#1B1F3A" }}
                       >
                         {invitationLoading ? "Submitting..." : t.invitation.formButtonText}
                       </Button>
                     )}
                   </form>
                 </div>
-                <div className="md:w-64 bg-gradient-to-br from-[#1B1F3A] via-[#2C1F55] to-[#44106E] text-white p-8 flex flex-col justify-between">
+                <div className="hidden md:flex md:w-64 bg-gradient-to-br from-[#1B1F3A] via-[#2C1F55] to-[#44106E] text-white p-8 flex-col justify-between overflow-y-auto">
                   <div>
                     <h3 className="text-xl font-display font-semibold">Live Masterclass</h3>
                     <p className="text-sm text-white/80 mt-2">Experience a powerful energetic breakthrough session.</p>
                   </div>
-                  <div className="mt-10 space-y-3 text-sm">
-                    <div className="flex items-center gap-3">
-                      <span className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center font-semibold">A</span>
+                  <div className="mt-10 space-y-4 text-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                        <Users className="h-5 w-5 text-white" />
+                      </div>
                       <div>
-                        <p className="font-semibold">Community</p>
-                        <p className="text-white/70 text-xs">Join {t.invitation.supportText}</p>
+                        <p className="font-semibold text-white">Community</p>
+                        <p className="text-white/70 text-xs mt-0.5">Join {t.invitation.supportText}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center font-semibold">B</span>
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                        <MessageSquare className="h-5 w-5 text-white" />
+                      </div>
                       <div>
-                        <p className="font-semibold">Live Q&A</p>
-                        <p className="text-white/70 text-xs">Ask your biggest transformation questions.</p>
+                        <p className="font-semibold text-white">Live Q&A</p>
+                        <p className="text-white/70 text-xs mt-0.5">Ask your biggest transformation questions.</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center font-semibold">C</span>
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                        <Lock className="h-5 w-5 text-white" />
+                      </div>
                       <div>
-                        <p className="font-semibold">Private Access</p>
-                        <p className="text-white/70 text-xs">Receive a Zoom link after approval.</p>
+                        <p className="font-semibold text-white">Private Access</p>
+                        <p className="text-white/70 text-xs mt-0.5">Receive a Zoom link after approval.</p>
                       </div>
                     </div>
                   </div>
@@ -1263,9 +1287,119 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
         </section>
       );
 
+      case 'contentBlocks':
+        const contentBlocksArray = Array.isArray(t.contentBlocks) ? t.contentBlocks : [];
+        return contentBlocksArray.map((block, blockIndex) => {
+          if (!block.enabled) return null;
+          
+          const blockKey = mediaKey("contentBlocks", blockIndex, "mediaUrl");
+          const isMediaLeft = block.layout === "media-left";
+          
+          // Render media based on type
+          const renderBlockMedia = () => {
+            if (block.mediaType === "youtube") {
+              const videoId = extractYouTubeId(block.mediaUrl);
+              if (!videoId) return null;
+              
+              return (
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-lg">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${videoId}`}
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              );
+            } else if (block.mediaType === "video") {
+              const settings = mediaSettings[blockKey] || DEFAULT_MEDIA_SETTINGS;
+              return (
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-lg">
+                  <video
+                    src={block.mediaUrl}
+                    autoPlay={settings.autoplay}
+                    muted={settings.mute}
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              );
+            } else {
+              // image
+              return renderMedia(block.mediaUrl, blockKey);
+            }
+          };
+
+          // Render text content
+          const renderBlockText = () => {
+            if (block.textFormat === "bullets") {
+              const bullets = block.content.split('\n').filter(line => line.trim());
+              return (
+                <div className="space-y-4">
+                  {block.heading && (
+                    <h3 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
+                      {block.heading}
+                    </h3>
+                  )}
+                  <ul className="space-y-3">
+                    {bullets.map((bullet, i) => (
+                      <li key={i} className="flex items-start gap-3 text-base sm:text-lg text-gray-700 font-body">
+                        <span
+                          className="mt-1 flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                          style={{ backgroundColor: c.primary }}
+                        >
+                          ✓
+                        </span>
+                        <span className="flex-1">{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            } else {
+              // plain text
+              return (
+                <div className="space-y-4">
+                  {block.heading && (
+                    <h3 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
+                      {block.heading}
+                    </h3>
+                  )}
+                  <p className="text-base sm:text-lg text-gray-700 font-body leading-relaxed whitespace-pre-wrap">
+                    {block.content}
+                  </p>
+                </div>
+              );
+            }
+          };
+
+          return (
+            <section 
+              key={`content-block-${blockIndex}`} 
+              className="py-16 lg:py-24" 
+              style={{ backgroundColor: sbg(`contentBlock-${blockIndex}`, c.bodyBg) }}
+            >
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className={`grid lg:grid-cols-2 gap-8 lg:gap-12 items-center ${isMediaLeft ? '' : 'lg:grid-flow-dense'}`}>
+                  {/* Media */}
+                  <div className={isMediaLeft ? '' : 'lg:col-start-2'}>
+                    {renderBlockMedia()}
+                  </div>
+                  
+                  {/* Text */}
+                  <div className={isMediaLeft ? '' : 'lg:col-start-1 lg:row-start-1'}>
+                    {renderBlockText()}
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        });
+
       case 'footer':
         return t.footer.enabled && (
-      <footer style={{ backgroundColor: c.darkBg }}>
+      <footer style={{ backgroundColor: sbg('footer', c.darkBg) }}>
         {/* CTA Banner */}
         <div className="py-20 lg:py-28 text-center">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1275,14 +1409,15 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
             <p className="text-lg text-gray-300 font-body mb-8 max-w-2xl mx-auto">
               {t.footer.cta.subtitle}
             </p>
-            <a
-              href={t.footer.cta.ctaButtonLink}
+            <button
+              type="button"
+              onClick={() => setInvitationDialogOpen(true)}
               className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
               style={{ backgroundColor: c.primary }}
             >
               {t.footer.cta.ctaButtonText}
               <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-            </a>
+            </button>
           </div>
         </div>
         {/* Bottom Bar */}

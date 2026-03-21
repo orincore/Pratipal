@@ -78,17 +78,40 @@ export default function LandingPageEditorPage() {
   const [templateData, setTemplateData] = useState<LandingTemplateData>(DEFAULT_TEMPLATE_DATA);
   const [templatePanelCollapsed, setTemplatePanelCollapsed] = useState(false);
   const [previewFocused, setPreviewFocused] = useState(false);
+  const [viewportMode, setViewportMode] = useState<"desktop" | "mobile">("desktop");
 
   const scaledPreviewWidth = Math.min(TEMPLATE_PREVIEW_SCALED_WIDTH, 900);
+  
   const previewOuterStyle: React.CSSProperties = previewFocused
-    ? { width: "100%", maxWidth: "1400px" }
-    : { width: scaledPreviewWidth, maxWidth: "100%" };
-  const previewInnerStyle: React.CSSProperties = previewFocused
-    ? { transform: "none", width: "100%" }
+    ? { 
+        width: "100%", 
+        maxWidth: viewportMode === "mobile" ? "375px" : "1400px", 
+        margin: "0 auto" 
+      }
+    : viewportMode === "mobile"
+    ? { 
+        width: "375px",
+        maxWidth: "100%"
+      }
+    : { 
+        width: scaledPreviewWidth, 
+        maxWidth: "100%" 
+      };
+      
+  const previewInnerStyle: React.CSSProperties = viewportMode === "mobile"
+    ? { 
+        width: "375px",
+        transform: "none"
+      }
+    : previewFocused
+    ? { 
+        transform: "none", 
+        width: "100%" 
+      }
     : {
         transform: `scale(${TEMPLATE_PREVIEW_ZOOM})`,
         transformOrigin: "top left",
-        width: TEMPLATE_PREVIEW_WIDTH,
+        width: TEMPLATE_PREVIEW_WIDTH
       };
 
   useEffect(() => {
@@ -308,6 +331,46 @@ export default function LandingPageEditorPage() {
             )}
           </Badge>
 
+          {editorMode === "template" && (
+            <div className="flex items-center gap-1 border border-gray-200 rounded-md p-0.5 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setViewportMode("desktop")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-all",
+                  viewportMode === "desktop"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                )}
+                title="Desktop View"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="8" y1="21" x2="16" y2="21" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="12" y1="17" x2="12" y2="21" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                Desktop
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewportMode("mobile")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-all",
+                  viewportMode === "mobile"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                )}
+                title="Mobile View"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <rect x="5" y="2" width="14" height="20" rx="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="12" y1="18" x2="12" y2="18" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                Mobile
+              </button>
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="sm"
@@ -409,21 +472,54 @@ export default function LandingPageEditorPage() {
               </div>
             </div>
             {/* Right: Live Preview */}
-            <div className={cn("flex-1 bg-gray-100 overflow-y-auto transition-colors", previewFocused && "bg-white")}
-            >
-              <div className={cn("min-h-full flex justify-center py-6 px-4", previewFocused && "py-0 px-0")}
-              >
-                <div
-                  className={cn("overflow-hidden transition-all", previewFocused && "rounded-none shadow-none border-0")}
-                  style={previewOuterStyle}
-                >
-                  <div className="[perspective:2000px]" style={previewInnerStyle}>
-                    <div className={cn("bg-white shadow-sm border border-gray-200 rounded-[32px]", previewFocused && "rounded-none border-0 shadow-none")}
-                    >
-                      <LandingTemplate data={templateData} />
+            <div className={cn(
+              "flex-1 overflow-y-auto transition-colors",
+              previewFocused ? "bg-white" : "bg-gray-100"
+            )}>
+              <div className={cn(
+                "min-h-full flex justify-center items-start",
+                previewFocused ? "p-0" : "py-6 px-4"
+              )}>
+                {viewportMode === "mobile" && !previewFocused ? (
+                  /* Mobile Frame */
+                  <div className="relative" style={{ width: "399px" }}>
+                    {/* Phone Frame */}
+                    <div className="bg-gray-900 rounded-[42px] shadow-2xl p-3 relative">
+                      {/* Notch */}
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-gray-900 rounded-b-3xl z-10"></div>
+                      
+                      {/* Screen - Fixed width container for mobile rendering */}
+                      <div className="bg-white rounded-[32px] overflow-hidden relative" style={{ width: "375px", height: "667px" }}>
+                        <div className="w-full h-full overflow-y-auto overflow-x-hidden" style={{ width: "375px" }}>
+                          <div style={{ width: "375px", minHeight: "667px" }}>
+                            <LandingTemplate data={templateData} />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Home Indicator */}
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-700 rounded-full"></div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Desktop Preview */
+                  <div
+                    className={cn(
+                      "overflow-hidden transition-all",
+                      previewFocused && "rounded-none shadow-none border-0"
+                    )}
+                    style={previewOuterStyle}
+                  >
+                    <div style={previewInnerStyle}>
+                      <div className={cn(
+                        "bg-white shadow-sm border border-gray-200 rounded-[32px]",
+                        previewFocused && "rounded-none border-0 shadow-none"
+                      )}>
+                        <LandingTemplate data={templateData} />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

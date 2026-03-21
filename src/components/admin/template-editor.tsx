@@ -26,6 +26,40 @@ import {
   Link as LinkIcon,
   Youtube,
   MousePointerClick,
+  Zap,
+  Target,
+  Lightbulb,
+  Shield,
+  Flame,
+  Gem,
+  Music,
+  Camera,
+  Smile,
+  Coffee,
+  Rocket,
+  Heart,
+  Leaf,
+  Sun,
+  Moon,
+  Sparkles,
+  Brain,
+  Trophy,
+  Radio,
+  FlaskConical,
+  CheckCircle2,
+  Infinity,
+  Layers,
+  TrendingUp,
+  Lock,
+  Headphones,
+  Mic,
+  Play,
+  Eye,
+  Compass,
+  Feather,
+  Anchor,
+  Activity,
+  type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +70,119 @@ import { toast } from "sonner";
 import { DEFAULT_MEDIA_SETTINGS, type LandingTemplateData, type MediaFieldOptions } from "@/lib/template-types";
 
 const mediaKey = (...parts: (string | number)[]) => parts.join(".");
+
+// ---------------------------------------------------------------------------
+// Icon Picker
+// ---------------------------------------------------------------------------
+const ICON_OPTIONS: { name: string; icon: LucideIcon }[] = [
+  { name: "Sparkles", icon: Sparkles },
+  { name: "Zap", icon: Zap },
+  { name: "Target", icon: Target },
+  { name: "Lightbulb", icon: Lightbulb },
+  { name: "Star", icon: Star },
+  { name: "Trophy", icon: Trophy },
+  { name: "Award", icon: Award },
+  { name: "Rocket", icon: Rocket },
+  { name: "Flame", icon: Flame },
+  { name: "Gem", icon: Gem },
+  { name: "Shield", icon: Shield },
+  { name: "Brain", icon: Brain },
+  { name: "Heart", icon: Heart },
+  { name: "Users", icon: Users },
+  { name: "Globe", icon: Globe },
+  { name: "BookOpen", icon: BookOpen },
+  { name: "Layers", icon: Layers },
+  { name: "TrendingUp", icon: TrendingUp },
+  { name: "CheckCircle2", icon: CheckCircle2 },
+  { name: "Infinity", icon: Infinity },
+  { name: "Lock", icon: Lock },
+  { name: "Eye", icon: Eye },
+  { name: "Compass", icon: Compass },
+  { name: "Feather", icon: Feather },
+  { name: "Leaf", icon: Leaf },
+  { name: "Sun", icon: Sun },
+  { name: "Moon", icon: Moon },
+  { name: "Music", icon: Music },
+  { name: "Headphones", icon: Headphones },
+  { name: "Mic", icon: Mic },
+  { name: "Play", icon: Play },
+  { name: "Camera", icon: Camera },
+  { name: "Coffee", icon: Coffee },
+  { name: "Smile", icon: Smile },
+  { name: "Activity", icon: Activity },
+  { name: "Anchor", icon: Anchor },
+  { name: "Radio", icon: Radio },
+  { name: "FlaskConical", icon: FlaskConical },
+  { name: "Gift", icon: Gift },
+  { name: "MessageSquare", icon: MessageSquare },
+];
+
+function SectionBgField({ sectionKey, value, onChange }: { sectionKey: string; value: string; onChange: (key: string, v: string) => void }) {
+  return (
+    <div className="flex items-center justify-between">
+      <Label className="text-xs text-gray-500">Background color</Label>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="color"
+          value={value || "#ffffff"}
+          onChange={(e) => onChange(sectionKey, e.target.value)}
+          className="h-6 w-8 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange(sectionKey, "")}
+            className="text-[10px] text-gray-400 hover:text-red-500 transition"
+            title="Reset to default"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IconPicker({ value, onChange }: { value: string; onChange: (name: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = ICON_OPTIONS.find((o) => o.name === value);
+  const SelectedIcon = selected?.icon ?? Sparkles;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 h-8 px-2 rounded-md border border-gray-200 bg-white text-xs text-gray-700 hover:border-gray-300 transition w-full"
+      >
+        <SelectedIcon className="h-4 w-4 flex-shrink-0 text-gray-600" />
+        <span className="flex-1 text-left truncate">{value || "Pick icon"}</span>
+        <ChevronDown className="h-3 w-3 text-gray-400 flex-shrink-0" />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-9 left-0 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
+          <div className="grid grid-cols-8 gap-1">
+            {ICON_OPTIONS.map(({ name, icon: Icon }) => (
+              <button
+                key={name}
+                type="button"
+                title={name}
+                onClick={() => { onChange(name); setOpen(false); }}
+                className={`flex items-center justify-center h-7 w-7 rounded-lg transition ${
+                  value === name
+                    ? "bg-blue-100 text-blue-600"
+                    : "hover:bg-gray-100 text-gray-600"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Collapsible Section with Drag Handle
@@ -393,7 +540,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
   const [draggedSection, setDraggedSection] = useState<string | null>(null);
   
   const canonicalSections = useMemo(
-    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'invitation', 'bonus', 'footer'],
+    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'footer'],
     []
   );
   const sectionOrder = useMemo(() => {
@@ -413,6 +560,20 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
   const updateColors = useCallback(
     (key: string, value: string) => {
       onChange({ ...data, colors: { ...data.colors, [key]: value } });
+    },
+    [data, onChange]
+  );
+
+  const updateSectionBg = useCallback(
+    (key: string, value: string) => {
+      const current = data.sectionBg || {};
+      if (value) {
+        onChange({ ...data, sectionBg: { ...current, [key]: value } });
+      } else {
+        const updated = { ...current };
+        delete updated[key];
+        onChange({ ...data, sectionBg: updated });
+      }
     },
     [data, onChange]
   );
@@ -527,6 +688,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('hero')}
       >
+        <SectionBgField sectionKey="hero" value={data.sectionBg?.['hero'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show hero block</Label>
           <Switch
@@ -718,6 +880,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('marquee')}
       >
+        <SectionBgField sectionKey="marquee" value={data.sectionBg?.['marquee'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Enabled</Label>
           <Switch checked={data.marquee.enabled} onCheckedChange={(v) => update("marquee", { enabled: v })} />
@@ -755,6 +918,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('why')}
       >
+        <SectionBgField sectionKey="why" value={data.sectionBg?.['why'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show section</Label>
           <Switch
@@ -816,6 +980,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('about')}
       >
+        <SectionBgField sectionKey="about" value={data.sectionBg?.['about'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show section</Label>
           <Switch
@@ -873,6 +1038,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('logos')}
       >
+        <SectionBgField sectionKey="logos" value={data.sectionBg?.['logos'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Enabled</Label>
           <Switch checked={data.logos.enabled} onCheckedChange={(v) => update("logos", { enabled: v })} />
@@ -920,6 +1086,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('gallery')}
       >
+        <SectionBgField sectionKey="gallery" value={data.sectionBg?.['gallery'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show gallery</Label>
           <Switch
@@ -978,6 +1145,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('stats')}
       >
+        <SectionBgField sectionKey="stats" value={data.sectionBg?.['stats'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show stats section</Label>
           <Switch
@@ -1039,6 +1207,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('testimonials')}
       >
+        <SectionBgField sectionKey="testimonials" value={data.sectionBg?.['testimonials'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show testimonials</Label>
           <Switch
@@ -1103,6 +1272,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('videoTestimonials')}
       >
+        <SectionBgField sectionKey="videoTestimonials" value={data.sectionBg?.['videoTestimonials'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show video testimonials</Label>
           <Switch
@@ -1168,6 +1338,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('program')}
       >
+        <SectionBgField sectionKey="program" value={data.sectionBg?.['program'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show program section</Label>
           <Switch
@@ -1194,9 +1365,11 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
               </Button>
             </div>
             <div className="flex gap-1">
-              <Input value={point.icon} onChange={(e) => {
-                const arr = [...data.program.points]; arr[i] = { ...arr[i], icon: e.target.value }; update("program", { points: arr });
-              }} className="h-8 text-xs bg-white border-gray-200 w-16" placeholder="Icon" />
+              <div className="w-36 flex-shrink-0">
+                <IconPicker value={point.icon} onChange={(name) => {
+                  const arr = [...data.program.points]; arr[i] = { ...arr[i], icon: name }; update("program", { points: arr });
+                }} />
+              </div>
               <Input value={point.title} onChange={(e) => {
                 const arr = [...data.program.points]; arr[i] = { ...arr[i], title: e.target.value }; update("program", { points: arr });
               }} className="h-8 text-xs bg-white border-gray-200 flex-1" placeholder="Title" />
@@ -1206,7 +1379,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
             }} rows={2} className="text-xs bg-white border-gray-200" placeholder="Description" />
           </div>
         ))}
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("program", { points: [...data.program.points, { title: "", description: "", icon: "✨" }] })}>
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("program", { points: [...data.program.points, { title: "", description: "", icon: "Sparkles" }] })}>
           <Plus className="h-3 w-3 mr-1" /> Add Point
         </Button>
         <div>
@@ -1229,6 +1402,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('bonus')}
       >
+        <SectionBgField sectionKey="bonus" value={data.sectionBg?.['bonus'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Enabled</Label>
           <Switch checked={data.bonus.enabled} onCheckedChange={(v) => update("bonus", { enabled: v })} />
@@ -1273,6 +1447,168 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         </Button>
       </Section>
     ),
+    contentBlocks: (
+      <Section 
+        key="contentBlocks"
+        title="Content Blocks" 
+        icon={<Layers className="h-4 w-4" />}
+        draggable
+        onDragStart={handleDragStart('contentBlocks')}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop('contentBlocks')}
+      >
+        <div className="text-xs text-gray-500 mb-3">
+          Add multiple content blocks with media (image/video/YouTube) and text side by side
+        </div>
+        {Array.isArray(data.contentBlocks) && data.contentBlocks.map((block, i) => {
+          const blockKey = mediaKey("contentBlocks", i, "mediaUrl");
+          return (
+          <div key={i} className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50/50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase">Block {i + 1}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
+                clearMediaSettings(blockKey);
+                const blocks = Array.isArray(data.contentBlocks) ? data.contentBlocks : [];
+                onChange({ ...data, contentBlocks: blocks.filter((_, j) => j !== i) });
+              }}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-gray-600">Enabled</Label>
+              <Switch checked={block.enabled} onCheckedChange={(v) => {
+                const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+                blocks[i] = { ...blocks[i], enabled: v };
+                onChange({ ...data, contentBlocks: blocks });
+              }} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-gray-500">Layout</Label>
+                <select 
+                  value={block.layout} 
+                  onChange={(e) => {
+                    const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+                    blocks[i] = { ...blocks[i], layout: e.target.value as "media-left" | "media-right" };
+                    onChange({ ...data, contentBlocks: blocks });
+                  }}
+                  className="w-full h-8 text-xs mt-1 bg-white border border-gray-200 rounded-md px-2"
+                >
+                  <option value="media-left">Media Left</option>
+                  <option value="media-right">Media Right</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">Media Type</Label>
+                <select 
+                  value={block.mediaType} 
+                  onChange={(e) => {
+                    const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+                    blocks[i] = { ...blocks[i], mediaType: e.target.value as "image" | "video" | "youtube" };
+                    onChange({ ...data, contentBlocks: blocks });
+                  }}
+                  className="w-full h-8 text-xs mt-1 bg-white border border-gray-200 rounded-md px-2"
+                >
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="youtube">YouTube</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500">
+                {block.mediaType === "youtube" ? "YouTube URL" : block.mediaType === "video" ? "Video URL" : "Image URL"}
+              </Label>
+              <MediaField
+                label={block.mediaType === "youtube" ? "YouTube URL" : block.mediaType === "video" ? "Video URL" : "Image URL"}
+                value={block.mediaUrl}
+                onChange={(v) => {
+                  const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+                  blocks[i] = { ...blocks[i], mediaUrl: v };
+                  onChange({ ...data, contentBlocks: blocks });
+                }}
+                settings={mediaSettings[blockKey]}
+                onSettingsChange={(value) => handleMediaSettingsChange(blockKey, value)}
+                onClearSettings={() => clearMediaSettings(blockKey)}
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500">Text Format</Label>
+              <select 
+                value={block.textFormat} 
+                onChange={(e) => {
+                  const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+                  blocks[i] = { ...blocks[i], textFormat: e.target.value as "plain" | "bullets" };
+                  onChange({ ...data, contentBlocks: blocks });
+                }}
+                className="w-full h-8 text-xs mt-1 bg-white border border-gray-200 rounded-md px-2"
+              >
+                <option value="plain">Plain Text</option>
+                <option value="bullets">Bullet Points</option>
+              </select>
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500">Heading (Optional)</Label>
+              <Input 
+                value={block.heading || ""} 
+                onChange={(e) => {
+                  const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+                  blocks[i] = { ...blocks[i], heading: e.target.value };
+                  onChange({ ...data, contentBlocks: blocks });
+                }} 
+                className="h-8 text-xs mt-1 bg-white border-gray-200" 
+                placeholder="Section heading"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500">
+                Content {block.textFormat === "bullets" ? "(one per line)" : ""}
+              </Label>
+              <Textarea 
+                value={block.content} 
+                onChange={(e) => {
+                  const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+                  blocks[i] = { ...blocks[i], content: e.target.value };
+                  onChange({ ...data, contentBlocks: blocks });
+                }} 
+                rows={6} 
+                className="text-xs mt-1 bg-white border-gray-200" 
+                placeholder={block.textFormat === "bullets" ? "Enter each bullet point on a new line" : "Enter your content here"}
+              />
+            </div>
+          </div>
+        )})}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-7 text-xs w-full" 
+          onClick={() => {
+            const blocks = Array.isArray(data.contentBlocks) ? [...data.contentBlocks] : [];
+            const newBlocks = [
+              ...blocks,
+              { 
+                enabled: true, 
+                layout: "media-left" as const,
+                mediaType: "image" as const,
+                mediaUrl: "", 
+                textFormat: "plain" as const,
+                heading: "", 
+                content: "" 
+              }
+            ];
+            onChange({ ...data, contentBlocks: newBlocks });
+          }}
+        >
+          <Plus className="h-3 w-3 mr-1" /> Add Content Block
+        </Button>
+      </Section>
+    ),
     invitation: (
       (() => {
         const highlights = data.invitation.formHighlights;
@@ -1286,6 +1622,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('invitation')}
       >
+        <SectionBgField sectionKey="invitation" value={data.sectionBg?.['invitation'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show section</Label>
           <Switch
@@ -1403,6 +1740,34 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
             onChange={(e) => update("invitation", { buttonText: e.target.value })}
             className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
           />
+        </div>
+
+        <div>
+          <Label className="text-xs text-gray-500">Button Text Color</Label>
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              type="color"
+              value={data.invitation.buttonTextColor || "#1B1F3A"}
+              onChange={(e) => update("invitation", { buttonTextColor: e.target.value })}
+              className="h-8 w-12 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
+            />
+            <Input
+              value={data.invitation.buttonTextColor || "#1B1F3A"}
+              onChange={(e) => update("invitation", { buttonTextColor: e.target.value })}
+              className="h-8 text-xs bg-gray-50 border-gray-200 flex-1"
+              placeholder="#1B1F3A"
+            />
+            {data.invitation.buttonTextColor && (
+              <button
+                type="button"
+                onClick={() => update("invitation", { buttonTextColor: undefined })}
+                className="text-xs text-gray-400 hover:text-red-500 transition px-2"
+                title="Reset to default"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
 
         <div>
@@ -1561,6 +1926,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop('footer')}
       >
+        <SectionBgField sectionKey="footer" value={data.sectionBg?.['footer'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show footer CTA</Label>
           <Switch
