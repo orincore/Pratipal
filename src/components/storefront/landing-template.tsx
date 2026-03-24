@@ -737,9 +737,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'why':
         return t.why.visible && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('why', c.bodyBg) }}>
+        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('why', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-16">
+            <div className="text-center max-w-3xl mx-auto mb-8 lg:mb-16">
               <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
                 {t.why.title}
               </h2>
@@ -774,7 +774,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'about':
         return t.about.visible && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('about', hexToRgba(c.primary, 0.04)) }}>
+        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('about', hexToRgba(c.primary, 0.04)) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="relative">
@@ -846,9 +846,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'gallery':
         return t.gallery.visible && t.gallery.images.length > 0 && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('gallery', c.bodyBg) }}>
+        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('gallery', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-12">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">{t.gallery.title}</h2>
               <p className="text-lg text-gray-600 font-body">{t.gallery.subtitle}</p>
             </div>
@@ -873,7 +873,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'stats':
         return t.stats.visible && (
-        <section className="py-20 lg:py-28 relative overflow-hidden" style={{ backgroundColor: sbg('stats', c.darkBg) }}>
+        <section className="py-10 lg:py-28 relative overflow-hidden" style={{ backgroundColor: sbg('stats', c.darkBg) }}>
           {t.stats.backgroundImage && (
             <div
               className="absolute inset-0 opacity-20 bg-cover bg-center"
@@ -882,14 +882,14 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
           )}
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">{t.stats.title}</h2>
-            <p className="text-lg text-gray-300 font-body mb-12 max-w-2xl mx-auto">{t.stats.subtitle}</p>
+            <p className="text-lg text-white/80 font-body mb-12 max-w-2xl mx-auto">{t.stats.subtitle}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 mb-12">
               {t.stats.stats.map((stat, i) => (
                 <div key={i}>
-                  <div className="text-4xl lg:text-5xl font-bold font-display mb-1" style={{ color: c.primary }}>
+                  <div className="text-4xl lg:text-5xl font-bold font-display mb-1 text-white">
                     {stat.value}
                   </div>
-                  <div className="text-sm text-gray-400 font-body uppercase tracking-wider">{stat.label}</div>
+                  <div className="text-sm text-white/70 font-body uppercase tracking-wider">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -907,9 +907,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'testimonials':
         return t.testimonials.visible && t.testimonials.items.length > 0 && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('testimonials', c.bodyBg) }}>
+        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('testimonials', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-16">
+            <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-16">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
                 {t.testimonials.title}
               </h2>
@@ -959,9 +959,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
 
       case 'videoTestimonials':
         return t.videoTestimonials.visible && t.videoTestimonials.items.length > 0 && (
-        <section className="py-20 lg:py-28 overflow-hidden" style={{ backgroundColor: sbg('videoTestimonials', hexToRgba(c.darkBg, 0.04)) }}>
+        <section className="py-10 lg:py-28 overflow-hidden" style={{ backgroundColor: sbg('videoTestimonials', hexToRgba(c.darkBg, 0.04)) }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="text-center mb-10">
+            <div className="text-center mb-6 lg:mb-10">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
                 {t.videoTestimonials.title}
               </h2>
@@ -977,9 +977,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'program':
         return t.program.visible && (
-      <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('program', hexToRgba(c.secondary, 0.04)) }}>
+      <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('program', hexToRgba(c.secondary, 0.04)) }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-12">
             <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
               {t.program.title}
             </h2>
@@ -1031,9 +1031,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'bonus':
         return t.bonus.enabled && t.bonus.items.length > 0 && (
-        <section className="py-20 lg:py-28" style={{ backgroundColor: sbg('bonus', c.bodyBg) }}>
+        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('bonus', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-12">
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-6 lg:mb-12">
               {t.bonus.title}
             </h2>
             <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
@@ -1118,7 +1118,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
+                <div className="flex flex-col items-center gap-2 pt-2">
                   <Button
                     size="lg"
                     className="w-full sm:w-auto text-base font-semibold h-14 rounded-2xl px-10"
@@ -1127,7 +1127,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                   >
                     {t.invitation.buttonText}
                   </Button>
-                  <p className="text-xs text-gray-500 text-center sm:text-left">
+                  <p className="text-xs text-gray-500 text-center">
                     {t.invitation.supportText}
                   </p>
                 </div>
@@ -1401,7 +1401,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
         return t.footer.enabled && (
       <footer style={{ backgroundColor: sbg('footer', c.darkBg) }}>
         {/* CTA Banner */}
-        <div className="py-20 lg:py-28 text-center">
+        <div className="py-10 lg:py-28 text-center">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
               {t.footer.cta.title}

@@ -1,0 +1,1129 @@
+================================================================================
+  PRATIPAL STORE — COMPLETE SYSTEM ARCHITECTURE
+  Generated: March 2026
+================================================================================
+
+PROJECT OVERVIEW
+----------------
+Pratipal is a full-stack e-commerce and wellness service booking platform built
+for "Pratipal Healing" (pratipal.in). It supports physical product sales
+(candles, roll-ons, salts), online course enrollment, healing session bookings,
+dynamic landing pages, a blog, and a full admin dashboard.
+
+The platform was originally built on Supabase and has been fully migrated to
+MongoDB Atlas. Image storage uses Cloudflare R2 (with AWS S3 as fallback).
+
+================================================================================
+1. TECH STACK
+================================================================================
+
+FRAMEWORK & RUNTIME
+  - Next.js 16.1.6 (App Router, React Server Components)
+  - React 19.2.4
+  - TypeScript 5.7.3
+  - Node.js (runtime)
+
+DATABASE
+  - MongoDB 7.1.0 (primary database)
+  - Mongoose 9.2.3 (ODM / schema layer)
+  - Connection pooling: maxPoolSize=10, 30-day session cache
+
+UI & STYLING
+  - Tailwind CSS 3.4.17
+  - Radix UI (headless component primitives)
+  - Lucide React (icon library)
+  - Sonner (toast notifications)
+  - class-variance-authority + clsx + tailwind-merge (utility styling)
+  - tailwindcss-animate (animation utilities)
+
+AUTHENTICATION & SECURITY
+  - jsonwebtoken 9.0.3 (JWT signing/verification)
+  - bcryptjs 3.0.3 (password hashing)
+  - Cookie-based sessions (HttpOnly, Secure in prod, SameSite=Lax)
+  - 30-day token expiry
+
+PAYMENT PROCESSING
+  - Razorpay 2.9.6 (Indian payment gateway)
+
+SHIPPING & LOGISTICS
+  - Shiprocket API v2 (order creation, tracking, cancellation)
+  - Custom weight-based shipping calculator
+
+FILE STORAGE
+  - Cloudflare R2 (primary — S3-compatible, via @aws-sdk/client-s3)
+  - AWS S3 (fallback for media uploads)
+  - UUID-based file naming, 1-year cache headers
+
+EMAIL
+  - Nodemailer 8.0.1 (SMTP via Gmail or custom host)
+
+RICH TEXT EDITING
+  - TipTap 3.19.0 with extensions:
+    color, highlight, image, link, placeholder, text-align,
+    text-style, underline, youtube, starter-kit
+
+STATE MANAGEMENT
+  - Zustand 4.5.5 (global client state — cart, etc.)
+  - React Context API (auth, header theme, cart animation)
+
+FORM HANDLING & VALIDATION
+  - React Hook Form 7.54.2
+  - Zod 3.24.1 (schema validation)
+  - @hookform/resolvers (Zod integration)
+
+DRAG & DROP
+  - @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
+    (used in admin landing page / section ordering)
+
+UTILITIES
+  - uuid / nanoid (unique ID generation)
+  - date-fns 3.6.0 (date formatting)
+  - dotenv 17.3.1 (env loading in scripts)
+
+ANALYTICS / REVIEWS
+  - Trustpilot TrustBox widget (optional, via NEXT_PUBLIC_TRUSTPILOT_BUSINESS_ID)
+
+
+================================================================================
+2. DIRECTORY STRUCTURE
+================================================================================
+
+pratipal-store/
+├── .env                          # Active environment variables
+├── .env.local.example            # Environment variable template
+├── next.config.mjs               # Next.js configuration
+├── package.json                  # Dependencies & scripts
+├── postcss.config.mjs            # PostCSS (Tailwind)
+├── next-env.d.ts                 # Next.js TypeScript declarations
+│
+├── database/
+│   └── migrations/               # SQL migration files (legacy Supabase)
+│       ├── 000_run_all.sql
+│       ├── 001_initial_schema.sql
+│       ├── 002_shipping_settings.sql
+│       ├── 003_hero_sections.sql
+│       └── 004_session_bookings.sql
+│
+├── scripts/                      # Utility & migration scripts
+│   ├── seed-courses.ts/.js       # Seed course data
+│   ├── create-essential-oils-landing.ts/.js
+│   ├── migrate-course-images-to-r2.ts
+│   └── migrate-supabase-to-mongodb.ts
+│
+├── public/
+│   ├── assets/                   # Static brand assets (SVG/JPG)
+│   ├── courses/                  # Course images (local fallback)
+│   ├── products/                 # Product images (local fallback)
+│   └── uploads/                  # General uploads (local fallback)
+│
+└── src/
+    ├── app/                      # Next.js App Router
+    │   ├── (storefront)/         # Customer-facing route group
+    │   ├── admin/                # Admin dashboard route group
+    │   ├── api/                  # API route handlers
+    │   └── [slug]/               # Dynamic landing pages
+    │
+    ├── components/
+    │   ├── admin/                # Admin UI components
+    │   ├── booking/              # Booking flow components
+    │   ├── storefront/           # Customer-facing components
+    │   ├── debug/                # Debug utilities
+    │   └── ui/                   # Reusable Radix-based UI primitives
+    │
+    ├── lib/                      # Shared utilities & service clients
+    ├── models/                   # Mongoose schema definitions (19 models)
+    ├── types/                    # TypeScript type definitions
+    ├── services/                 # Business logic layer
+    ├── stores/                   # Zustand state stores
+    └── data/                     # Static/seed data
+
+
+================================================================================
+3. DATABASE MODELS (MongoDB / Mongoose)
+================================================================================
+
+All models use UUID strings as _id (via uuid v4), timestamps via Mongoose
+timestamps option, and a toJSON transform that maps _id → id.
+
+--- AUTHENTICATION & USERS ---
+
+AuthUser (collection: authusers)
+  Purpose: Admin/staff accounts
+  Fields:
+    email          String  required, unique
+    password_hash  String  required (bcrypt)
+    full_name      String
+    role           String  default="admin"
+    status         String  default="active"
+    created_at     Date
+    updated_at     Date
+  Indexes: email
+
+Customer (collection: customers)
+  Purpose: Storefront customer accounts
+  Fields:
+    _id                  String  UUID
+    email                String  required, unique
+    password_hash        String  required (bcrypt)
+    first_name           String
+    last_name            String
+    phone                String
+    avatar_url           String
+    is_verified          Boolean default=false
+    verification_token   String
+    reset_token          String
+    reset_token_expires  Date
+    created_at           Date
+    updated_at           Date
+  Indexes: email
+
+CustomerAddress (collection: customeraddresses)
+  Purpose: Saved shipping/billing addresses per customer
+  Fields: customer_id, type (shipping|billing), address fields, is_default
+
+--- E-COMMERCE ---
+
+Product (collection: products)
+  Purpose: Physical products for sale
+  Fields:
+    name              String  required
+    slug              String  required, unique
+    description       String  (HTML)
+    short_description String
+    price             Number  required
+    sale_price        Number
+    cost_price        Number
+    sku               String  unique, sparse
+    stock_quantity    Number  default=0
+    stock_status      Enum    in_stock | out_of_stock | on_backorder
+    manage_stock      Boolean default=true
+    category_id       ObjectId ref=Category
+    images            [String]
+    featured_image    String
+    is_featured       Boolean default=false
+    is_active         Boolean default=true
+    homepage_section  Enum    featured | best_sellers | new_arrivals | on_sale
+    weight            Number  (grams, for shipping)
+    dimensions        Mixed   {length, width, height}
+    tags              [String]
+    highlights        [String]
+    additional_info   [{label, value}]
+    care_instructions String
+    meta_title        String
+    meta_description  String
+  Indexes: slug, sku, category_id, is_active, homepage_section
+
+Category (collection: categories)
+  Purpose: Product categories
+  Fields: name, slug, description, image, visibleOnHomepage
+
+Order (collection: orders)
+  Purpose: Customer purchase orders
+  Fields:
+    order_number        String  required, unique
+    customer_id         String  ref=Customer
+    customer_email      String  required
+    customer_name       String  required
+    status              Enum    pending|processing|completed|cancelled|refunded|failed
+    payment_status      Enum    pending|paid|failed|refunded
+    payment_method      String
+    subtotal            Number
+    tax                 Number
+    shipping_cost       Number
+    discount            Number
+    total               Number  required
+    currency            String  default="INR"
+    shipping_address    Mixed
+    billing_address     Mixed
+    notes               String
+    tracking_number     String
+    tracking_url        String
+    tracking_status     String
+    tracking_message    String
+    tracking_updated_at String
+    tracking_history    [{status, message, timestamp}]
+    shiprocket_order_id    Number
+    shiprocket_shipment_id Number
+    shipped_at          Date
+    completed_at        Date
+  Indexes: order_number, customer_id, status, customer_email
+
+OrderItem (collection: orderitems)
+  Purpose: Line items within an order
+  Fields: order_id, product_id, product_name, sku, quantity, unit_price, total_price, image
+
+CartItem (collection: cartitems)
+  Purpose: Persistent shopping cart items per customer
+  Fields: customer_id, product_id, quantity, created_at, updated_at
+
+--- SERVICES & BOOKINGS ---
+
+Service (collection: services)
+  Purpose: Healing services offered for booking
+  Fields:
+    title               String  required
+    slug                String  required, unique
+    description         String
+    detailed_description String
+    image_url           String
+    base_price          Number
+    frequency_options   [{label, value, price}]
+    category            String
+    is_active           Boolean default=true
+    display_order       Number  default=0
+
+SessionBooking (collection: sessionbookings)
+  Purpose: Bookings for services and courses (with payment)
+  Fields:
+    booking_number      String  required, unique
+    customer_id         String  required
+    service_id          String  required
+    service_name        String
+    service_category    String
+    frequency_label     String
+    booking_type        Enum    service|course  (deprecated, use order_type)
+    order_type          Enum    service|course  (canonical)
+    customer_name       String
+    customer_email      String
+    customer_phone      String
+    customer_whatsapp   String
+    session_date        Date
+    session_time        String
+    amount              Number
+    payment_status      Enum    pending|paid|failed
+    booking_status      Enum    pending|confirmed|in_progress|completed|cancelled
+    razorpay_order_id   String
+    razorpay_payment_id String
+    razorpay_signature  String
+    whatsapp_redirect_url String
+    admin_notes         String
+  Indexes: booking_number, customer_email, payment_status, order_type
+
+Course (collection: courses)
+  Purpose: Online courses available for enrollment
+  Fields:
+    title           String  required
+    slug            String  required, unique
+    subtitle        String
+    description     String
+    price           Number
+    featured_image  String
+    duration        String
+    level           Enum    beginner|intermediate|advanced|all
+    category        String
+    highlights      [String]
+    curriculum      [{title, description, topics:[String]}]
+    what_you_receive [String]
+    who_is_this_for  [String]
+    bonuses         [String]
+    instructor      {name, title, bio}
+    status          Enum    draft|published|archived
+    featured        Boolean default=false
+    display_order   Number  default=0
+  Indexes: status, featured, display_order
+
+--- CONTENT MANAGEMENT ---
+
+Blog (collection: blogs)
+  Purpose: Blog posts / articles
+  Fields:
+    title           String  required
+    slug            String  required, unique
+    excerpt         String
+    content         String  (TipTap HTML)
+    featured_image  String
+    category        String
+    tags            [String]
+    author          String  default="Dr. Aparnaa Singh"
+    status          Enum    draft|published|archived
+    featured        Boolean
+    read_time       Number  (minutes)
+    seo_title       String
+    seo_description String
+  Indexes: status, slug, featured
+
+HeroSection (collection: herosections)
+  Purpose: Dynamic homepage hero banners (admin-managed)
+  Fields:
+    title                 String  required
+    subtitle              String
+    description           String
+    cta_text              String  default="Learn More"
+    cta_link              String
+    background_type       Enum    default|image|video|none
+    background_image_url  String
+    background_video_url  String
+    card_type             Enum    image|video
+    card_image_url        String
+    card_video_url        String
+    display_order         Number  default=0
+    is_active             Boolean default=true
+  Indexes: is_active + display_order (compound)
+
+LandingPage (collection: landingpages)
+  Purpose: Custom marketing landing pages
+  Fields:
+    slug            String  (essential-oil|candles|mood-refresher)
+    name            String
+    theme           {primary, secondary, accent, background}
+    seo             {title, description}
+    sections        [{id, type, title, subtitle, content, visible, order, items, image}]
+    linkedProducts  [String]
+
+--- UTILITIES ---
+
+ShippingSettings (collection: shippingsettings)
+  Purpose: Configurable shipping rules
+  Fields:
+    flat_rate                Number  default=50
+    free_shipping_threshold  Number  default=500
+    weight_based_enabled     Boolean default=false
+    weight_tiers             [{min_weight, max_weight, rate}]
+
+Media (collection: medias)
+  Purpose: Uploaded media file registry
+  Fields: name, url, type, size, uploaded_at, key (R2 key)
+
+Contact (collection: contacts)
+  Purpose: Contact form submissions
+  Fields: name, email, phone, message, status, created_at
+
+InvitationRequest (collection: invitationrequests)
+  Purpose: Invitation/waitlist requests
+  Fields: email, name, message, status, created_at
+
+Review (collection: reviews)
+  Purpose: Product/service reviews
+  Fields: product_id, customer_id, customer_name, rating, comment, status, created_at
+
+
+================================================================================
+4. API ROUTES
+================================================================================
+
+All routes are under src/app/api/ and follow Next.js App Router conventions.
+CORS headers are applied globally to /api/* (GET, POST, PUT, PATCH, DELETE, OPTIONS).
+
+--- AUTHENTICATION (/api/auth/) ---
+
+POST   /api/auth/login                Admin login → sets pratipal_session cookie
+POST   /api/auth/logout               Admin logout → clears cookie
+GET    /api/auth/me                   Get current admin user from cookie
+POST   /api/auth/register             Customer registration (bcrypt hash + JWT)
+POST   /api/auth/customer-login       Customer login → sets customer session cookie
+POST   /api/auth/customer-logout      Customer logout → clears cookie
+GET    /api/auth/customer-me          Get current customer from cookie
+POST   /api/auth/forgot-password      Send password reset email with token
+POST   /api/auth/update-credentials   Update admin email/password
+POST   /api/auth/send-otp             Send OTP via email
+POST   /api/auth/seed                 Seed initial admin user (dev only)
+
+--- PRODUCTS (/api/products/) ---
+
+GET    /api/products                  List products (with filters: category, status, search)
+POST   /api/products                  Create product (admin)
+GET    /api/products/[id]             Get product by MongoDB ID
+PUT    /api/products/[id]             Update product (admin)
+DELETE /api/products/[id]             Delete product (admin)
+GET    /api/products/slug/[slug]      Get product by URL slug
+
+--- CATEGORIES (/api/categories/) ---
+
+GET    /api/categories                List all categories
+POST   /api/categories                Create category (admin)
+
+--- ORDERS (/api/orders/) ---
+
+GET    /api/orders                    List orders (admin, with pagination/filters)
+POST   /api/orders                    Create new order
+GET    /api/orders/[id]               Get order details
+PUT    /api/orders/[id]               Update order status/tracking (admin)
+
+--- CART (/api/cart/) ---
+
+GET    /api/cart                      Get customer's cart items
+POST   /api/cart                      Add item to cart
+PUT    /api/cart/[id]                 Update cart item quantity
+DELETE /api/cart/[id]                 Remove item from cart
+POST   /api/cart/clear                Clear entire cart
+POST   /api/cart/calculate-shipping   Calculate shipping cost for cart
+
+--- RAZORPAY (/api/razorpay/) ---
+
+POST   /api/razorpay/create-order     Create Razorpay payment order
+POST   /api/razorpay/verify-payment   Verify Razorpay payment signature (HMAC-SHA256)
+GET    /api/razorpay/health           Check Razorpay configuration status
+
+--- SESSIONS (/api/sessions/) ---
+
+POST   /api/sessions/create-booking   Create a session/service booking record
+POST   /api/sessions/create-payment   Create Razorpay order for session payment
+POST   /api/sessions/verify-payment   Verify session payment + update booking status
+
+--- BOOKINGS (/api/bookings/) ---
+
+POST   /api/bookings/create           Create booking (alternative endpoint)
+GET    /api/bookings/customer         Get all bookings for authenticated customer
+POST   /api/bookings/verify-payment   Verify booking payment
+
+--- COURSES (/api/courses/) ---
+
+GET    /api/courses                   List published courses
+POST   /api/courses                   Create course (admin)
+GET    /api/courses/[slug]            Get course by slug
+
+--- BLOGS (/api/blogs/) ---
+
+GET    /api/blogs                     List published blogs (with pagination)
+POST   /api/blogs                     Create blog post (admin)
+GET    /api/blogs/[slug]              Get blog post by slug
+
+--- SERVICES (/api/services/) ---
+
+GET    /api/services                  List active services
+
+--- HERO SECTIONS (/api/hero-sections/) ---
+
+GET    /api/hero-sections             Get active hero sections (ordered by display_order)
+
+--- LANDING PAGES (/api/landing-pages/) ---
+
+GET    /api/landing-pages             List all landing pages
+POST   /api/landing-pages             Create landing page (admin)
+GET    /api/landing-pages/[id]        Get landing page by ID
+PUT    /api/landing-pages/[id]        Update landing page (admin)
+DELETE /api/landing-pages/[id]        Delete landing page (admin)
+POST   /api/landing-pages/[id]/duplicate  Duplicate a landing page
+
+--- UPLOAD (/api/upload/) ---
+
+POST   /api/upload                    Upload general file → Cloudflare R2
+POST   /api/upload/products           Upload product image → R2 (products/ folder)
+POST   /api/upload/courses            Upload course image → R2 (courses/ folder)
+POST   /api/upload/services           Upload service image → R2 (services/ folder)
+  All upload endpoints: multipart/form-data, 10MB limit, images only
+  Returns: { url, key, fileName }
+
+--- SHIPPING (/api/shipping/) ---
+
+GET    /api/shipping/track            Track shipment via Shiprocket API
+
+--- ADMIN ROUTES (/api/admin/) ---
+
+/api/admin/blogs/                     CRUD for blog posts
+/api/admin/blogs/[id]/                Get/Update/Delete specific blog
+
+/api/admin/courses/                   CRUD for courses
+/api/admin/courses/[id]/              Get/Update/Delete specific course
+
+/api/admin/orders/                    List/filter orders
+/api/admin/orders/[id]/               Get/Update order (status, tracking, Shiprocket)
+
+/api/admin/services/                  CRUD for services
+/api/admin/services/[id]/             Get/Update/Delete specific service
+
+/api/admin/service-orders/            List service/session bookings
+/api/admin/service-orders/[id]/       Get/Update specific booking
+
+/api/admin/hero-sections/             CRUD for hero sections
+/api/admin/hero-sections/[id]/        Get/Update/Delete specific hero section
+
+/api/admin/reviews/                   List/moderate reviews
+/api/admin/reviews/[id]/              Approve/reject/delete review
+
+/api/admin/contacts/                  List contact form submissions
+/api/admin/contacts/[id]/             Get/Update/Delete contact
+
+/api/admin/shipping-settings/         GET/PUT shipping configuration
+
+--- OTHER ENDPOINTS ---
+
+GET    /api/health                    Application health check
+POST   /api/contact                   Submit contact form
+GET    /api/reviews                   Get approved reviews
+POST   /api/reviews                   Submit a review
+GET    /api/trustpilot                Get Trustpilot business info
+POST   /api/invitations               Submit invitation request
+GET    /api/account/profile           Get customer profile
+PUT    /api/account/profile           Update customer profile
+GET    /api/account/addresses         Get customer addresses
+POST   /api/account/addresses         Add customer address
+PUT    /api/account/addresses/[id]    Update address
+DELETE /api/account/addresses/[id]    Delete address
+POST   /api/test-email                Send test email (dev)
+
+
+================================================================================
+5. STOREFRONT PAGES (src/app/(storefront)/)
+================================================================================
+
+Route Group: (storefront) — shares layout.tsx with header + footer
+
+/                           Homepage (hero sections, featured products, courses)
+/shop                       Product listing with filters
+/shop/[slug]                Product detail page (dynamic)
+/candles                    Candles category page
+/mood-refresher             Mood refresher landing page
+/courses                    Course listing
+/courses/[slug]             Course detail page (CourseDetailClient.tsx)
+/booking                    Session booking page
+/booking-success            Booking confirmation page
+/blogs                      Blog listing
+/blogs/[slug]               Blog post detail
+/about                      About page
+/contact                    Contact form page
+/cart                       Shopping cart
+/checkout                   Checkout flow (address + payment)
+/order-confirmation         Post-purchase confirmation
+/order-failed               Failed payment page
+/order-history              Customer order history
+/account                    Customer account dashboard
+/account/orders             Customer order list
+/login                      Customer login
+/register                   Customer registration
+/forgot-password            Password reset request
+
+Dynamic Route:
+/[slug]                     Dynamic landing pages (essential-oil, candles, etc.)
+                            Rendered by DynamicPageRenderer → LandingPageRenderer
+
+================================================================================
+6. ADMIN DASHBOARD PAGES (src/app/admin/(dashboard)/)
+================================================================================
+
+Route Group: admin/(dashboard) — protected, requires admin JWT
+
+/admin                      Dashboard overview
+/admin/ecommerce/products   Product list + management
+/admin/ecommerce/products/create  Create new product
+/admin/ecommerce/orders     Order list + management
+/admin/courses              Course list + management
+/admin/course-orders        Course/session booking orders
+/admin/blogs                Blog post list + editor
+/admin/categories           Category management
+/admin/hero-sections        Hero section builder (drag & drop order)
+/admin/contacts             Contact form submissions
+/admin/services             Service management
+/admin/service-orders       Service booking management
+/admin/reviews              Review moderation
+/admin/shipping-settings    Shipping configuration
+/admin/landing-pages        Landing page builder
+/admin/media                Media library
+/admin/settings             Admin settings (credentials)
+
+
+================================================================================
+7. COMPONENT ARCHITECTURE
+================================================================================
+
+--- STOREFRONT COMPONENTS (src/components/storefront/) ---
+
+header.tsx
+  - Navigation bar with logo, links, cart icon, customer auth state
+  - Reads header theme from HeaderThemeContext (transparent vs solid)
+  - Integrates CustomerAuthContext for login/logout
+
+footer.tsx
+  - Site footer with links, social media, branding
+
+home-page-client.tsx
+  - Client component for homepage
+  - Fetches and renders active HeroSections
+  - Displays featured products, courses, services
+
+product-card.tsx
+  - Reusable product display card
+  - Shows image, name, price, sale price, add-to-cart button
+
+product-media-gallery.tsx
+  - Product image/video gallery with thumbnail navigation
+  - Supports multiple images and video
+
+product-purchase-panel.tsx
+  - Quantity selector, add-to-cart, buy-now
+  - Shows stock status, price, sale price
+
+product-description-tabs.tsx
+  - Tabbed product info: Description, Highlights, Care Instructions, Additional Info
+
+cart-drawer.tsx
+  - Slide-out cart sidebar
+  - Shows cart items, quantities, totals, shipping estimate
+  - Checkout button
+
+add-to-cart-button.tsx
+  - Standalone add-to-cart button with animation
+  - Integrates with Zustand cart store
+
+landing-page-renderer.tsx
+  - Renders dynamic landing page sections from LandingPage model
+  - Supports: hero, truth, audience, learn, trainer, benefits, products, faq, cta
+
+landing-template.tsx
+  - Template-based landing page layout
+
+dynamic-page-renderer.tsx
+  - Fetches landing page by slug and delegates to LandingPageRenderer
+
+trustpilot-widget.tsx
+  - Embeds Trustpilot TrustBox widget
+  - Conditionally rendered when NEXT_PUBLIC_TRUSTPILOT_BUSINESS_ID is set
+
+header-theme-setter.tsx
+  - Sets header theme (transparent/solid) based on current page
+
+--- ADMIN COMPONENTS (src/components/admin/) ---
+
+rich-editor.tsx
+  - Full TipTap rich text editor
+  - Extensions: bold, italic, underline, color, highlight, link, image,
+    YouTube embed, text-align, placeholder
+  - Used for product descriptions, blog content
+
+blog-editor.tsx
+  - Blog-specific editor wrapping rich-editor
+  - Handles featured image, SEO fields, status, tags
+
+template-editor.tsx
+  - Landing page section editor
+  - Drag-and-drop section reordering via @dnd-kit
+  - Section type selector, visibility toggle
+
+upload-zone.tsx
+  - Drag-and-drop file upload component
+  - Calls /api/upload/* endpoints
+  - Shows upload progress, preview
+
+admin-loader.tsx
+  - Loading skeleton/spinner for admin pages
+
+dashboard-layout-context.tsx
+  - React context for admin sidebar state (open/collapsed)
+
+--- BOOKING COMPONENTS (src/components/booking/) ---
+
+booking-section.tsx
+  - Service selection, frequency picker, customer info form
+  - Integrates Razorpay payment flow
+
+booking-page-client.tsx
+  - Full booking page client component
+  - Fetches services, handles multi-step booking
+
+--- UI PRIMITIVES (src/components/ui/) ---
+
+Built on Radix UI with Tailwind styling:
+  accordion.tsx         Collapsible accordion sections
+  alert-dialog.tsx      Confirmation dialogs
+  alert.tsx             Alert/notification banners
+  badge.tsx             Status badges
+  button.tsx            Button variants (primary, secondary, ghost, etc.)
+  card.tsx              Card container
+  dialog.tsx            Modal dialogs
+  input.tsx             Text input
+  label.tsx             Form labels
+  radio-group.tsx       Radio button groups
+  select.tsx            Dropdown select
+  separator.tsx         Horizontal/vertical dividers
+  switch.tsx            Toggle switch
+  textarea.tsx          Multi-line text input
+  loading-spinner.tsx   Animated loading indicator
+  particle-animation.tsx  Canvas-based particle effect (hero backgrounds)
+  floating-action-button.tsx  FAB for mobile navigation
+
+
+================================================================================
+8. LIBRARY MODULES (src/lib/)
+================================================================================
+
+auth.ts
+  - JWT signing (signToken), verification (verifyToken)
+  - getUserFromRequest: extracts user from cookie in API routes
+  - getSessionCookieOptions: returns secure cookie config
+  - Cookie name: "pratipal_session", 30-day expiry
+  - Interfaces: AuthUser, JwtPayload, AuthenticatedUser
+
+mongodb.ts
+  - Singleton MongoDB connection with global cache
+  - connectDB(): returns cached mongoose connection
+  - Pool: maxPoolSize=10, serverSelectionTimeout=5s, socketTimeout=45s
+  - Logs connection attempts and errors
+
+db.ts
+  - getDB(): connects to MongoDB and returns all model references
+  - Exports: AuthUser, Customer, CustomerAddress, Product, Category,
+    Order, OrderItem, CartItem, LandingPage, Media, InvitationRequest,
+    HeroSection, ShippingSettings, SessionBooking, Service, Course, Blog
+
+r2-client.ts (R2Storage class)
+  - uploadFile(file, folder): uploads File object to R2
+  - uploadBuffer(buffer, fileName, contentType, folder): uploads Buffer
+  - deleteFile(key): removes file from R2
+  - extractKeyFromUrl(url): parses R2 key from public URL
+  - isConfigured(): validates all R2 env vars are present
+  - Uses @aws-sdk/client-s3 with R2 endpoint
+  - 10MB file size limit, images only
+  - ACL: public-read, CacheControl: 1 year
+
+email.ts
+  - sendEmail({to, subject, html}): sends via Nodemailer SMTP
+  - generateBookingConfirmationEmail(data): HTML email for customer
+  - generateAdminNotificationEmail(data): HTML email for admin
+  - From: "Pratipal Healing" <SMTP_USER>
+
+mailer.ts
+  - Alternative/additional mailer utilities
+
+shiprocket.ts
+  - getShiprocketToken(): authenticates with Shiprocket, caches 23h
+  - createShiprocketOrder(payload): creates shipping order
+  - getShiprocketTracking(shipmentId): fetches tracking data
+  - cancelShiprocketOrder(ids): cancels orders
+  - mapShiprocketStatus(srStatus): maps Shiprocket status → internal status
+  - Mock mode: SHIPROCKET_MOCK=true returns fake data
+  - Status map: new/pending → order_received, shipped → shipped,
+    out for delivery → out_for_delivery, delivered → delivered, etc.
+
+shipping-calculator.ts
+  - calculateShipping(cartItems): computes shipping cost
+    Logic: free shipping if subtotal >= threshold,
+           else weight-based tiers if enabled,
+           else flat rate
+  - calculateShippingFromProducts(items): fetches products then calculates
+  - Returns: {shipping_cost, shipping_method, total_weight, is_free_shipping}
+
+customer-auth-context.tsx (CustomerAuthProvider)
+  - React Context for customer authentication state
+  - State: customer, loading
+  - Methods: login(), register(), logout()
+  - Calls: /api/auth/customer-me, /api/auth/customer-login,
+           /api/auth/register, /api/auth/customer-logout
+  - useCustomerAuth() hook for consuming context
+
+cart-animation-context.tsx
+  - Context for cart add animation (fly-to-cart effect)
+
+header-theme-context.tsx
+  - Context for controlling header appearance (transparent/solid)
+  - Used by pages to set header style on mount
+
+ecommerce-types.ts
+  - TypeScript interfaces for Customer, Address, CartItem, Order, etc.
+  - Used across storefront components
+
+session-types.ts
+  - TypeScript interfaces for Service, SessionBooking, Course booking
+
+template-types.ts
+  - TypeScript interfaces for LandingPage sections and templates
+
+upload-utils.ts
+  - Utility functions for file upload handling
+
+cart-utils.ts
+  - Cart calculation utilities (subtotal, item count, etc.)
+
+customer-session.ts
+  - Customer session management utilities
+
+utils.ts
+  - General utilities: cn() (class merging), formatPrice(), slugify(), etc.
+
+
+================================================================================
+9. AUTHENTICATION FLOWS
+================================================================================
+
+--- ADMIN AUTHENTICATION ---
+
+1. Admin visits /admin/login
+2. Submits email + password to POST /api/auth/login
+3. Server: finds AuthUser by email, bcrypt.compare(password, hash)
+4. On success: signToken(user) → JWT with {sub, email, role, full_name}
+5. Sets HttpOnly cookie "pratipal_session" (30 days)
+6. Admin pages call GET /api/auth/me → getUserFromRequest(req)
+7. JWT verified → returns AuthenticatedUser
+8. Logout: POST /api/auth/logout → clears cookie
+
+--- CUSTOMER AUTHENTICATION ---
+
+1. Customer registers via POST /api/auth/register
+   - Validates email uniqueness
+   - bcrypt.hash(password, 10)
+   - Creates Customer document
+   - Optionally sends verification email
+2. Customer logs in via POST /api/auth/customer-login
+   - Finds Customer by email
+   - bcrypt.compare(password, hash)
+   - Signs JWT → sets customer session cookie
+3. CustomerAuthProvider checks auth on mount via GET /api/auth/customer-me
+4. Customer state available via useCustomerAuth() hook
+5. Logout: POST /api/auth/customer-logout → clears cookie
+
+--- PASSWORD RESET ---
+
+1. POST /api/auth/forgot-password with email
+2. Generates reset_token (UUID) + reset_token_expires (1 hour)
+3. Saves to Customer document
+4. Sends email with reset link
+5. Customer clicks link → submits new password with token
+6. Server validates token + expiry → updates password_hash → clears token
+
+================================================================================
+10. PAYMENT FLOW (Razorpay)
+================================================================================
+
+--- PRODUCT ORDER PAYMENT ---
+
+1. Customer adds items to cart, proceeds to checkout
+2. Checkout page collects shipping/billing address
+3. POST /api/razorpay/create-order
+   - Creates Razorpay order with amount (paise)
+   - Returns {razorpay_order_id, amount, currency, key_id}
+4. Frontend opens Razorpay checkout modal
+5. Customer completes payment
+6. POST /api/razorpay/verify-payment
+   - Verifies HMAC-SHA256 signature: razorpay_order_id + "|" + razorpay_payment_id
+   - On success: creates Order document, updates payment_status="paid"
+   - Triggers Shiprocket order creation
+   - Clears cart
+7. Redirect to /order-confirmation
+
+--- SESSION/COURSE BOOKING PAYMENT ---
+
+1. Customer selects service/course on booking page
+2. Fills in personal details (name, email, phone, WhatsApp)
+3. POST /api/sessions/create-payment
+   - Creates SessionBooking with payment_status="pending"
+   - Creates Razorpay order
+   - Returns booking_number + Razorpay order details
+4. Frontend opens Razorpay modal
+5. POST /api/sessions/verify-payment
+   - Verifies signature
+   - Updates SessionBooking: payment_status="paid", booking_status="confirmed"
+   - Sends confirmation email to customer
+   - Sends notification email to admin
+6. Redirect to /booking-success
+
+================================================================================
+11. SHIPPING FLOW (Shiprocket)
+================================================================================
+
+1. Order is created with payment_status="paid"
+2. Admin reviews order in dashboard
+3. Admin triggers "Create Shipment" → PUT /api/admin/orders/[id]
+4. Server calls createShiprocketOrder(payload):
+   - Maps order data to Shiprocket format
+   - Sends to Shiprocket API
+   - Stores shiprocket_order_id + shiprocket_shipment_id on Order
+5. Shiprocket assigns AWB (tracking number)
+6. Order status updated to "processing" → "shipped"
+7. Customer can track via GET /api/shipping/track?shipment_id=...
+   - Calls getShiprocketTracking(shipmentId)
+   - Maps status via mapShiprocketStatus()
+   - Updates tracking_history on Order
+8. Status progression:
+   order_received → processing → packed → shipped → out_for_delivery → delivered
+
+================================================================================
+12. FILE UPLOAD FLOW (Cloudflare R2)
+================================================================================
+
+1. Admin selects file in UploadZone component
+2. POST /api/upload/[type] with multipart/form-data
+3. Server: R2Storage.isConfigured() check
+4. R2Storage.uploadFile(file, folder):
+   - Validates: image only, max 10MB
+   - Generates UUID filename
+   - Uploads to R2 bucket via PutObjectCommand
+   - ACL: public-read, CacheControl: 1 year
+5. Returns {url, key, fileName}
+6. URL stored in model (product.featured_image, course.featured_image, etc.)
+7. Fallback: if R2 not configured, saves to /public/uploads/ locally
+
+Folder structure in R2:
+  uploads/     → general uploads
+  products/    → product images
+  courses/     → course images
+  services/    → service images
+
+================================================================================
+13. STATE MANAGEMENT
+================================================================================
+
+--- ZUSTAND STORES (src/stores/) ---
+
+Cart Store
+  - State: items[], itemCount, total
+  - Actions: addItem, removeItem, updateQuantity, clearCart, syncWithServer
+  - Persists to localStorage + syncs with /api/cart (server-side for logged-in users)
+
+--- REACT CONTEXTS (src/lib/) ---
+
+CustomerAuthContext
+  - customer: Customer | null
+  - loading: boolean
+  - login(), register(), logout()
+
+HeaderThemeContext
+  - theme: "transparent" | "solid"
+  - setTheme()
+
+CartAnimationContext
+  - Triggers fly-to-cart animation on add-to-cart
+
+================================================================================
+14. ENVIRONMENT VARIABLES
+================================================================================
+
+DATABASE
+  MONGODB_URI                     MongoDB connection string (local or Atlas)
+
+AUTHENTICATION
+  AUTH_JWT_SECRET                 JWT signing secret (admin)
+  JWT_SECRET                      JWT signing secret (customer, same value)
+
+CLOUDFLARE R2 STORAGE
+  R2_ACCOUNT_ID                   Cloudflare account ID
+  R2_ACCESS_KEY_ID                R2 access key
+  R2_SECRET_ACCESS_KEY            R2 secret key
+  R2_BUCKET_NAME                  R2 bucket name
+  R2_PUBLIC_URL                   Public base URL for R2 files
+
+AWS S3 (fallback)
+  AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY
+  AWS_REGION
+  AWS_S3_BUCKET
+
+RAZORPAY
+  RAZORPAY_KEY_ID                 Razorpay key ID (server)
+  RAZORPAY_KEY_SECRET             Razorpay secret (server)
+  NEXT_PUBLIC_RAZORPAY_KEY_ID     Razorpay key ID (client-side)
+
+SHIPROCKET
+  SHIPROCKET_EMAIL                Shiprocket account email
+  SHIPROCKET_PASSWORD             Shiprocket account password
+  SHIPROCKET_MOCK                 "true" to use mock mode (dev)
+
+EMAIL (SMTP)
+  SMTP_HOST                       SMTP server host (default: smtp.gmail.com)
+  SMTP_PORT                       SMTP port (default: 587)
+  SMTP_SECURE                     "true" for SSL
+  SMTP_USER                       SMTP username/email
+  SMTP_PASSWORD                   SMTP password / app password
+  ADMIN_EMAIL                     Admin notification recipient
+
+APPLICATION
+  NEXT_PUBLIC_APP_URL             Public app URL
+  NEXT_PUBLIC_API_URL             Public API URL
+  NODE_ENV                        development | production
+
+OPTIONAL
+  NEXT_PUBLIC_TRUSTPILOT_BUSINESS_ID   Trustpilot Business Unit ID
+
+
+================================================================================
+15. NEXT.JS CONFIGURATION
+================================================================================
+
+next.config.mjs:
+  - images.remotePatterns: allows all HTTPS domains (wildcard **)
+  - images.unoptimized: true (disables Next.js image optimization)
+  - CORS headers on /api/* routes:
+      Access-Control-Allow-Origin: *
+      Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+      Access-Control-Allow-Headers: Content-Type, Authorization
+
+================================================================================
+16. EXTERNAL SERVICE INTEGRATIONS SUMMARY
+================================================================================
+
+SERVICE          PURPOSE                    INTEGRATION POINT
+---------------------------------------------------------------------------
+MongoDB Atlas    Primary database           src/lib/mongodb.ts
+Cloudflare R2    Image/file storage         src/lib/r2-client.ts
+Razorpay         Payment processing         src/app/api/razorpay/
+Shiprocket       Shipping & tracking        src/lib/shiprocket.ts
+Nodemailer/SMTP  Transactional email        src/lib/email.ts
+Trustpilot       Customer reviews widget    src/components/storefront/trustpilot-widget.tsx
+AWS S3           File storage (fallback)    src/app/api/upload/
+
+================================================================================
+17. SCRIPTS & MIGRATIONS
+================================================================================
+
+scripts/seed-courses.ts/.js
+  - Seeds initial course data into MongoDB
+
+scripts/create-essential-oils-landing.ts/.js
+  - Creates the Essential Oils landing page in MongoDB
+
+scripts/migrate-course-images-to-r2.ts
+  - Migrates course images from local/Supabase storage to Cloudflare R2
+
+scripts/migrate-supabase-to-mongodb.ts
+  - Full data migration from Supabase PostgreSQL to MongoDB
+  - Migrates: users, customers, products, orders, courses, blogs, etc.
+
+database/migrations/ (legacy SQL — Supabase era)
+  000_run_all.sql           Runs all migrations in order
+  001_initial_schema.sql    Initial tables
+  002_shipping_settings.sql Shipping settings table
+  003_hero_sections.sql     Hero sections table
+  004_session_bookings.sql  Session bookings table
+
+================================================================================
+18. SECURITY CONSIDERATIONS
+================================================================================
+
+- Passwords hashed with bcryptjs (cost factor 10)
+- JWT tokens stored in HttpOnly cookies (not accessible via JS)
+- Secure flag enabled in production
+- SameSite=Lax prevents CSRF on cross-site requests
+- API routes validate authentication via getUserFromRequest()
+- Admin routes require role="admin" in JWT payload
+- File uploads restricted to images only, 10MB max
+- CORS configured for API routes (currently open — restrict in production)
+- Razorpay payment verification uses HMAC-SHA256 signature validation
+- Shiprocket token cached server-side (not exposed to client)
+- Environment variables never exposed to client (except NEXT_PUBLIC_ prefix)
+
+================================================================================
+19. KNOWN TECHNICAL NOTES
+================================================================================
+
+- Project migrated from Supabase to MongoDB (migration complete)
+- @supabase/ssr and @supabase/supabase-js still in dependencies (can be removed)
+- src/lib/supabase/ directory still exists (legacy, unused)
+- SessionBooking has deprecated field "booking_type" — use "order_type" instead
+- Order model has special re-registration logic to handle hot-reload schema changes
+- SHIPROCKET_MOCK=true enables mock mode for local development
+- images.unoptimized=true means no automatic WebP conversion by Next.js
+- debug-products.js in root is a development debugging script
+- /api/debug/ route exists for development debugging
+
+================================================================================
+20. DEPLOYMENT
+================================================================================
+
+Recommended: Vercel (Next.js native)
+
+Production environment variables to set:
+  MONGODB_URI          → MongoDB Atlas connection string
+  AUTH_JWT_SECRET      → Strong random secret (32+ chars)
+  JWT_SECRET           → Same as AUTH_JWT_SECRET
+  R2_*                 → Cloudflare R2 credentials
+  RAZORPAY_*           → Razorpay live keys
+  SHIPROCKET_*         → Shiprocket credentials
+  SMTP_*               → Email credentials
+  NEXT_PUBLIC_APP_URL  → https://www.pratipal.in (or Vercel URL)
+  NODE_ENV             → production
+
+Build command: next build
+Start command: next start
+Output: .next/ directory
+
+================================================================================
+END OF SYSTEM ARCHITECTURE DOCUMENT
+================================================================================

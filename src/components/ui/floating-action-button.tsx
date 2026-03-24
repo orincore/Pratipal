@@ -3,10 +3,27 @@
 import React, { useState, useEffect } from "react";
 import { ArrowUp, MessageCircle, Phone, Calendar } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const KNOWN_ROUTES = new Set([
+  "/", "/about", "/shop", "/candles", "/courses", "/blogs", "/booking",
+  "/contact", "/cart", "/checkout", "/login", "/register", "/account",
+  "/order-history", "/order-confirmation", "/order-failed", "/booking-success",
+  "/forgot-password", "/mood-refresher",
+]);
+
+function isLandingPageSlug(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  // Single-segment path not in known routes = landing page
+  return segments.length === 1 && !KNOWN_ROUTES.has(pathname);
+}
 
 export function FloatingActionButton() {
+  const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  if (isLandingPageSlug(pathname)) return null;
 
   useEffect(() => {
     const toggleVisibility = () => {
