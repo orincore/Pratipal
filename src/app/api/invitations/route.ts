@@ -131,3 +131,24 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ invitations: data });
 }
+
+export async function DELETE(req: NextRequest) {
+  const user = getUserFromRequest(req);
+  if (!user || user.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  }
+
+  const { InvitationRequest } = await getDB();
+  const deleted = await InvitationRequest.findByIdAndDelete(id);
+  if (!deleted) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ success: true });
+}

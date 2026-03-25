@@ -59,6 +59,7 @@ import {
   Feather,
   Anchor,
   Activity,
+  HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -540,7 +541,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
   const [draggedSection, setDraggedSection] = useState<string | null>(null);
   
   const canonicalSections = useMemo(
-    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'footer'],
+    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'],
     []
   );
   const sectionOrder = useMemo(() => {
@@ -1950,6 +1951,13 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           <Label className="text-xs text-gray-500">CTA Button Link</Label>
           <Input value={data.footer.cta.ctaButtonLink} onChange={(e) => update("footer", { cta: { ...data.footer.cta, ctaButtonLink: e.target.value } })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
         </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show CTA button</Label>
+          <Switch
+            checked={data.footer.cta.showCtaButton ?? true}
+            onCheckedChange={(v) => update("footer", { cta: { ...data.footer.cta, showCtaButton: v } })}
+          />
+        </div>
         <div>
           <Label className="text-xs text-gray-500">Copyright</Label>
           <Input value={data.footer.copyright} onChange={(e) => update("footer", { copyright: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
@@ -1975,6 +1983,70 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
             <Plus className="h-3 w-3 mr-1" /> Add Link
           </Button>
         </div>
+      </Section>
+    ),
+    faq: (
+      <Section
+        key="faq"
+        title="FAQ Section"
+        icon={<HelpCircle className="h-4 w-4" />}
+        draggable
+        onDragStart={handleDragStart('faq')}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop('faq')}
+      >
+        <SectionBgField sectionKey="faq" value={data.sectionBg?.['faq'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Enabled</Label>
+          <Switch
+            checked={data.faq?.enabled ?? true}
+            onCheckedChange={(v) => update("faq", { enabled: v })}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.faq?.title ?? ''} onChange={(e) => update("faq", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.faq?.subtitle ?? ''} onChange={(e) => update("faq", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        {(data.faq?.items ?? []).map((item, i) => (
+          <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase">Q {i + 1}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
+                update("faq", { items: (data.faq?.items ?? []).filter((_, j) => j !== i) });
+              }}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+            <Input
+              value={item.question}
+              onChange={(e) => {
+                const arr = [...(data.faq?.items ?? [])];
+                arr[i] = { ...arr[i], question: e.target.value };
+                update("faq", { items: arr });
+              }}
+              className="h-8 text-xs bg-white border-gray-200"
+              placeholder="Question"
+            />
+            <Textarea
+              value={item.answer}
+              onChange={(e) => {
+                const arr = [...(data.faq?.items ?? [])];
+                arr[i] = { ...arr[i], answer: e.target.value };
+                update("faq", { items: arr });
+              }}
+              rows={2}
+              className="text-xs bg-white border-gray-200"
+              placeholder="Answer"
+            />
+          </div>
+        ))}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("faq", { items: [...(data.faq?.items ?? []), { question: "", answer: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Question
+        </Button>
       </Section>
     ),
   };

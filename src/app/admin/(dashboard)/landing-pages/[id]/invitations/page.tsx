@@ -11,6 +11,7 @@ import {
   CalendarClock,
   ChevronLeft,
   Download,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ export default function LandingPageInvitationsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const fetchInvitations = useCallback(async () => {
     if (!landingPageId) return;
@@ -69,6 +71,23 @@ export default function LandingPageInvitationsPage() {
         .some((value) => value!.toLowerCase().includes(query))
     );
   }, [invitations, search]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm("Delete this invitation? This cannot be undone.")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/invitations?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete");
+      }
+      setInvitations((prev) => prev.filter((inv) => inv.id !== id));
+    } catch (err: any) {
+      alert(err.message || "Failed to delete invitation");
+    } finally {
+      setDeleting(null);
+    }
+  }, []);
 
   const downloadCSV = useCallback(() => {
     // Prepare CSV headers
@@ -200,9 +219,9 @@ export default function LandingPageInvitationsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Submitted</div>
-                    <div className="flex items-center justify-end gap-2 text-sm font-medium text-gray-700">
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-xs text-gray-400 uppercase tracking-wide">Submitted</div>
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
                       <CalendarClock className="h-4 w-4 text-violet-500" />
                       {new Date(inv.created_at).toLocaleString(undefined, {
                         dateStyle: "medium",
@@ -213,11 +232,21 @@ export default function LandingPageInvitationsPage() {
                       <Link
                         href={`/${inv.landing_page_slug}`}
                         target="_blank"
-                        className="text-[11px] text-violet-600 hover:text-violet-800 mt-1 inline-block"
+                        className="text-[11px] text-violet-600 hover:text-violet-800 inline-block"
                       >
                         View landing page ↗
                       </Link>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleDelete(inv.id)}
+                      disabled={deleting === inv.id}
+                    >
+                      <Trash2 className={`h-3.5 w-3.5 mr-1 ${deleting === inv.id ? "animate-spin" : ""}`} />
+                      {deleting === inv.id ? "Deleting…" : "Delete"}
+                    </Button>
                   </div>
                 </div>
               ))}

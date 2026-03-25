@@ -62,6 +62,37 @@ const hasContent = (value?: string | null) => Boolean(value && value.trim().leng
 const resolveLink = (value?: string | null) => (value && value.trim().length ? value.trim() : "#");
 
 // ---------------------------------------------------------------------------
+// FAQ Item Component (accordion)
+// ---------------------------------------------------------------------------
+function FaqItem({ item, primaryColor }: { item: { question: string; answer: string }; primaryColor: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-6 py-4 text-left gap-4"
+      >
+        <span className="font-semibold text-gray-900 text-sm sm:text-base font-body">{item.question}</span>
+        <span
+          className="flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center transition-transform duration-300"
+          style={{ backgroundColor: open ? primaryColor : "#f3f4f6", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke={open ? "#fff" : "#6b7280"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+      </button>
+      {open && (
+        <div className="px-6 pb-5 text-sm text-gray-600 font-body leading-relaxed border-t border-gray-50 pt-3">
+          {item.answer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Marquee Component
 // ---------------------------------------------------------------------------
 function Marquee({ items, color }: { items: string[]; color: string }) {
@@ -137,14 +168,13 @@ function VideoTestimonialsSlider({ items, primaryColor }: {
     const el = scrollRef.current;
     if (!el) return 0;
     const isMobile = window.innerWidth < 640;
-    const cardW = isMobile ? el.clientWidth : el.clientWidth / 3;
-    return cardW + 16; // 16 = gap-4
+    const cardW = isMobile ? el.clientWidth : el.clientWidth / 5;
+    return cardW + 16;
   }, []);
 
-  // On desktop 3 cards are visible; the center card is the "active" one,
-  // which is leftmost index + 1. On mobile only 1 card is visible so offset = 0.
+  // On desktop 5 cards visible; 3rd card (index offset 2) is active/focused.
   const getActiveOffset = React.useCallback(() => {
-    return window.innerWidth >= 640 ? 1 : 0;
+    return window.innerWidth >= 640 ? 2 : 0;
   }, []);
 
   // Silently jump scroll position to a tripled index
@@ -243,11 +273,11 @@ function VideoTestimonialsSlider({ items, primaryColor }: {
           return (
             <div
               key={i}
-              className="flex-shrink-0 w-full sm:w-[calc(33.333%-11px)] transition-all duration-300"
-              style={{ opacity: isActive ? 1 : 0.5, transform: isActive ? "scale(1)" : "scale(0.95)" }}
+              className="flex-shrink-0 w-full sm:w-[calc(20%-13px)] transition-all duration-300"
+              style={{ opacity: isActive ? 1 : 0.5, transform: isActive ? "scale(1)" : "scale(0.97)" }}
             >
               <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-100 bg-white flex flex-col">
-                {/* Video area — portrait 9:16 for all types */}
+                {/* Video area — true 9:16 portrait */}
                 <div
                   className="relative bg-black overflow-hidden"
                   style={{ aspectRatio: "9/16" }}
@@ -286,7 +316,7 @@ function VideoTestimonialsSlider({ items, primaryColor }: {
                 </div>
                 {/* Author */}
                 {(item.name || item.role) && (
-                  <div className="px-4 py-3 flex items-center gap-3">
+                  <div className="px-3 py-2 flex items-center gap-2">
                     <div
                       className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                       style={{ backgroundColor: primaryColor }}
@@ -351,7 +381,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
   // Returns override bg color for a section, or falls back to the provided default
   const sbg = (key: string, fallback: string) => (t.sectionBg?.[key]) || fallback;
   const router = useRouter();
-  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'footer'];
+  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'];
   const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
   const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
   const mediaSettings = t.mediaSettings || {};
@@ -383,8 +413,8 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
 
   const handleInvitationSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!invitationForm.firstName.trim() || !invitationForm.email.trim()) {
-      setInvitationError("Please provide your name and email.");
+    if (!invitationForm.firstName.trim() || !invitationForm.email.trim() || !invitationForm.whatsapp.trim()) {
+      setInvitationError("Please provide your name, email, and WhatsApp number.");
       return;
     }
 
@@ -423,18 +453,14 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       }
 
       // Redirect to thank-you page
-      const params = new URLSearchParams({
+      const thankYouData = {
         title: t.invitation.successTitle,
         description: t.invitation.successDescription,
-        color: c.primary,
-        colors: encodeURIComponent(JSON.stringify(c)),
-      });
-      if (pageSlug) params.set("from", pageSlug);
-      const buttons = t.invitation.thankYouButtons || [];
-      if (buttons.length > 0) {
-        params.set("buttons", encodeURIComponent(JSON.stringify(buttons)));
-      }
-      router.push(`/thank-you?${params.toString()}`);
+        buttons: t.invitation.thankYouButtons || [],
+        from: pageSlug || "",
+      };
+      sessionStorage.setItem("thankYouData", JSON.stringify(thankYouData));
+      router.push(`/${pageSlug}/thank-you`);
       resetInvitationForm();
     } catch (err: any) {
       setInvitationError(err.message || "Unable to submit right now. Please try again later.");
@@ -653,7 +679,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       case 'hero':
         return (
           t.hero.visible && (
-            <section className="py-8 sm:py-12" style={{ backgroundColor: sbg('hero', c.heroBg) }}>
+            <section className="py-6 sm:py-8" style={{ backgroundColor: sbg('hero', c.heroBg) }}>
               <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="rounded-3xl border border-black/5 shadow-xl overflow-hidden bg-white/95">
                   {/* Content */}
@@ -737,9 +763,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'why':
         return t.why.visible && (
-        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('why', c.bodyBg) }}>
+        <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('why', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-8 lg:mb-16">
+            <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-10">
               <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
                 {t.why.title}
               </h2>
@@ -774,9 +800,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'about':
         return t.about.visible && (
-        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('about', hexToRgba(c.primary, 0.04)) }}>
+        <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('about', hexToRgba(c.primary, 0.04)) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="grid lg:grid-cols-2 gap-10 items-center">
               <div className="relative">
                 <div
                   className="absolute -inset-4 rounded-3xl rotate-2 opacity-10"
@@ -819,9 +845,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'logos':
         return t.logos.enabled && t.logos.logos.length > 0 && (
-        <section className="py-12 border-y border-gray-100" style={{ backgroundColor: sbg('logos', c.bodyBg) }}>
+        <section className="py-8 border-y border-gray-100" style={{ backgroundColor: sbg('logos', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <p className="text-center text-xs font-semibold text-gray-400 uppercase tracking-widest mb-8">
+            <p className="text-center text-xs font-semibold text-gray-400 uppercase tracking-widest mb-6">
               {t.logos.title}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-10 opacity-60">
@@ -846,9 +872,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'gallery':
         return t.gallery.visible && t.gallery.images.length > 0 && (
-        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('gallery', c.bodyBg) }}>
+        <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('gallery', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-12">
+            <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-8">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">{t.gallery.title}</h2>
               <p className="text-lg text-gray-600 font-body">{t.gallery.subtitle}</p>
             </div>
@@ -873,7 +899,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'stats':
         return t.stats.visible && (
-        <section className="py-10 lg:py-28 relative overflow-hidden" style={{ backgroundColor: sbg('stats', c.darkBg) }}>
+        <section className="py-8 lg:py-14 relative overflow-hidden" style={{ backgroundColor: sbg('stats', c.darkBg) }}>
           {t.stats.backgroundImage && (
             <div
               className="absolute inset-0 opacity-20 bg-cover bg-center"
@@ -907,9 +933,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'testimonials':
         return t.testimonials.visible && t.testimonials.items.length > 0 && (
-        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('testimonials', c.bodyBg) }}>
+        <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('testimonials', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-16">
+            <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-10">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
                 {t.testimonials.title}
               </h2>
@@ -959,9 +985,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
 
       case 'videoTestimonials':
         return t.videoTestimonials.visible && t.videoTestimonials.items.length > 0 && (
-        <section className="py-10 lg:py-28 overflow-hidden" style={{ backgroundColor: sbg('videoTestimonials', hexToRgba(c.darkBg, 0.04)) }}>
+        <section className="py-8 lg:py-14 overflow-hidden" style={{ backgroundColor: sbg('videoTestimonials', hexToRgba(c.darkBg, 0.04)) }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="text-center mb-6 lg:mb-10">
+            <div className="text-center mb-6 lg:mb-8">
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
                 {t.videoTestimonials.title}
               </h2>
@@ -977,9 +1003,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'program':
         return t.program.visible && (
-      <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('program', hexToRgba(c.secondary, 0.04)) }}>
+      <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('program', hexToRgba(c.secondary, 0.04)) }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-12">
+          <div className="text-center max-w-3xl mx-auto mb-6 lg:mb-8">
             <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
               {t.program.title}
             </h2>
@@ -1031,9 +1057,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'bonus':
         return t.bonus.enabled && t.bonus.items.length > 0 && (
-        <section className="py-10 lg:py-28" style={{ backgroundColor: sbg('bonus', c.bodyBg) }}>
+        <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('bonus', c.bodyBg) }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-6 lg:mb-12">
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-6 lg:mb-8">
               {t.bonus.title}
             </h2>
             <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
@@ -1068,7 +1094,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       case 'invitation':
         return t.invitation.enabled && (
-        <section className="py-12 sm:py-14" style={{ backgroundColor: sbg('invitation', hexToRgba(c.primary, 0.06)) }}>
+        <section className="py-8 sm:py-10" style={{ backgroundColor: sbg('invitation', hexToRgba(c.primary, 0.06)) }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="bg-white rounded-[32px] shadow-xl p-6 sm:p-8 lg:p-10 relative overflow-hidden">
               <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full" style={{ background: hexToRgba(c.primary, 0.12) }} />
@@ -1209,6 +1235,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                           placeholder="98765 43210"
                           className="h-10 sm:h-11 rounded-xl flex-1 text-sm"
                           type="tel"
+                          required
                         />
                       </div>
                     </div>
@@ -1377,7 +1404,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
           return (
             <section 
               key={`content-block-${blockIndex}`} 
-              className="py-16 lg:py-24" 
+              className="py-10 lg:py-16" 
               style={{ backgroundColor: sbg(`contentBlock-${blockIndex}`, c.bodyBg) }}
             >
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1397,11 +1424,28 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
           );
         });
 
+      case 'faq':
+        return t.faq?.enabled && t.faq.items.length > 0 && (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('faq', c.bodyBg) }}>
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-6 lg:mb-8">
+                <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3">{t.faq.title}</h2>
+                {t.faq.subtitle && <p className="text-gray-500 font-body">{t.faq.subtitle}</p>}
+              </div>
+              <div className="space-y-3">
+                {t.faq.items.map((item, i) => (
+                  <FaqItem key={i} item={item} primaryColor={c.primary} />
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+
       case 'footer':
         return t.footer.enabled && (
       <footer style={{ backgroundColor: sbg('footer', c.darkBg) }}>
         {/* CTA Banner */}
-        <div className="py-10 lg:py-28 text-center">
+        <div className="py-8 lg:py-14 text-center">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
               {t.footer.cta.title}
@@ -1409,6 +1453,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
             <p className="text-lg text-gray-300 font-body mb-8 max-w-2xl mx-auto">
               {t.footer.cta.subtitle}
             </p>
+            {(t.footer.cta.showCtaButton ?? true) && (
             <button
               type="button"
               onClick={() => setInvitationDialogOpen(true)}
@@ -1418,6 +1463,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
               {t.footer.cta.ctaButtonText}
               <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
             </button>
+            )}
           </div>
         </div>
         {/* Bottom Bar */}

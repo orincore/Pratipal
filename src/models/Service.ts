@@ -17,6 +17,9 @@ export interface IService extends Document {
   category: string;
   is_active: boolean;
   display_order: number;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -39,6 +42,9 @@ const ServiceSchema = new Schema<IService>(
     category: { type: String, default: "general" },
     is_active: { type: Boolean, default: true },
     display_order: { type: Number, default: 0 },
+    seo_title: { type: String },
+    seo_description: { type: String },
+    seo_keywords: { type: String },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

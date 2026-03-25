@@ -44,6 +44,9 @@ interface Course {
   status: string;
   featured: boolean;
   display_order: number;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
 }
 
 export default function AdminCoursesPage() {
@@ -77,6 +80,9 @@ export default function AdminCoursesPage() {
     status: "draft",
     featured: false,
     display_order: 0,
+    seo_title: "",
+    seo_description: "",
+    seo_keywords: "",
   });
 
   useEffect(() => {
@@ -122,6 +128,9 @@ export default function AdminCoursesPage() {
       status: "draft",
       featured: false,
       display_order: 0,
+      seo_title: "",
+      seo_description: "",
+      seo_keywords: "",
     });
     setFormOpen(true);
   }
@@ -153,6 +162,9 @@ export default function AdminCoursesPage() {
       status: course.status,
       featured: course.featured,
       display_order: course.display_order,
+      seo_title: course.seo_title || "",
+      seo_description: course.seo_description || "",
+      seo_keywords: course.seo_keywords || "",
     });
     setFormOpen(true);
   }
@@ -747,6 +759,43 @@ export default function AdminCoursesPage() {
                   className="rounded"
                 />
                 <Label htmlFor="featured" className="cursor-pointer">Featured Course</Label>
+              </div>
+
+              {/* SEO Settings */}
+              <div className="border border-emerald-100 rounded-2xl p-4 space-y-3 bg-emerald-50/30">
+                <p className="text-sm font-semibold text-emerald-800">SEO Settings</p>
+                <div>
+                  <Label className="text-xs text-slate-500">SEO Title <span className="text-slate-400">(defaults to course title)</span></Label>
+                  <Input
+                    value={formData.seo_title}
+                    onChange={(e) => setFormData({ ...formData, seo_title: e.target.value })}
+                    placeholder={formData.title || "Course title"}
+                    className="mt-1"
+                    maxLength={70}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">{(formData.seo_title || "").length}/70 characters</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-500">Meta Description <span className="text-slate-400">(defaults to course subtitle)</span></Label>
+                  <Textarea
+                    value={formData.seo_description}
+                    onChange={(e) => setFormData({ ...formData, seo_description: e.target.value })}
+                    placeholder={formData.subtitle || "Course description for search engines"}
+                    rows={2}
+                    className="mt-1"
+                    maxLength={160}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">{(formData.seo_description || "").length}/160 characters</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-500">Keywords <span className="text-slate-400">(comma-separated)</span></Label>
+                  <Input
+                    value={formData.seo_keywords}
+                    onChange={(e) => setFormData({ ...formData, seo_keywords: e.target.value })}
+                    placeholder="healing, wellness, naturopathy"
+                    className="mt-1"
+                  />
+                </div>
               </div>
             </div>
 

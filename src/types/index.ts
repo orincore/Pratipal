@@ -119,4 +119,7 @@ export interface Service {
   category: string;
   is_active: boolean;
   display_order: number;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
 }

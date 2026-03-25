@@ -115,9 +115,13 @@ function CheckoutPageInner() {
   const [paymentMethod, setPaymentMethod] = useState("razorpay");
 
   useEffect(() => {
-    loadCart();
     loadRazorpayScript();
   }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    loadCart();
+  }, [authLoading]);
 
   useEffect(() => {
     if (cartItems.length > 0) {
@@ -235,8 +239,9 @@ function CheckoutPageInner() {
       } else {
         const res = await fetch("/api/cart");
         const data = await res.json();
-        setCartItems(data.cart || []);
-        if (data.cart.length === 0) {
+        const items = data.cart || [];
+        setCartItems(items);
+        if (items.length === 0) {
           toast.error("Your cart is empty");
           router.push("/cart");
         }

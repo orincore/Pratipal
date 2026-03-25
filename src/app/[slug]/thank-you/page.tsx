@@ -1,8 +1,8 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useEffect, useState } from "react";
 import { Mail, MessageCircle, Sparkles } from "lucide-react";
+import { useParams } from "next/navigation";
 
 const ICON_STYLES: Record<string, { bg: string; text: string }> = {
   whatsapp:  { bg: "#25D366", text: "#ffffff" },
@@ -40,37 +40,40 @@ function SocialIcon({ icon }: { icon: string }) {
   return null;
 }
 
-function hexToRgba(hex: string, alpha: number) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
+interface ThankYouData {
+  title: string;
+  description: string;
+  buttons: { label: string; url: string; icon: string }[];
+  from: string;
 }
 
-function ThankYouContent() {
-  const params = useSearchParams();
+const DEFAULTS: ThankYouData = {
+  title: "You're registered!",
+  description: "We'll send your access link via email and WhatsApp shortly.",
+  buttons: [],
+  from: "",
+};
 
-  const title        = params.get("title")       || "You're registered!";
-  const description  = params.get("description") || "We'll send your access link via email and WhatsApp shortly.";
-  const primaryColor = params.get("color")       || "#C17F5A";
-  const pageSlug     = params.get("from");
+export default function ThankYouPage() {
+  const params = useParams();
+  const slug = params?.slug as string;
+  const [data, setData] = useState<ThankYouData>(DEFAULTS);
 
-  let colors: Record<string, string> = {};
-  try {
-    const raw = params.get("colors");
-    if (raw) colors = JSON.parse(decodeURIComponent(raw));
-  } catch {}
-
-  const bodyBg  = colors.bodyBg  || "#FEFAF5";
-  const heroBg  = colors.heroBg  || "#FDF6EE";
-  const darkBg  = colors.darkBg  || "#3D2B1F";
-  const accent  = colors.accent  || primaryColor;
-
-  let buttons: { label: string; url: string; icon: string }[] = [];
-  try {
-    const raw = params.get("buttons");
-    if (raw) buttons = JSON.parse(decodeURIComponent(raw));
-  } catch {}
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("thankYouData");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setData({
+          title: parsed.title || DEFAULTS.title,
+          description: parsed.description || DEFAULTS.description,
+          buttons: parsed.buttons || [],
+          from: parsed.from || "",
+        });
+        sessionStorage.removeItem("thankYouData");
+      }
+    } catch {}
+  }, []);
 
   const nextSteps = [
     { icon: <Mail className="h-5 w-5" />,         title: "Check your email",  desc: "Your confirmation and access details are on their way." },
@@ -79,26 +82,19 @@ function ThankYouContent() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: bodyBg, fontFamily: "'Inter', sans-serif" }}>
-
-      {/* top gradient bar */}
-      <div className="h-1.5 flex-shrink-0" style={{ background: `linear-gradient(to right, ${primaryColor}, ${accent})` }} />
+    <div className="min-h-screen flex flex-col bg-stone-50">
+      {/* gradient bar */}
+      <div className="h-1.5 flex-shrink-0 bg-gradient-brand" />
 
       {/* HERO */}
-      <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center" style={{ backgroundColor: heroBg }}>
+      <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center bg-gradient-to-b from-emerald-50/60 to-stone-50">
         <div className="max-w-lg w-full mx-auto space-y-6">
 
           {/* check circle */}
           <div className="flex justify-center">
             <div className="relative flex h-20 w-20 items-center justify-center">
-              <span
-                className="absolute inset-0 rounded-full"
-                style={{ backgroundColor: hexToRgba(primaryColor, 0.25), animation: "ty-ping 2s cubic-bezier(0,0,0.2,1) infinite" }}
-              />
-              <div
-                className="relative flex h-16 w-16 items-center justify-center rounded-full shadow-lg"
-                style={{ backgroundColor: primaryColor }}
-              >
+              <span className="absolute inset-0 rounded-full bg-emerald-200/50 animate-ping" style={{ animationDuration: "2s" }} />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full shadow-lg bg-gradient-brand">
                 <svg className="h-7 w-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
@@ -108,30 +104,22 @@ function ThankYouContent() {
 
           {/* badge */}
           <div className="flex justify-center">
-            <span
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest"
-              style={{ backgroundColor: hexToRgba(primaryColor, 0.12), color: primaryColor }}
-            >
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest bg-emerald-100 text-emerald-700">
               <Sparkles className="h-3 w-3" />
               Seat Confirmed
             </span>
           </div>
 
-          <h1
-            className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight"
-            style={{ fontFamily: "'Playfair Display', serif", color: darkBg }}
-          >
-            {title}
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight text-stone-800" style={{ fontFamily: "'Playfair Display', serif" }}>
+            {data.title}
           </h1>
 
-          <p className="text-gray-500 text-base sm:text-lg leading-relaxed">
-            {description}
-          </p>
+          <p className="text-stone-500 text-base sm:text-lg leading-relaxed">{data.description}</p>
 
-          {buttons.length > 0 && (
+          {data.buttons.length > 0 && (
             <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-2">
-              {buttons.map((btn, i) => {
-                const s = ICON_STYLES[btn.icon] || { bg: primaryColor, text: "#ffffff" };
+              {data.buttons.map((btn, i) => {
+                const s = ICON_STYLES[btn.icon] || { bg: "#10b981", text: "#ffffff" };
                 return (
                   <a
                     key={i}
@@ -152,66 +140,37 @@ function ThankYouContent() {
       </div>
 
       {/* WHAT HAPPENS NEXT */}
-      <div className="py-16 px-4" style={{ backgroundColor: bodyBg }}>
+      <div className="py-16 px-4 bg-stone-50">
         <div className="max-w-3xl mx-auto">
-          <p className="text-center text-xs font-semibold uppercase tracking-widest mb-10" style={{ color: primaryColor }}>
+          <p className="text-center text-xs font-semibold uppercase tracking-widest mb-10 text-emerald-600">
             What happens next
           </p>
           <div className="grid sm:grid-cols-3 gap-5">
             {nextSteps.map((step, i) => (
-              <div
-                key={i}
-                className="rounded-2xl p-6 text-center space-y-3 border"
-                style={{ backgroundColor: heroBg, borderColor: hexToRgba(primaryColor, 0.18) }}
-              >
-                <div
-                  className="mx-auto h-11 w-11 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: hexToRgba(primaryColor, 0.12), color: primaryColor }}
-                >
+              <div key={i} className="rounded-2xl p-6 text-center space-y-3 border border-emerald-100 bg-white shadow-sm">
+                <div className="mx-auto h-11 w-11 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600">
                   {step.icon}
                 </div>
-                <p className="font-semibold text-sm" style={{ color: darkBg }}>{step.title}</p>
-                <p className="text-xs text-gray-500 leading-relaxed">{step.desc}</p>
+                <p className="font-semibold text-sm text-stone-800">{step.title}</p>
+                <p className="text-xs text-stone-500 leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* DARK FOOTER */}
-      <div className="py-14 px-4 text-center" style={{ backgroundColor: darkBg }}>
-        <p
-          className="text-2xl sm:text-3xl font-bold mb-2"
-          style={{ fontFamily: "'Playfair Display', serif", color: accent }}
-        >
+      {/* FOOTER */}
+      <div className="py-14 px-4 text-center bg-gradient-to-br from-emerald-900 via-teal-900 to-blue-900">
+        <p className="text-2xl sm:text-3xl font-bold mb-2 text-gradient-peacock" style={{ fontFamily: "'Playfair Display', serif" }}>
           See you at the masterclass 🌿
         </p>
-        <p className="text-sm mb-6" style={{ color: hexToRgba("#ffffff", 0.55) }}>
+        <p className="text-sm mb-6 text-white/50">
           Come with an open mind and your questions ready.
         </p>
-        {pageSlug && (
-          <a
-            href={`/${pageSlug}`}
-            className="text-xs underline underline-offset-4 transition"
-            style={{ color: hexToRgba("#ffffff", 0.4) }}
-          >
-            ← Back to page
-          </a>
-        )}
+        <a href={`/${slug}`} className="text-xs underline underline-offset-4 text-white/40 hover:text-white/70 transition">
+          ← Back to page
+        </a>
       </div>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap');
-        @keyframes ty-ping { 0% { transform: scale(1); opacity: 0.25; } 70% { transform: scale(1.9); opacity: 0; } 100% { transform: scale(1.9); opacity: 0; } }
-      `}</style>
     </div>
-  );
-}
-
-export default function ThankYouPage() {
-  return (
-    <Suspense>
-      <ThankYouContent />
-    </Suspense>
   );
 }

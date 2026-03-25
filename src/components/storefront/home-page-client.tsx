@@ -106,7 +106,7 @@ function HeroSection() {
   const slides = [
     {
       id: 0,
-      image: "/assets/image1.jpg",
+      image: "/assets/slide1.jpg",
       video: null,
       overlayGradient: "from-emerald-950/80 via-emerald-900/60 to-teal-900/50",
       badge: "Sacred Healing Journey",

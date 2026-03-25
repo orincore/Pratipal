@@ -45,6 +45,9 @@ const createEmptyService = (): EditableService => ({
   category: "general",
   is_active: true,
   display_order: 0,
+  seo_title: "",
+  seo_description: "",
+  seo_keywords: "",
 });
 
 export default function AdminServicesPage() {
@@ -397,6 +400,39 @@ export default function AdminServicesPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+          {/* SEO Settings */}
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-4 space-y-3">
+            <p className="text-sm font-semibold text-emerald-800">SEO Settings</p>
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">SEO Title <span className="text-muted-foreground/60">(defaults to service title)</span></Label>
+              <Input
+                value={editingService.seo_title || ""}
+                onChange={(e) => updateField("seo_title", e.target.value)}
+                placeholder={editingService.title || "Service title"}
+                maxLength={70}
+              />
+              <p className="text-xs text-muted-foreground">{(editingService.seo_title || "").length}/70 characters</p>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">Meta Description <span className="text-muted-foreground/60">(defaults to short description)</span></Label>
+              <Textarea
+                value={editingService.seo_description || ""}
+                onChange={(e) => updateField("seo_description", e.target.value)}
+                placeholder={editingService.description || "Service description for search engines"}
+                rows={2}
+                maxLength={160}
+              />
+              <p className="text-xs text-muted-foreground">{(editingService.seo_description || "").length}/160 characters</p>
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">Keywords <span className="text-muted-foreground/60">(comma-separated)</span></Label>
+              <Input
+                value={editingService.seo_keywords || ""}
+                onChange={(e) => updateField("seo_keywords", e.target.value)}
+                placeholder="healing, therapy, wellness"
+              />
             </div>
           </div>
           <DialogFooter>

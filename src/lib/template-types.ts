@@ -171,11 +171,24 @@ export interface InvitationSection {
   thankYouButtons?: ThankYouButton[];
 }
 
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface FaqSection {
+  title: string;
+  subtitle: string;
+  items: FaqItem[];
+  enabled: boolean;
+}
+
 export interface FooterCTA {
   title: string;
   subtitle: string;
   ctaButtonText: string;
   ctaButtonLink: string;
+  showCtaButton?: boolean;
 }
 
 export interface FooterSection {
@@ -219,6 +232,7 @@ export interface LandingTemplateData {
   program: ProgramSection;
   bonus: BonusSection;
   contentBlocks?: ContentBlockSection[];
+  faq?: FaqSection;
   invitation: InvitationSection;
   footer: FooterSection;
   floatingButton: FloatingButtonSettings;
@@ -231,7 +245,7 @@ export interface LandingTemplateData {
 // Default template data (placeholder content)
 // ---------------------------------------------------------------------------
 export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
-  sectionOrder: ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'footer'],
+  sectionOrder: ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'],
   mediaSettings: {},
   colors: {
     primary: "#F5A623",
@@ -399,6 +413,16 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     enabled: true,
   },
   contentBlocks: [],
+  faq: {
+    title: "Frequently Asked Questions",
+    subtitle: "Everything you need to know before joining",
+    items: [
+      { question: "Who is this masterclass for?", answer: "This is for anyone who feels stuck and wants to create real, lasting change in their life." },
+      { question: "Is this session free?", answer: "Yes, this live session is completely free. Just register to secure your spot." },
+      { question: "How will I receive the Zoom link?", answer: "You'll receive the private Zoom link via WhatsApp and email after registering." },
+    ],
+    enabled: true,
+  },
   invitation: {
     enabled: true,
     badgeEmoji: "🔥",
@@ -427,6 +451,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
       subtitle: "Join thousands who've already made the shift. Your new frequency awaits.",
       ctaButtonText: "Join the Masterclass Now",
       ctaButtonLink: "#register",
+      showCtaButton: true,
     },
     copyright: "© 2025 All Rights Reserved",
     links: [
@@ -458,6 +483,7 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     program: { ...DEFAULT_TEMPLATE_DATA.program, ...data.program },
     bonus: { ...DEFAULT_TEMPLATE_DATA.bonus, ...data.bonus },
     contentBlocks: data.contentBlocks || [],
+    faq: { ...DEFAULT_TEMPLATE_DATA.faq!, ...data.faq },
     invitation: { ...DEFAULT_TEMPLATE_DATA.invitation, ...data.invitation },
     footer: { ...DEFAULT_TEMPLATE_DATA.footer, ...data.footer },
     floatingButton: { ...DEFAULT_TEMPLATE_DATA.floatingButton, ...data.floatingButton },

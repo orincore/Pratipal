@@ -35,14 +35,30 @@ export async function GET(req: NextRequest) {
     const customerId = await getCustomerIdFromCookie();
     const sessionId = await getSessionId();
 
-    const filter: any = customerId 
+    let filter: any = customerId
       ? { customer_id: customerId }
       : { session_id: sessionId };
 
-    const cartItems = await CartItem.find(filter)
+    let cartItems = await CartItem.find(filter)
       .populate('product_id', 'id name slug price sale_price featured_image stock_quantity stock_status')
       .populate('variant_id', 'id name price sale_price stock_quantity')
       .lean();
+
+    // If logged-in user has no items by customer_id, migrate any session items
+    if (customerId && cartItems.length === 0 && sessionId) {
+      const sessionItems = await CartItem.find({ session_id: sessionId }).lean();
+      if (sessionItems.length > 0) {
+        await CartItem.updateMany(
+          { session_id: sessionId },
+          { $set: { customer_id: customerId, session_id: null } }
+        );
+        // Re-fetch after migration
+        cartItems = await CartItem.find({ customer_id: customerId })
+          .populate('product_id', 'id name slug price sale_price featured_image stock_quantity stock_status')
+          .populate('variant_id', 'id name price sale_price stock_quantity')
+          .lean();
+      }
+    }
 
     const data = cartItems.map(item => ({
       ...item,
@@ -68,7 +84,8 @@ export async function GET(req: NextRequest) {
     }));
 
     const response = NextResponse.json({ cart: data });
-    
+
+    // Always persist the session cookie so it survives across requests
     if (!customerId) {
       response.cookies.set("cart_session", sessionId, {
         maxAge: 60 * 60 * 24 * 30,
@@ -110,6 +127,17 @@ export async function POST(req: NextRequest) {
     }
 
     const price = product.sale_price || product.price;
+
+    // If logged-in user adds to cart, migrate any existing session items first
+    if (customerId && sessionId) {
+      const sessionItems = await CartItem.find({ session_id: sessionId }).lean();
+      if (sessionItems.length > 0) {
+        await CartItem.updateMany(
+          { session_id: sessionId },
+          { $set: { customer_id: customerId, session_id: null } }
+        );
+      }
+    }
 
     const existingFilter: any = { product_id };
     if (variant_id) {

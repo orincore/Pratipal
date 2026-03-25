@@ -23,8 +23,6 @@ export function FloatingActionButton() {
   const [isVisible, setIsVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  if (isLandingPageSlug(pathname)) return null;
-
   useEffect(() => {
     const toggleVisibility = () => {
       if (window.pageYOffset > 300) {
@@ -47,7 +45,7 @@ export function FloatingActionButton() {
     setIsExpanded(false);
   };
 
-  if (!isVisible) return null;
+  if (isLandingPageSlug(pathname) || !isVisible) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
