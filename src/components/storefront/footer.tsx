@@ -52,10 +52,16 @@ export function Footer() {
             <div>
               <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Help</h4>
               <ul className="space-y-2">
-                {["Shipping Policy", "Return & Refund", "Privacy Policy", "Terms of Service"].map((label) => (
-                  <li key={label}>
-                    <Link href="/" className="text-xs text-[#232d5f]/60 hover:text-[#232d5f] transition-colors">
-                      {label}
+                {[
+                  { label: "Shipping Policy", href: "/shipping-policy" },
+                  { label: "Return & Refund", href: "/refund-policy" },
+                  { label: "Privacy Policy", href: "/privacy-policy" },
+                  { label: "Terms of Service", href: "/terms" },
+                  { label: "Disclaimer", href: "/disclaimer" },
+                ].map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className="text-xs text-[#232d5f]/60 hover:text-[#232d5f] transition-colors">
+                      {link.label}
                     </Link>
                   </li>
                 ))}
