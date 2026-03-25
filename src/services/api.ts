@@ -164,7 +164,8 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
 
 export async function getCategories(): Promise<Category[]> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/categories`, {
+    // Always use a relative URL to avoid cross-origin issues between www and non-www
+    const res = await fetch(`/api/categories`, {
       cache: "no-store",
     });
     if (!res.ok) throw new Error("Failed to fetch categories");

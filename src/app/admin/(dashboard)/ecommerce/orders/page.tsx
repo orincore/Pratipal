@@ -177,14 +177,17 @@ export default function EcommerceOrdersPage() {
     if (!selectedOrder) return;
     setTrackingSaving(true);
     try {
-      const res = await fetch(`/api/admin/orders/${selectedOrder.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const payload: Record<string, any> = {
           tracking_number: trackingInputs.tracking_number || null,
           tracking_url: trackingInputs.tracking_url || null,
           tracking_message: trackingInputs.tracking_message || null,
-          tracking_status: trackingInputs.tracking_status || null,
-        }),
+        };
+        if (trackingInputs.tracking_status) {
+          payload.tracking_status = trackingInputs.tracking_status;
+        }
+      const res = await fetch(`/api/admin/orders/${selectedOrder.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to update tracking");
       const data = await res.json();
