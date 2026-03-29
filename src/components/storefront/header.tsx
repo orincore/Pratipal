@@ -15,11 +15,12 @@ import { useCartAnimation } from "@/lib/cart-animation-context";
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/courses", label: "Courses" },
-  { href: "/shop", label: "Products" },
-  { href: "/booking", label: "Services" },
+  { href: "/products", label: "Shop" },
+  { href: "/booking", label: "Consultation" },
   { href: "/blogs", label: "Blog" },
+  { href: "/gallery", label: "Gallery" },
   { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact Us" },
+  { href: "/contact", label: "Contact" },
 ];
 
 function parseRgb(color: string): [number, number, number] | null {
@@ -72,7 +73,6 @@ export function Header() {
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -91,32 +91,7 @@ export function Header() {
     if (popCount > 0) setPopKey((k) => k + 1);
   }, [popCount]);
 
-  const [isDark, setIsDark] = useState(true);
-
-  const updateTheme = useCallback(() => {
-    const h = headerRef.current;
-    if (!h) return;
-    const rect = h.getBoundingClientRect();
-    setIsDark(sampleIsDark(rect.bottom));
-    setScrolled(window.scrollY > 20);
-  }, []);
-
-  useEffect(() => {
-    setMounted(true);
-    const t = setTimeout(updateTheme, 80);
-    window.addEventListener("scroll", updateTheme, { passive: true });
-    window.addEventListener("resize", updateTheme, { passive: true });
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("scroll", updateTheme);
-      window.removeEventListener("resize", updateTheme);
-    };
-  }, [updateTheme]);
-
-  useEffect(() => {
-    const t = setTimeout(updateTheme, 120);
-    return () => clearTimeout(t);
-  }, [pathname, updateTheme]);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -189,12 +164,9 @@ export function Header() {
     setSearchError(null);
   }
 
-  const hasDarkHero = pathname === "/" || pathname === "/courses" || pathname === "/booking" || pathname === "/contact" || pathname === "/shop" || pathname === "/blogs";
-  const forceLight = pathname === "/login" || pathname === "/register" || pathname?.startsWith("/login") || pathname?.startsWith("/register");
-  const useWhite = forceLight ? false : (hasDarkHero ? !scrolled : (!scrolled && isDark));
-  const iconCls = useWhite ? "text-white hover:bg-white/20" : "text-slate-700 hover:bg-black/5";
-  const navCls = useWhite ? "text-white hover:text-white hover:bg-white/20" : "text-slate-700 hover:text-emerald-700 hover:bg-black/5";
-  const borderCls = useWhite ? "border-white/20" : "border-black/10";
+  const iconCls = "text-slate-700 hover:bg-black/5";
+  const navCls = "text-slate-700 hover:text-emerald-700 hover:bg-black/5";
+  const borderCls = "border-black/10";
 
   return (
     <>
@@ -203,11 +175,7 @@ export function Header() {
         className="fixed top-0 inset-x-0 z-50 flex justify-center px-3 sm:px-6 pt-3 pointer-events-none"
       >
         <div
-          className={`pointer-events-auto w-full max-w-6xl rounded-2xl border transition-all duration-500 backdrop-blur-xl ${
-            scrolled || forceLight
-              ? "bg-white/95 border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-              : "bg-white/10 border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
-          }`}
+          className="pointer-events-auto w-full max-w-6xl rounded-2xl border bg-white border-black/8 shadow-[0_4px_24px_rgba(0,0,0,0.08)]"
         >
           <div className="flex h-14 items-center justify-between px-4 sm:px-5">
             <div className="flex items-center gap-2">

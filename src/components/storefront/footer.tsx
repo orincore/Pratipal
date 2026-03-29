@@ -10,17 +10,11 @@ export function Footer() {
         <div className="container">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {/* Brand */}
-            <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="relative h-9 w-9">
-                  <Image src={LogoMark} alt="Pratipal logo" fill sizes="36px" className="object-contain" />
-                </div>
-                <h3 className="text-xl font-serif font-bold text-[#232d5f]">Pratipal</h3>
+            <div className="col-span-2 md:col-span-1 flex flex-col items-center">
+              <div className="relative h-36 w-48 mb-3">
+                <Image src="/assets/footer_logo.png" alt="Pratipal logo" fill sizes="192px" className="object-contain object-center" />
               </div>
-              <p className="text-xs text-[#232d5f]/60 leading-relaxed mb-3">
-                Integrating Healing with Routine.
-              </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <a href="https://www.instagram.com/pratipalofficial.in" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
                   <Instagram className="h-3.5 w-3.5" />
                 </a>
@@ -35,17 +29,17 @@ export function Footer() {
 
             {/* Quick Links */}
             <div>
-              <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Quick Links</h4>
+              <h4 className="text-sm uppercase tracking-[0.2em] text-[#0e1e6f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Quick Links</h4>
               <ul className="space-y-2">
                 {[
+                  { label: "Shop", href: "/shop" },
                   { label: "Blogs", href: "/blogs"},
-                  { label: "Shop All", href: "/shop" },
-                  { label: "Courses", href: "/courses" },
-                  { label: "Booking", href: "/booking" },
                   { label: "About", href: "/about" },
+                  { label: "Courses", href: "/courses" },
+                  { label: "Consultation", href: "/booking" },
                 ].map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="text-xs text-[#232d5f]/60 hover:text-[#232d5f] transition-colors">
+                    <Link href={link.href} className="text-xs text-[#232d5f]/90 hover:text-[#232d5f] transition-colors">
                       {link.label}
                     </Link>
                   </li>
@@ -55,17 +49,17 @@ export function Footer() {
 
             {/* Help */}
             <div>
-              <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Help</h4>
+              <h4 className="text-sm uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Help</h4>
               <ul className="space-y-2">
                 {[
-                  { label: "Shipping Policy", href: "/shipping-policy" },
-                  { label: "Return & Refund", href: "/refund-policy" },
+                  { label: "Contact Us", href: "/contact" },
                   { label: "Privacy Policy", href: "/privacy-policy" },
+                  { label: "Return & Refund", href: "/refund-policy" },
                   { label: "Terms of Service", href: "/terms" },
                   { label: "Disclaimer", href: "/disclaimer" },
                 ].map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="text-xs text-[#232d5f]/60 hover:text-[#232d5f] transition-colors">
+                    <Link href={link.href} className="text-xs text-[#232d5f]/90 hover:text-[#232d5f] transition-colors">
                       {link.label}
                     </Link>
                   </li>
@@ -75,19 +69,19 @@ export function Footer() {
 
             {/* Contact */}
             <div>
-              <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Contact</h4>
+              <h4 className="text-sm uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Contact</h4>
               <ul className="space-y-2">
                 <li className="flex items-center gap-2">
                   <Mail className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/60">connect@pratipal.in</span>
+                  <span className="text-xs text-[#232d5f]/90">connect@pratipal.in</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/60">+91 76050 72424</span>
+                  <span className="text-xs text-[#232d5f]/90">+91 76050 72424</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <MapPin className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/60">Kolkata, India</span>
+                  <span className="text-xs text-[#232d5f]/90">Kolkata, India</span>
                 </li>
               </ul>
             </div>

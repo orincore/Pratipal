@@ -26,6 +26,7 @@ import {
   Settings,
   Star,
   Quote,
+  Images,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-con
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Products", href: "/admin/ecommerce/products", icon: Package },
+  { label: "Shop", href: "/admin/ecommerce/products", icon: Package },
   { label: "Orders", href: "/admin/ecommerce/orders", icon: ShoppingBag },
   { label: "Service Orders", href: "/admin/service-orders", icon: MessageCircle },
   { label: "Course Orders", href: "/admin/course-orders", icon: BookOpen },
@@ -47,6 +48,7 @@ const sidebarItems = [
   { label: "Services", href: "/admin/services", icon: Presentation },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
   { label: "Daily Quotes", href: "/admin/quotes", icon: Quote },
+  { label: "Gallery", href: "/admin/gallery", icon: Images },
   { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];

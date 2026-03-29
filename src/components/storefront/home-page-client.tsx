@@ -25,6 +25,7 @@ import type { Product, HomepageSection } from "@/types";
 import { BookingSection } from "@/components/booking/booking-section";
 import { DailyQuoteSection } from "@/components/storefront/daily-quote-section";
 import { CoursesSection } from "@/components/storefront/courses-section";
+import { GallerySection } from "@/components/storefront/gallery-section";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/storefront/product-card";
 
@@ -90,13 +91,14 @@ export function HomePageClient({ products }: HomePageClientProps) {
     <div className={`bg-white transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       <HeroSection />
       <BrandingSection />
-      <DailyQuoteSection />
       <CoursesSection />
-      <BookingSection />
+      <DailyQuoteSection />
       <AboutFounderSection />
       <RecentBlogsSection />
       <FeaturedProducts products={featuredProducts} />
       <TestimonialsSection />
+      <GallerySection />
+      <BookingSection />
       <CtaBanner />
     </div>
   );
@@ -128,8 +130,8 @@ function HeroSection() {
       subtitle: "Do you need healing?",
       description: "At Pratipal, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.",
       quote: "\"Healing is not merely cure, it is weaving smile in routine.\"",
-      cta1: { text: "Start Your Journey", href: "/booking", icon: "zap" },
-      cta2: { text: "Explore Courses", href: "/courses", icon: "gem" },
+      cta1: { text: "Explore Courses", href: "/courses", icon: "gem" },
+      cta2: { text: "Shop Products", href: "/shop", icon: "shopping" },
     },
     {
       id: 1,
@@ -396,8 +398,8 @@ function HeroSection() {
                 {slides[currentSlide].description}
               </p>
               )}
-
-              {/* CTAs */}
+              {/* CTAs — hidden on video slides */}
+              {slides[currentSlide].id < 10 && (
               <div className="hero-content-item flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1 sm:pt-2 w-full max-w-xs sm:max-w-none">
                 <Link
                   href={slides[currentSlide].cta1.href}
@@ -415,6 +417,7 @@ function HeroSection() {
                   <span className="whitespace-nowrap">{slides[currentSlide].cta2.text}</span>
                 </Link>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -670,7 +673,7 @@ function RecentBlogsSection() {
   }
 
   return (
-    <section className="py-8 md:py-12 bg-white">
+    <section className="py-8 md:py-12 bg-[#f5f4ef]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-end justify-between mb-6">
           <div>
