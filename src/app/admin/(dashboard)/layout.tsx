@@ -25,6 +25,7 @@ import {
   MessageCircle,
   Settings,
   Star,
+  Quote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ const sidebarItems = [
   { label: "Blogs", href: "/admin/blogs", icon: FileText },
   { label: "Services", href: "/admin/services", icon: Presentation },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
+  { label: "Daily Quotes", href: "/admin/quotes", icon: Quote },
   { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];

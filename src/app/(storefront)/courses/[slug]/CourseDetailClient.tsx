@@ -15,6 +15,7 @@ import { formatPrice } from "@/lib/utils";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
 import Image from "next/image";
 import Link from "next/link";
+import { TrustpilotSection } from "@/components/storefront/trustpilot-section";
 
 interface Course {
   id: string;
@@ -438,6 +439,9 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
 
       {/* Enroll Modal */}
       {showEnroll && <EnrollModal course={course} onClose={() => setShowEnroll(false)} />}
+
+      {/* Reviews */}
+      <TrustpilotSection />
     </div>
   );
 }

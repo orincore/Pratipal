@@ -190,7 +190,8 @@ export function Header() {
   }
 
   const hasDarkHero = pathname === "/" || pathname === "/courses" || pathname === "/booking" || pathname === "/contact" || pathname === "/shop" || pathname === "/blogs";
-  const useWhite = hasDarkHero ? !scrolled : (!scrolled && isDark);
+  const forceLight = pathname === "/login" || pathname === "/register" || pathname?.startsWith("/login") || pathname?.startsWith("/register");
+  const useWhite = forceLight ? false : (hasDarkHero ? !scrolled : (!scrolled && isDark));
   const iconCls = useWhite ? "text-white hover:bg-white/20" : "text-slate-700 hover:bg-black/5";
   const navCls = useWhite ? "text-white hover:text-white hover:bg-white/20" : "text-slate-700 hover:text-emerald-700 hover:bg-black/5";
   const borderCls = useWhite ? "border-white/20" : "border-black/10";
@@ -203,8 +204,8 @@ export function Header() {
       >
         <div
           className={`pointer-events-auto w-full max-w-6xl rounded-2xl border transition-all duration-500 backdrop-blur-xl ${
-            scrolled
-              ? "bg-white/80 border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+            scrolled || forceLight
+              ? "bg-white/95 border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
               : "bg-white/10 border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
           }`}
         >

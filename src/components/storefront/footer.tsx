@@ -18,14 +18,18 @@ export function Footer() {
                 <h3 className="text-xl font-serif font-bold text-[#232d5f]">Pratipal</h3>
               </div>
               <p className="text-xs text-[#232d5f]/60 leading-relaxed mb-3">
-                Handcrafted healing products rooted in ancient Ayurvedic wisdom and crystal therapy.
+                Integrating Healing with Routine.
               </p>
               <div className="flex items-center gap-2">
-                {[Instagram, Facebook, Youtube].map((Icon, i) => (
-                  <a key={i} href="#" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
-                    <Icon className="h-3.5 w-3.5" />
-                  </a>
-                ))}
+                <a href="https://www.instagram.com/pratipalofficial.in" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
+                  <Instagram className="h-3.5 w-3.5" />
+                </a>
+                <a href="https://facebook.com/pratipalofficial" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
+                  <Facebook className="h-3.5 w-3.5" />
+                </a>
+                <a href="https://youtube.com/@pratipalbyaparnaa" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
+                  <Youtube className="h-3.5 w-3.5" />
+                </a>
               </div>
             </div>
 
@@ -34,6 +38,7 @@ export function Footer() {
               <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Quick Links</h4>
               <ul className="space-y-2">
                 {[
+                  { label: "Blogs", href: "/blogs"},
                   { label: "Shop All", href: "/shop" },
                   { label: "Courses", href: "/courses" },
                   { label: "Booking", href: "/booking" },
@@ -74,15 +79,15 @@ export function Footer() {
               <ul className="space-y-2">
                 <li className="flex items-center gap-2">
                   <Mail className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/60">hello@pratipal.in</span>
+                  <span className="text-xs text-[#232d5f]/60">connect@pratipal.in</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/60">+91 98765 43210</span>
+                  <span className="text-xs text-[#232d5f]/60">+91 76050 72424</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <MapPin className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/60">Jaipur, Rajasthan</span>
+                  <span className="text-xs text-[#232d5f]/60">Kolkata, India</span>
                 </li>
               </ul>
             </div>
@@ -94,7 +99,7 @@ export function Footer() {
         <div className="container">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-1 mb-2">
             <p className="text-[11px] text-white/70 tracking-wider">&copy; {new Date().getFullYear()} Pratipal. All rights reserved.</p>
-            <p className="text-[11px] text-white/50 tracking-wider">Handcrafted with love in India 🇮🇳</p>
+            <p className="text-[11px] text-white/50 tracking-wider">Integrating Healing with Routine 🇮🇳</p>
           </div>
           <div className="h-px bg-white/20 w-full" />
         </div>

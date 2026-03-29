@@ -23,6 +23,8 @@ import { useCartAnimation } from "@/lib/cart-animation-context";
 import { formatPrice } from "@/lib/utils";
 import type { Product, HomepageSection } from "@/types";
 import { BookingSection } from "@/components/booking/booking-section";
+import { DailyQuoteSection } from "@/components/storefront/daily-quote-section";
+import { CoursesSection } from "@/components/storefront/courses-section";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/storefront/product-card";
 
@@ -88,9 +90,11 @@ export function HomePageClient({ products }: HomePageClientProps) {
     <div className={`bg-white transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       <HeroSection />
       <BrandingSection />
+      <DailyQuoteSection />
+      <CoursesSection />
       <BookingSection />
       <AboutFounderSection />
-      <ApproachSection />
+      <RecentBlogsSection />
       <FeaturedProducts products={featuredProducts} />
       <TestimonialsSection />
       <CtaBanner />
@@ -102,8 +106,16 @@ function HeroSection() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const slides = [
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const baseSlides = [
     {
       id: 0,
       image: "/assets/slide1.jpg",
@@ -161,10 +173,78 @@ function HeroSection() {
       subtitle: "Reform & Revolutionise Wellness",
       description: "Join a growing community of healers on a mission to make holistic wellness affordable, structured, and deeply human for every family.",
       quote: "\"1000+ families guided towards a medicine-free life\"",
-      cta1: { text: "Join Community", href: "/courses", icon: "zap" },
+      cta1: { text: "Join Community", href: "https://whatsapp.com/channel/0029VaEPo8M96H4QcAts5i08", icon: "zap" },
       cta2: { text: "Learn More", href: "/about", icon: "heart" },
     },
   ];
+
+  const desktopVideoSlide = {
+    id: 10,
+    image: "",
+    video: "/Homepage Hero/VIDEO-2026-03-27-17-35-58.mp4",
+    overlayGradient: "from-emerald-950/60 via-emerald-900/40 to-teal-900/30",
+    badge: "Sacred Healing Journey",
+    badgeIcon: "crown",
+    title: "EVERY MOMENT",
+    titleHindi: "\"प्रतिपल\"",
+    subtitle: "Integrating Healing with Routine",
+    description: "At Pratipal, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.",
+    quote: "\"Healing is not merely cure, it is weaving smile in routine.\"",
+    cta1: { text: "Start Your Journey", href: "/booking", icon: "zap" },
+    cta2: { text: "Explore Courses", href: "/courses", icon: "gem" },
+  };
+
+  const mobileVideoSlides = [
+    {
+      id: 11,
+      image: "",
+      video: "/Homepage Hero/VIDEO-2026-03-27-17-36-04.mp4",
+      overlayGradient: "from-emerald-950/60 via-emerald-900/40 to-teal-900/30",
+      badge: "Sacred Healing Journey",
+      badgeIcon: "crown",
+      title: "EVERY MOMENT",
+      titleHindi: "\"प्रतिपल\"",
+      subtitle: "Integrating Healing with Routine",
+      description: "At Pratipal, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.",
+      quote: "\"Healing is not merely cure, it is weaving smile in routine.\"",
+      cta1: { text: "Start Your Journey", href: "/booking", icon: "zap" },
+      cta2: { text: "Explore Courses", href: "/courses", icon: "gem" },
+    },
+    {
+      id: 12,
+      image: "",
+      video: "/Homepage Hero/VIDEO-2026-03-27-17-36-25.mp4",
+      overlayGradient: "from-teal-950/60 via-emerald-900/40 to-cyan-900/30",
+      badge: "Handcrafted with Intention",
+      badgeIcon: "sparkles",
+      title: "Sacred Healing",
+      titleHindi: "Products & Courses",
+      subtitle: "Transform Your Mind, Body & Soul",
+      description: "Every product is crafted with sacred intention, pure ingredients, and the ancient healing wisdom of Ayurveda and crystal therapy.",
+      quote: "\"To nurture, to protect, to heal\"",
+      cta1: { text: "Shop Products", href: "/shop", icon: "shopping" },
+      cta2: { text: "View Courses", href: "/courses", icon: "gem" },
+    },
+    {
+      id: 13,
+      image: "",
+      video: "/Homepage Hero/VIDEO-2026-03-27-17-36-31.mp4",
+      overlayGradient: "from-indigo-950/60 via-purple-900/40 to-violet-900/30",
+      badge: "Empowering Healers",
+      badgeIcon: "flower",
+      title: "500+ Healers",
+      titleHindi: "Empowered Worldwide",
+      subtitle: "Reform & Revolutionise Wellness",
+      description: "Join a growing community of healers on a mission to make holistic wellness affordable, structured, and deeply human for every family.",
+      quote: "\"1000+ families guided towards a medicine-free life\"",
+      cta1: { text: "Join Community", href: "https://whatsapp.com/channel/0029VaEPo8M96H4QcAts5i08", icon: "zap" },
+      cta2: { text: "Learn More", href: "/about", icon: "heart" },
+    },
+  ];
+
+  const slides = isMobile
+    ? [...baseSlides, ...mobileVideoSlides]
+    : [...baseSlides, desktopVideoSlide];
 
   const SLIDE_DURATION = 7000;
 
@@ -205,12 +285,22 @@ function HeroSection() {
     }
   };
 
+  const touchStartX = useRef<number>(0);
+
   return (
     <section
       className="hero-slideshow relative w-full overflow-hidden"
       style={{ height: "100svh", minHeight: "560px" }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        const diff = touchStartX.current - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) nextSlide();
+          else prevSlide();
+        }
+      }}
     >
       {/* ── Slides ── */}
       {slides.map((slide, index) => (
@@ -220,17 +310,28 @@ function HeroSection() {
             index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
           }`}
         >
-          {/* Background Image with Ken Burns */}
-          <div className={`absolute inset-0 ${index === currentSlide ? "hero-ken-burns" : ""}`}>
-            <Image
-              src={slide.image}
-              alt={slide.title}
-              fill
-              className="object-cover object-center"
-              sizes="100vw"
-              priority={index === 0}
-              quality={90}
-            />
+          {/* Background Image with Ken Burns / Video */}
+          <div className={`absolute inset-0 ${!slide.video && index === currentSlide ? "hero-ken-burns" : ""}`}>
+            {slide.video ? (
+              <video
+                src={slide.video}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <Image
+                src={slide.image}
+                alt={slide.title}
+                fill
+                className="object-cover object-center"
+                sizes="100vw"
+                priority={index === 0}
+                quality={90}
+              />
+            )}
           </div>
 
           {/* Gradient Overlay */}
@@ -251,15 +352,18 @@ function HeroSection() {
               key={`content-${currentSlide}`}
               className="hero-slide-content space-y-3 sm:space-y-5"
             >
-              {/* Badge */}
+              {/* Badge — hidden on video slides */}
+              {slides[currentSlide].id < 10 && (
               <div className="hero-content-item inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 shadow-lg">
                 {getIcon(slides[currentSlide].badgeIcon, "h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-300")}
                 <span className="text-xs sm:text-sm font-medium text-white/90 tracking-wide">
                   {slides[currentSlide].badge}
                 </span>
               </div>
+              )}
 
-              {/* Title */}
+              {/* Title — hidden on video slides */}
+              {slides[currentSlide].id < 10 && (
               <div className="hero-content-item space-y-0.5">
                 <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-serif font-bold text-white leading-[1.1] drop-shadow-lg">
                   {slides[currentSlide].title}
@@ -270,24 +374,31 @@ function HeroSection() {
                   </p>
                 )}
               </div>
+              )}
 
-              {/* Subtitle */}
+              {/* Subtitle — hidden on video slides */}
+              {slides[currentSlide].id < 10 && (
               <h2 className="hero-content-item text-base sm:text-xl md:text-2xl lg:text-3xl font-serif text-white/90 font-medium">
                 {slides[currentSlide].subtitle}
               </h2>
+              )}
 
-              {/* Quote — hidden on small screens to save space */}
+              {/* Quote — hidden on video slides and small screens */}
+              {slides[currentSlide].id < 10 && (
               <p className="hero-content-item hidden sm:block text-sm sm:text-base md:text-lg text-emerald-200/90 italic leading-relaxed">
                 {slides[currentSlide].quote}
               </p>
+              )}
 
-              {/* Description */}
+              {/* Description — hidden on video slides */}
+              {slides[currentSlide].id < 10 && (
               <p className="hero-content-item text-sm sm:text-base text-white/80 leading-relaxed max-w-xl line-clamp-2 sm:line-clamp-none">
                 {slides[currentSlide].description}
               </p>
+              )}
 
               {/* CTAs */}
-              <div className="hero-content-item flex flex-row gap-2 sm:gap-3 pt-1 sm:pt-2">
+              <div className="hero-content-item flex flex-col sm:flex-row gap-2 sm:gap-3 pt-1 sm:pt-2 w-full max-w-xs sm:max-w-none">
                 <Link
                   href={slides[currentSlide].cta1.href}
                   className="group inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-white hover:bg-emerald-50 text-emerald-700 px-4 py-2.5 sm:px-7 sm:py-3.5 rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/20 hover:-translate-y-0.5"
@@ -480,7 +591,7 @@ function AboutFounderSection() {
                 Dr. Aparnaa Singh
               </h3>
               <p className="text-base text-emerald-600 font-medium">
-                Founder & Chief Executive Officer
+                 Spiritual Coach & Energy Practitioner 🪷
               </p>
             </div>
 
@@ -538,88 +649,123 @@ function AboutFounderSection() {
 }
 
 
-function ApproachSection() {
-  const approaches = [
-    {
-      icon: Sparkles,
-      title: "Simple",
-      description: "No complexity, no overwhelm — just intuitive tools and easy-to-follow guidance.",
-      image: "/assets/approach-simple.jpg",
-    },
-    {
-      icon: Calendar,
-      title: "Practical",
-      description: "Designed to integrate seamlessly into busy modern lives.",
-      image: "/assets/approach-practical.jpg",
-    },
-    {
-      icon: Heart,
-      title: "Accessible",
-      description: "Affordable, understandable, and available to anyone seeking inner growth.",
-      image: "/assets/approach-accessible.jpg",
-    },
-    {
-      icon: Leaf,
-      title: "Energy-Driven",
-      description: "Every product, session, and course is intentionally charged to support specific emotional and spiritual outcomes.",
-      image: "/assets/approach-energy.jpg",
-    },
-    {
-      icon: User,
-      title: "Holistic",
-      description: "We address the root — not just symptoms — across emotional, mental, physical, and spiritual layers.",
-      image: "/assets/approach-holistic.jpg",
-    },
-  ];
+function RecentBlogsSection() {
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/blogs")
+      .then((r) => r.json())
+      .then((d) => setBlogs(d.blogs || []))
+      .catch(() => {});
+  }, []);
+
+  if (blogs.length === 0) return null;
+
+  function slide(dir: "left" | "right") {
+    const el = scrollRef.current;
+    if (!el) return;
+    const cardW = el.clientWidth / (window.innerWidth < 640 ? 1 : 3);
+    el.scrollBy({ left: dir === "left" ? -(cardW + 24) : (cardW + 24), behavior: "smooth" });
+  }
 
   return (
-    <section className="py-8 md:py-10 bg-white">
-      <div className="container">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-3">
-            <Leaf className="h-4 w-4 text-brand-teal" />
-            <span className="text-sm font-medium text-brand-teal">The Pratipal Way</span>
+    <section className="py-8 md:py-12 bg-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-brand/10 rounded-full mb-3">
+              <Leaf className="h-4 w-4 text-emerald-600" />
+              <span className="text-sm font-medium text-emerald-700">From the Journal</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-gradient-brand">
+              Recent Articles
+            </h2>
           </div>
-          <h2 className="text-3xl md:text-5xl font-serif font-bold text-gradient-brand mb-3">
-            Approach
-          </h2>
-          <p className="text-base text-gray-600 max-w-2xl mx-auto">
-            We believe healing should be simple, practical, and accessible to everyone
-          </p>
+          <Link
+            href="/blogs"
+            className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-900 transition"
+          >
+            View all <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {approaches.map((approach, index) => (
-            <div
-              key={index}
-              className="group bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-brand-teal/30"
-            >
-              <div className="relative h-44 w-full overflow-hidden rounded-t-3xl">
-                <Image
-                  src={approach.image}
-                  alt={`${approach.title} approach visual`}
-                  fill
-                  className="object-cover transition-all duration-700 group-hover:scale-105"
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  placeholder="blur"
-                  blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTJlOGYwIi8+PC9zdmc+"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 to-transparent"></div>
-                <div className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-brand-teal">
-                  <approach.icon className="h-4 w-4" />
-                  <span>Pratipal</span>
+        <div className="relative">
+          {/* Left arrow */}
+          <button
+            onClick={() => slide("left")}
+            className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-slate-600 hover:text-emerald-700 hover:border-emerald-200 transition"
+            aria-label="Previous"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <div
+            ref={scrollRef}
+            className="flex gap-6 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
+          >
+            {blogs.map((blog) => (
+              <Link
+                key={blog.id}
+                href={`/blogs/${blog.slug}`}
+                className="group snap-start flex-shrink-0 w-[calc(100%-0px)] sm:w-[calc(33.333%-16px)] flex flex-col rounded-3xl overflow-hidden border border-gray-100 shadow-md hover:shadow-xl transition-all duration-300 bg-white"
+              >
+                <div className="relative h-48 w-full overflow-hidden bg-gray-100 flex-shrink-0">
+                  {blog.featured_image ? (
+                    <Image
+                      src={blog.featured_image}
+                      alt={blog.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      sizes="(max-width: 640px) 100vw, 33vw"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
+                      <Leaf className="h-10 w-10 text-emerald-400" />
+                    </div>
+                  )}
+                  {blog.category && (
+                    <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-xs font-semibold text-emerald-700">
+                      {blog.category}
+                    </span>
+                  )}
                 </div>
-              </div>
-              <div className="p-6">
-                <h3 className="text-2xl font-serif font-bold text-gradient-brand mb-2">
-                  {approach.title}
-                </h3>
-                <p className="text-gray-600 leading-relaxed pb-4">
-                  {approach.description}
-                </p>
-              </div>
-            </div>
-          ))}
+                <div className="flex flex-col flex-1 p-5">
+                  <h3 className="font-serif font-bold text-lg text-stone-800 mb-2 line-clamp-2 group-hover:text-emerald-700 transition-colors">
+                    {blog.title}
+                  </h3>
+                  {blog.excerpt && (
+                    <p className="text-sm text-stone-500 leading-relaxed line-clamp-2 flex-1">
+                      {blog.excerpt}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 text-xs text-stone-400">
+                    <span>{blog.author || "Pratipal"}</span>
+                    {blog.read_time && <span>{blog.read_time} min read</span>}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Right arrow */}
+          <button
+            onClick={() => slide("right")}
+            className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-slate-600 hover:text-emerald-700 hover:border-emerald-200 transition"
+            aria-label="Next"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="mt-5 text-center sm:hidden">
+          <Link href="/blogs" className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-900 transition">
+            View all articles <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </section>
