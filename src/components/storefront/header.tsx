@@ -15,7 +15,7 @@ import { useCartAnimation } from "@/lib/cart-animation-context";
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/courses", label: "Courses" },
-  { href: "/products", label: "Shop" },
+  { href: "/shop", label: "Shop" },
   { href: "/booking", label: "Consultation" },
   { href: "/blogs", label: "Blog" },
   { href: "/gallery", label: "Gallery" },
