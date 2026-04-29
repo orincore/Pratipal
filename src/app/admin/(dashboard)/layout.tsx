@@ -37,12 +37,12 @@ import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-con
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Shop", href: "/admin/ecommerce/products", icon: Package },
+  { label: "All Products", href: "/admin/ecommerce/products", icon: Package },
   { label: "Orders", href: "/admin/ecommerce/orders", icon: ShoppingBag },
-  { label: "Service Orders", href: "/admin/service-orders", icon: MessageCircle },
-  { label: "Course Orders", href: "/admin/course-orders", icon: BookOpen },
+  { label: "Consultation Bookings", href: "/admin/service-orders", icon: MessageCircle },
+  { label: "Course Enrollments", href: "/admin/course-orders", icon: BookOpen },
   { label: "Shipping Settings", href: "/admin/shipping", icon: Truck },
-  { label: "Categories", href: "/admin/categories", icon: FolderTree },
+  { label: "Product Categories", href: "/admin/categories", icon: FolderTree },
   { label: "Landing Pages", href: "/admin/landing-pages", icon: FileText },
   { label: "Blogs", href: "/admin/blogs", icon: FileText },
   { label: "Services", href: "/admin/services", icon: Presentation },
@@ -147,7 +147,7 @@ export default function DashboardLayout({
 
         <aside
           className={cn(
-            "fixed left-0 top-14 z-30 h-[calc(100vh-3.5rem)] w-64 border-r bg-white transition-transform lg:static",
+            "fixed left-0 top-14 z-30 h-[calc(100vh-3.5rem)] w-64 border-r bg-white transition-transform lg:sticky lg:top-14",
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
             sidebarCollapsed ? "lg:hidden" : "lg:block"
           )}

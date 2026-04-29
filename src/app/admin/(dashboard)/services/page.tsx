@@ -24,6 +24,7 @@ import {
 import type { Service, ServiceFrequency } from "@/types";
 import { toast } from "sonner";
 import Image from "next/image";
+import { DeleteConfirmationDialog } from "@/components/admin/delete-confirmation-dialog";
 
 interface EditableService extends Service {}
 
@@ -59,6 +60,9 @@ export default function AdminServicesPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadServices();
@@ -165,14 +169,24 @@ export default function AdminServicesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this service?")) return;
+    setServiceToDelete(services.find((s) => s.id === id) || null);
+    setDeleteDialogOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!serviceToDelete) return;
     try {
-      await deleteService(id);
-      setServices((prev) => prev.filter((s) => s.id !== id));
+      setDeleting(true);
+      await deleteService(serviceToDelete.id);
+      setServices((prev) => prev.filter((s) => s.id !== serviceToDelete.id));
       toast.success("Service deleted");
+      setDeleteDialogOpen(false);
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete service");
+    } finally {
+      setDeleting(false);
+      setServiceToDelete(null);
     }
   }
 
@@ -445,6 +459,15 @@ export default function AdminServicesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        title="Delete Service"
+        itemName={serviceToDelete?.title}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

@@ -412,7 +412,7 @@ function CheckoutPageInner() {
       return;
     }
 
-    if (!customer && paymentMethod === "razorpay") {
+    if (!customer) {
       toast.error("Please login to continue");
       router.push(`/login?redirect=/checkout`);
       return;
@@ -435,31 +435,7 @@ function CheckoutPageInner() {
         })),
       };
 
-      if (paymentMethod === "cod") {
-        const res = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(orderData),
-        });
-
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.error || "Failed to create order");
-        }
-
-        const data = await res.json();
-        
-        // Clear cart only if this was a normal cart checkout
-        if (!buyNowProductId) {
-          clearCartStore();
-          fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
-        }
-        
-        toast.success("Order placed successfully!");
-        router.push(`/order-confirmation?orderId=${data.order.id}`);
-      } else {
-        await initiateRazorpayPayment(orderData);
-      }
+      await initiateRazorpayPayment(orderData);
     } catch (err: any) {
       toast.error(err.message || "Failed to place order");
       setProcessing(false);
@@ -1050,30 +1026,6 @@ function CheckoutPageInner() {
                       </div>
                     </div>
                   </div>
-
-                  <div
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                      paymentMethod === "cod"
-                        ? "border-primary bg-primary/5"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    onClick={() => setPaymentMethod("cod")}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        checked={paymentMethod === "cod"}
-                        onChange={() => setPaymentMethod("cod")}
-                        className="h-4 w-4"
-                      />
-                      <div className="flex-1">
-                        <p className="font-semibold">Cash on Delivery</p>
-                        <p className="text-sm text-muted-foreground">
-                          Pay when you receive your order
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1157,11 +1109,7 @@ function CheckoutPageInner() {
                   onClick={handlePlaceOrder}
                   disabled={processing}
                 >
-                  {processing
-                    ? "Processing..."
-                    : paymentMethod === "cod"
-                    ? "Place Order"
-                    : "Proceed to Payment"}
+                  {processing ? "Processing..." : "Proceed to Payment"}
                 </Button>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4">

@@ -11,11 +11,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { Product as EcomProduct } from "@/lib/ecommerce-types";
 import { AdminLoader } from "@/components/admin/admin-loader";
+import { DeleteConfirmationDialog } from "@/components/admin/delete-confirmation-dialog";
 
 export default function EcommerceProductsPage() {
   const [products, setProducts] = useState<EcomProduct[]>([]);
   const [search, setSearch] = useState("");
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<EcomProduct | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -53,17 +55,24 @@ export default function EcommerceProductsPage() {
   }
 
   async function handleDelete(id: string) {
+    setProductToDelete(products.find((p) => p.id === id) || null);
+    setDeleteDialogOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!productToDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/products/${productToDelete.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete product");
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
       toast.success("Product deleted");
+      setDeleteDialogOpen(false);
     } catch (err: any) {
       toast.error(err.message || "Failed to delete product");
     } finally {
       setDeleting(false);
-      setConfirmDeleteId(null);
+      setProductToDelete(null);
     }
   }
 
@@ -154,33 +163,12 @@ export default function EcommerceProductsPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </button>
-
-                        {confirmDeleteId === product.id ? (
-                          <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
-                            <span className="text-xs text-red-700 font-medium whitespace-nowrap">Sure?</span>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              disabled={deleting}
-                              className="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 px-2 py-0.5 rounded transition-colors"
-                            >
-                              {deleting ? "…" : "Yes"}
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              disabled={deleting}
-                              className="text-xs font-semibold text-gray-500 hover:text-gray-800 px-1.5 py-0.5 rounded transition-colors"
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDeleteId(product.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" /> Delete
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -190,6 +178,16 @@ export default function EcommerceProductsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        title="Delete Product"
+        itemName={productToDelete?.name}
+        description={`Are you sure you want to delete the product "${productToDelete?.name}"? This action cannot be undone.`}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

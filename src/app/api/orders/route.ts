@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       customer_name,
       shipping_address,
       billing_address,
-      payment_method = "cod",
+      payment_method = "razorpay",
       items,
       notes,
     } = body;

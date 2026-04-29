@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
+import { ShareButtons } from "@/components/storefront/share-buttons";
 
 interface FrequencyOption {
   label: string;
@@ -594,6 +595,14 @@ export function BookingPageClient() {
               <div className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-emerald-500" /><span>Flexible Scheduling</span></div>
               <div className="flex items-center gap-1"><Phone className="h-3.5 w-3.5 text-emerald-500" /><span>Online & In-Person</span></div>
               <div className="flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5 text-emerald-500" /><span>24hr Response</span></div>
+            </div>
+          </div>
+
+          {/* Share buttons */}
+          <div className="mt-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+            <p className="font-semibold text-gray-700 mb-3 text-sm text-center">Share Our Booking Page</p>
+            <div className="flex justify-center">
+              <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/booking`} />
             </div>
           </div>
         </div>

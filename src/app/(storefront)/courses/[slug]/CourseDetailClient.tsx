@@ -16,6 +16,7 @@ import { useCustomerAuth } from "@/lib/customer-auth-context";
 import Image from "next/image";
 import Link from "next/link";
 import { TrustpilotSection } from "@/components/storefront/trustpilot-section";
+import { ShareButtons } from "@/components/storefront/share-buttons";
 
 interface Course {
   id: string;
@@ -430,6 +431,13 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
                   <Button variant="outline" className="w-full border-teal-300 text-teal-700 hover:bg-teal-50" onClick={() => router.push("/contact")}>
                     Contact Us
                   </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="mt-6 bg-white border-gray-100 shadow-lg">
+                <CardContent className="p-6">
+                  <p className="font-semibold text-gray-700 mb-3 text-sm">Share this Course</p>
+                  <ShareButtons url={`${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/courses/${course.slug}`} />
                 </CardContent>
               </Card>
             </div>

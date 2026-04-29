@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
+import { DeleteConfirmationDialog } from "@/components/admin/delete-confirmation-dialog";
 
 interface CourseBooking {
   id: string;
@@ -68,6 +69,9 @@ export default function CourseOrdersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({ booking_status: "", admin_notes: "" });
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [bookingToDelete, setBookingToDelete] = useState<CourseBooking | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchBookings = async () => {
     try {
@@ -138,13 +142,26 @@ export default function CourseOrdersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this course order?")) return;
+    setBookingToDelete(bookings.find((b) => b.id === id) || null);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!bookingToDelete) return;
     try {
-      const res = await fetch(`/api/admin/service-orders/${id}`, { method: "DELETE" });
-      if (res.ok) { fetchBookings(); toast.success("Deleted"); }
+      setDeleting(true);
+      const res = await fetch(`/api/admin/service-orders/${bookingToDelete.id}`, { method: "DELETE" });
+      if (res.ok) { 
+        fetchBookings(); 
+        toast.success("Deleted"); 
+        setDeleteDialogOpen(false);
+      }
       else toast.error("Failed to delete");
     } catch {
       toast.error("Failed to delete");
+    } finally {
+      setDeleting(false);
+      setBookingToDelete(null);
     }
   };
 
@@ -368,6 +385,16 @@ export default function CourseOrdersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        title="Delete Course Enrollment"
+        itemName={bookingToDelete?.booking_number}
+        description={`Are you sure you want to delete course enrollment ${bookingToDelete?.booking_number}? This action cannot be undone.`}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

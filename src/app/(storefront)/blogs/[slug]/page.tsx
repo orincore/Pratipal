@@ -5,6 +5,7 @@ import { Clock, Calendar, ArrowLeft, Tag, User } from "lucide-react";
 import { format } from "date-fns";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
+import { ShareButtons } from "@/components/storefront/share-buttons";
 
 export const dynamic = "force-dynamic";
 
@@ -154,6 +155,12 @@ export default async function BlogPostPage({ params }: Props) {
             <p className="font-bold text-stone-900">{blog.author}</p>
             <p className="text-sm text-stone-500 mt-1">Holistic healing practitioner &amp; wellness guide at Pratipal.</p>
           </div>
+        </div>
+
+        {/* Share buttons */}
+        <div className="mt-8 bg-white border border-stone-100 rounded-2xl p-6 shadow-sm">
+          <p className="font-semibold text-gray-700 mb-3 text-sm">Share this Article</p>
+          <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/blogs/${blog.slug}`} />
         </div>
 
         {/* Back link */}

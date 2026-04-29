@@ -14,6 +14,7 @@ import {
 import { Plus, Pencil, Trash2, Loader2, Upload, X, Clock, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { DeleteConfirmationDialog } from "@/components/admin/delete-confirmation-dialog";
 
 const BlogEditor = dynamic(
   () => import("@/components/admin/blog-editor").then((m) => m.BlogEditor),
@@ -61,6 +62,9 @@ export default function AdminBlogsPage() {
   const [uploading, setUploading] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [formData, setFormData] = useState(emptyForm());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [blogToDelete, setBlogToDelete] = useState<Blog | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { fetchBlogs(); }, []);
 
@@ -146,12 +150,23 @@ export default function AdminBlogsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this blog post?")) return;
+    setBlogToDelete(blogs.find((b) => b.id === id) || null);
+    setDeleteDialogOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!blogToDelete) return;
     try {
-      await fetch(`/api/admin/blogs/${id}`, { method: "DELETE" });
+      setDeleting(true);
+      await fetch(`/api/admin/blogs/${blogToDelete.id}`, { method: "DELETE" });
       toast.success("Deleted");
       fetchBlogs();
+      setDeleteDialogOpen(false);
     } catch { toast.error("Failed to delete"); }
+    finally {
+      setDeleting(false);
+      setBlogToDelete(null);
+    }
   }
 
   const statusColor: Record<string, string> = {
@@ -413,6 +428,15 @@ export default function AdminBlogsPage() {
           ))}
         </div>
       )}
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        title="Delete Blog Post"
+        itemName={blogToDelete?.title}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

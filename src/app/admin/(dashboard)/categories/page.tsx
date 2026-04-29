@@ -24,12 +24,16 @@ import {
 import type { Category } from "@/types";
 import { toast } from "sonner";
 import { AdminLoader } from "@/components/admin/admin-loader";
+import { DeleteConfirmationDialog } from "@/components/admin/delete-confirmation-dialog";
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [editCat, setEditCat] = useState<Category | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -77,12 +81,23 @@ export default function AdminCategories() {
   }
 
   async function handleDelete(id: string) {
+    setCategoryToDelete(categories.find((c) => c.id === id) || null);
+    setDeleteDialogOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!categoryToDelete) return;
     try {
-      await deleteCategory(id);
-      setCategories((prev) => prev.filter((c) => c.id !== id));
+      setDeleting(true);
+      await deleteCategory(categoryToDelete.id);
+      setCategories((prev) => prev.filter((c) => c.id !== categoryToDelete.id));
       toast.success("Category deleted");
+      setDeleteDialogOpen(false);
     } catch {
       toast.error("Failed to delete category");
+    } finally {
+      setDeleting(false);
+      setCategoryToDelete(null);
     }
   }
 
@@ -223,6 +238,15 @@ export default function AdminCategories() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        title="Delete Category"
+        itemName={categoryToDelete?.name}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

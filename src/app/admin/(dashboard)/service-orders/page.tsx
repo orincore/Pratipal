@@ -28,6 +28,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
+import { DeleteConfirmationDialog } from "@/components/admin/delete-confirmation-dialog";
 
 interface ServiceBooking {
   id: string;
@@ -106,6 +107,9 @@ export default function ServiceOrdersPage() {
     admin_notes: "",
   });
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [bookingToDelete, setBookingToDelete] = useState<ServiceBooking | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchBookings = async () => {
     try {
@@ -198,16 +202,22 @@ export default function ServiceOrdersPage() {
   };
 
   const handleDeleteBooking = async (bookingId: string) => {
-    if (!confirm("Are you sure you want to delete this service order?")) return;
+    setBookingToDelete(bookings.find((b) => b.id === bookingId) || null);
+    setDeleteDialogOpen(true);
+  };
 
+  const confirmDeleteBooking = async () => {
+    if (!bookingToDelete) return;
     try {
-      const response = await fetch(`/api/admin/service-orders/${bookingId}`, {
+      setDeleting(true);
+      const response = await fetch(`/api/admin/service-orders/${bookingToDelete.id}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
         fetchBookings();
         toast.success("Service order deleted successfully");
+        setDeleteDialogOpen(false);
       } else {
         const error = await response.json();
         toast.error(error.error || "Failed to delete service order");
@@ -215,6 +225,9 @@ export default function ServiceOrdersPage() {
     } catch (error) {
       console.error("Error deleting service order:", error);
       toast.error("Failed to delete service order");
+    } finally {
+      setDeleting(false);
+      setBookingToDelete(null);
     }
   };
 
@@ -618,6 +631,16 @@ export default function ServiceOrdersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDeleteBooking}
+        title="Delete Service Order"
+        itemName={bookingToDelete?.booking_number}
+        description={`Are you sure you want to delete service order ${bookingToDelete?.booking_number}? This action cannot be undone.`}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

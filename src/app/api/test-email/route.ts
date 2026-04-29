@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail, orderConfirmationHtml, trackingUpdateHtml, orderCancelledHtml } from "@/lib/mailer";
 
-const TEST_TO = "suradkaradarsh@gmail.com";
+const TEST_TO = "suradkaradarsh15@gmail.com";
 
 export async function GET(req: NextRequest) {
   const type = new URL(req.url).searchParams.get("type") || "order_confirmation";

@@ -49,6 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: page.seo_title || page.title || "Pratipal",
     description: page.seo_description || "",
+    robots: "noindex",
   };
 }
 
