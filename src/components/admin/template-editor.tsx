@@ -1775,6 +1775,26 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
             className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
           />
         </div>
+        <div>
+          <Label className="text-xs text-gray-500">CTA Button Action</Label>
+          <select
+            value={data.invitation.buttonAction}
+            onChange={(e) => update("invitation", { buttonAction: e.target.value as "invitation" | "url" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open Request Invitation Form</option>
+            <option value="url">Redirect to Custom URL</option>
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">CTA Button Link</Label>
+          <Input
+            value={data.invitation.buttonLink}
+            onChange={(e) => update("invitation", { buttonLink: e.target.value })}
+            className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+            placeholder={data.invitation.buttonAction === "url" ? "https://example.com" : "#register"}
+          />
+        </div>
 
         <div>
           <Label className="text-xs text-gray-500">Button Text Color</Label>

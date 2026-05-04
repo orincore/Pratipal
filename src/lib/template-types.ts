@@ -164,6 +164,8 @@ export interface InvitationSection {
   venueValue: string;
   availabilityText: string;
   buttonText: string;
+  buttonLink: string;
+  buttonAction: "invitation" | "url"; // CTA button action type
   buttonTextColor?: string;  // text color for invitation buttons
   formTitle: string;
   formHighlights: string[];
@@ -444,6 +446,8 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     venueValue: "Live on Zoom (Private Link)",
     availabilityText: "Live • Limited spots available.",
     buttonText: "Request Your Invitation",
+    buttonLink: "#register",
+    buttonAction: "invitation",
     formTitle: "Request Your Invitation",
     formHighlights: ["Free", "Live", "Limited Seats"],
     formButtonText: "Request My Invitation",

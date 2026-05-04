@@ -490,6 +490,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
         return { label: t.program.ctaButtonText, action: () => setInvitationDialogOpen(true) };
       case "invitation":
         if (!t.invitation.enabled || !hasContent(t.invitation.buttonText)) return null;
+        if (t.invitation.buttonAction === "url") {
+          return { label: t.invitation.buttonText, href: resolveLink(t.invitation.buttonLink) };
+        }
         return { label: t.invitation.buttonText, action: () => setInvitationDialogOpen(true) };
       case "footer":
         if (!t.footer.enabled || !hasContent(t.footer.cta.ctaButtonText)) return null;
@@ -1188,14 +1191,26 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                 </div>
 
                 <div className="flex flex-col items-center gap-2 pt-2">
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto text-base font-semibold h-14 rounded-2xl px-10"
-                    style={{ backgroundColor: c.primary, color: t.invitation.buttonTextColor || "#1B1F3A" }}
-                    onClick={() => setInvitationDialogOpen(true)}
-                  >
-                    {t.invitation.buttonText}
-                  </Button>
+                  {t.invitation.buttonAction === "url" ? (
+                    <a
+                      href={resolveLink(t.invitation.buttonLink)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto text-base font-semibold h-14 rounded-2xl px-10 inline-flex items-center justify-center"
+                      style={{ backgroundColor: c.primary, color: t.invitation.buttonTextColor || "#1B1F3A" }}
+                    >
+                      {t.invitation.buttonText}
+                    </a>
+                  ) : (
+                    <Button
+                      size="lg"
+                      className="w-full sm:w-auto text-base font-semibold h-14 rounded-2xl px-10"
+                      style={{ backgroundColor: c.primary, color: t.invitation.buttonTextColor || "#1B1F3A" }}
+                      onClick={() => setInvitationDialogOpen(true)}
+                    >
+                      {t.invitation.buttonText}
+                    </Button>
+                  )}
                   <p className="text-xs text-gray-500 text-center">
                     {t.invitation.supportText}
                   </p>
