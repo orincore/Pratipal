@@ -58,28 +58,69 @@ export default function ThankYouPage() {
   const params = useParams();
   const slug = params?.slug as string;
   const [data, setData] = useState<ThankYouData>(DEFAULTS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("thankYouData");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setData({
-          title: parsed.title || DEFAULTS.title,
-          description: parsed.description || DEFAULTS.description,
-          buttons: parsed.buttons || [],
-          from: parsed.from || "",
-        });
-        sessionStorage.removeItem("thankYouData");
+    async function fetchData() {
+      try {
+        // First try to get data from sessionStorage (for backward compatibility)
+        const raw = sessionStorage.getItem("thankYouData");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setData({
+            title: parsed.title || DEFAULTS.title,
+            description: parsed.description || DEFAULTS.description,
+            buttons: parsed.buttons || [],
+            from: parsed.from || "",
+          });
+          sessionStorage.removeItem("thankYouData");
+          setLoading(false);
+          return;
+        }
+
+        // If no sessionStorage data, fetch from database using slug
+        if (slug) {
+          const res = await fetch(`/api/landing-pages/slug/${slug}`);
+          if (res.ok) {
+            const pageData = await res.json();
+            const templateData = pageData.page?.content?.templateData;
+            
+            if (templateData?.invitation?.thankYouButtons) {
+              setData({
+                title: templateData.invitation.successTitle || DEFAULTS.title,
+                description: templateData.invitation.successDescription || DEFAULTS.description,
+                buttons: templateData.invitation.thankYouButtons || [],
+                from: slug,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching thank-you data:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch {}
-  }, []);
+    }
+
+    fetchData();
+  }, [slug]);
 
   const nextSteps = [
     { icon: <Mail className="h-5 w-5" />,         title: "Check your email",  desc: "Your confirmation and access details are on their way." },
     { icon: <MessageCircle className="h-5 w-5" />, title: "Join WhatsApp Group",   desc: "We'll send your private link via WhatsApp before the session." },
     { icon: <Sparkles className="h-5 w-5" />,      title: "Show up ready",    desc: "Find a quiet space, bring a notebook, and come with intention." },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+          <span className="text-sm text-gray-500">Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50">

@@ -743,8 +743,19 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           <Input value={data.hero.ctaButtonText} onChange={(e) => update("hero", { ctaButtonText: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
         </div>
         <div>
+          <Label className="text-xs text-gray-500">CTA Button Action</Label>
+          <select
+            value={data.hero.ctaButtonAction}
+            onChange={(e) => update("hero", { ctaButtonAction: e.target.value as "invitation" | "url" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open Request Invitation Form</option>
+            <option value="url">Redirect to Custom URL</option>
+          </select>
+        </div>
+        <div>
           <Label className="text-xs text-gray-500">CTA Button Link</Label>
-          <Input value={data.hero.ctaButtonLink} onChange={(e) => update("hero", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+          <Input value={data.hero.ctaButtonLink} onChange={(e) => update("hero", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder={data.hero.ctaButtonAction === "url" ? "https://example.com" : "#register"} />
         </div>
         <ImageField
           label="Hero Image"
@@ -1185,8 +1196,19 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           <Input value={data.stats.ctaButtonText} onChange={(e) => update("stats", { ctaButtonText: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
         </div>
         <div>
+          <Label className="text-xs text-gray-500">CTA Button Action</Label>
+          <select
+            value={data.stats.ctaButtonAction}
+            onChange={(e) => update("stats", { ctaButtonAction: e.target.value as "invitation" | "url" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open Request Invitation Form</option>
+            <option value="url">Redirect to Custom URL</option>
+          </select>
+        </div>
+        <div>
           <Label className="text-xs text-gray-500">CTA Button Link</Label>
-          <Input value={data.stats.ctaButtonLink} onChange={(e) => update("stats", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+          <Input value={data.stats.ctaButtonLink} onChange={(e) => update("stats", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder={data.stats.ctaButtonAction === "url" ? "https://example.com" : "#register"} />
         </div>
         <ImageField
           label="Background Image"
@@ -1388,8 +1410,19 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           <Input value={data.program.ctaButtonText} onChange={(e) => update("program", { ctaButtonText: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
         </div>
         <div>
+          <Label className="text-xs text-gray-500">CTA Button Action</Label>
+          <select
+            value={data.program.ctaButtonAction}
+            onChange={(e) => update("program", { ctaButtonAction: e.target.value as "invitation" | "url" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open Request Invitation Form</option>
+            <option value="url">Redirect to Custom URL</option>
+          </select>
+        </div>
+        <div>
           <Label className="text-xs text-gray-500">CTA Button Link</Label>
-          <Input value={data.program.ctaButtonLink} onChange={(e) => update("program", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+          <Input value={data.program.ctaButtonLink} onChange={(e) => update("program", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder={data.program.ctaButtonAction === "url" ? "https://example.com" : "#register"} />
         </div>
       </Section>
     ),
@@ -1948,8 +1981,19 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           <Input value={data.footer.cta.ctaButtonText} onChange={(e) => update("footer", { cta: { ...data.footer.cta, ctaButtonText: e.target.value } })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
         </div>
         <div>
+          <Label className="text-xs text-gray-500">CTA Button Action</Label>
+          <select
+            value={data.footer.cta.ctaButtonAction}
+            onChange={(e) => update("footer", { cta: { ...data.footer.cta, ctaButtonAction: e.target.value as "invitation" | "url" } })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open Request Invitation Form</option>
+            <option value="url">Redirect to Custom URL</option>
+          </select>
+        </div>
+        <div>
           <Label className="text-xs text-gray-500">CTA Button Link</Label>
-          <Input value={data.footer.cta.ctaButtonLink} onChange={(e) => update("footer", { cta: { ...data.footer.cta, ctaButtonLink: e.target.value } })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+          <Input value={data.footer.cta.ctaButtonLink} onChange={(e) => update("footer", { cta: { ...data.footer.cta, ctaButtonLink: e.target.value } })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder={data.footer.cta.ctaButtonAction === "url" ? "https://example.com" : "#register"} />
         </div>
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Show CTA button</Label>

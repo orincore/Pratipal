@@ -25,6 +25,7 @@ export interface HeroSection {
   bulletPoints: string[];        // List of bullet points
   ctaButtonText: string;         // CTA button label
   ctaButtonLink: string;         // CTA button URL
+  ctaButtonAction: "invitation" | "url"; // CTA button action type
   heroImage: string;             // Main hero image URL (fallback when carousel empty)
   heroMedia: HeroMediaItem[];    // Carousel slides (images/videos)
   carouselAutoplay: boolean;     // Auto-advance slides
@@ -73,6 +74,7 @@ export interface StatsSection {
   stats: { value: string; label: string }[];
   ctaButtonText: string;
   ctaButtonLink: string;
+  ctaButtonAction: "invitation" | "url"; // CTA button action type
   backgroundImage: string;
   visible: boolean;
 }
@@ -116,6 +118,7 @@ export interface ProgramSection {
   points: ProgramPoint[];
   ctaButtonText: string;
   ctaButtonLink: string;
+  ctaButtonAction: "invitation" | "url"; // CTA button action type
   visible: boolean;
 }
 
@@ -188,6 +191,7 @@ export interface FooterCTA {
   subtitle: string;
   ctaButtonText: string;
   ctaButtonLink: string;
+  ctaButtonAction: "invitation" | "url"; // CTA button action type
   showCtaButton?: boolean;
 }
 
@@ -267,6 +271,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ],
     ctaButtonText: "Join the Masterclass",
     ctaButtonLink: "#register",
+    ctaButtonAction: "invitation",
     heroImage: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&h=700&fit=crop",
     heroMedia: [],
     carouselAutoplay: true,
@@ -355,6 +360,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ],
     ctaButtonText: "Start Your Transformation",
     ctaButtonLink: "#register",
+    ctaButtonAction: "invitation",
     backgroundImage: "",
     visible: true,
   },
@@ -402,6 +408,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     ],
     ctaButtonText: "Enroll Now",
     ctaButtonLink: "#register",
+    ctaButtonAction: "invitation",
     visible: true,
   },
   bonus: {
@@ -451,6 +458,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
       subtitle: "Join thousands who've already made the shift. Your new frequency awaits.",
       ctaButtonText: "Join the Masterclass Now",
       ctaButtonLink: "#register",
+      ctaButtonAction: "invitation",
       showCtaButton: true,
     },
     copyright: "© 2025 All Rights Reserved",

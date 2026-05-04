@@ -478,15 +478,24 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     switch (t.floatingButton.section) {
       case "hero":
         if (!t.hero.visible || !hasContent(t.hero.ctaButtonText)) return null;
+        if (t.hero.ctaButtonAction === "url") {
+          return { label: t.hero.ctaButtonText, href: resolveLink(t.hero.ctaButtonLink) };
+        }
         return { label: t.hero.ctaButtonText, action: () => setInvitationDialogOpen(true) };
       case "program":
         if (!t.program.visible || !hasContent(t.program.ctaButtonText)) return null;
+        if (t.program.ctaButtonAction === "url") {
+          return { label: t.program.ctaButtonText, href: resolveLink(t.program.ctaButtonLink) };
+        }
         return { label: t.program.ctaButtonText, action: () => setInvitationDialogOpen(true) };
       case "invitation":
         if (!t.invitation.enabled || !hasContent(t.invitation.buttonText)) return null;
         return { label: t.invitation.buttonText, action: () => setInvitationDialogOpen(true) };
       case "footer":
         if (!t.footer.enabled || !hasContent(t.footer.cta.ctaButtonText)) return null;
+        if (t.footer.cta.ctaButtonAction === "url") {
+          return { label: t.footer.cta.ctaButtonText, href: resolveLink(t.footer.cta.ctaButtonLink) };
+        }
         return { label: t.footer.cta.ctaButtonText, action: () => setInvitationDialogOpen(true) };
       default:
         return null;
@@ -729,17 +738,30 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                       </ul>
                     )}
                     <div className="flex flex-wrap items-center gap-4 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setInvitationDialogOpen(true)}
-                        className="inline-flex items-center px-6 py-3 rounded-full text-white font-semibold text-sm sm:text-base shadow-md transition-all duration-300 hover:-translate-y-0.5"
-                        style={{ backgroundColor: c.primary }}
-                      >
-                        {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
-                        <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                        </svg>
-                      </button>
+                      {t.hero.ctaButtonAction === "url" ? (
+                        <a
+                          href={resolveLink(t.hero.ctaButtonLink)}
+                          className="inline-flex items-center px-6 py-3 rounded-full text-white font-semibold text-sm sm:text-base shadow-md transition-all duration-300 hover:-translate-y-0.5"
+                          style={{ backgroundColor: c.primary }}
+                        >
+                          {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
+                          <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setInvitationDialogOpen(true)}
+                          className="inline-flex items-center px-6 py-3 rounded-full text-white font-semibold text-sm sm:text-base shadow-md transition-all duration-300 hover:-translate-y-0.5"
+                          style={{ backgroundColor: c.primary }}
+                        >
+                          {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
+                          <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                        </button>
+                      )}
                       {Array.isArray(t.hero.floatingStats) && t.hero.floatingStats.length > 0 && (
                         <div className="flex gap-5">
                           {t.hero.floatingStats.map((stat, i) => (
@@ -919,14 +941,24 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setInvitationDialogOpen(true)}
-              className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: c.primary }}
-            >
-              {t.stats.ctaButtonText}
-            </button>
+            {t.stats.ctaButtonAction === "url" ? (
+              <a
+                href={resolveLink(t.stats.ctaButtonLink)}
+                className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: c.primary }}
+              >
+                {t.stats.ctaButtonText}
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setInvitationDialogOpen(true)}
+                className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: c.primary }}
+              >
+                {t.stats.ctaButtonText}
+              </button>
+            )}
           </div>
         </section>
       );
@@ -1041,15 +1073,26 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
             ))}
           </div>
           <div className="text-center mt-12">
-            <button
-              type="button"
-              onClick={() => setInvitationDialogOpen(true)}
-              className="inline-flex items-center px-8 sm:px-10 py-3 sm:py-4 rounded-full text-white font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: c.primary }}
-            >
-              {t.program.ctaButtonText}
-              <svg className="ml-2 h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-            </button>
+            {t.program.ctaButtonAction === "url" ? (
+              <a
+                href={resolveLink(t.program.ctaButtonLink)}
+                className="inline-flex items-center px-8 sm:px-10 py-3 sm:py-4 rounded-full text-white font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: c.primary }}
+              >
+                {t.program.ctaButtonText}
+                <svg className="ml-2 h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setInvitationDialogOpen(true)}
+                className="inline-flex items-center px-8 sm:px-10 py-3 sm:py-4 rounded-full text-white font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: c.primary }}
+              >
+                {t.program.ctaButtonText}
+                <svg className="ml-2 h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -1454,15 +1497,26 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
               {t.footer.cta.subtitle}
             </p>
             {(t.footer.cta.showCtaButton ?? true) && (
-            <button
-              type="button"
-              onClick={() => setInvitationDialogOpen(true)}
-              className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: c.primary }}
-            >
-              {t.footer.cta.ctaButtonText}
-              <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-            </button>
+              t.footer.cta.ctaButtonAction === "url" ? (
+                <a
+                  href={resolveLink(t.footer.cta.ctaButtonLink)}
+                  className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: c.primary }}
+                >
+                  {t.footer.cta.ctaButtonText}
+                  <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setInvitationDialogOpen(true)}
+                  className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: c.primary }}
+                >
+                  {t.footer.cta.ctaButtonText}
+                  <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                </button>
+              )
             )}
           </div>
         </div>
