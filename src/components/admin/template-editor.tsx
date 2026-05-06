@@ -439,7 +439,7 @@ function MediaField({
         />
       )}
 
-      {mediaType === 'youtube' && onSettingsChange && (
+      {(mediaType === 'youtube' || mediaType === 'upload' || isVideo) && onSettingsChange && (
         <div className="mt-3 space-y-2 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium text-gray-500">Autoplay</span>

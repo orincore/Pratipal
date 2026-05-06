@@ -38,14 +38,18 @@ export class R2Storage {
     folder: string = "uploads"
   ): Promise<UploadResult> {
     try {
-      // Validate file
-      if (!file.type.startsWith("image/")) {
-        throw new Error("Only image files are allowed");
+      // Validate file type (images and videos allowed)
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      if (!isImage && !isVideo) {
+        throw new Error("Only image and video files are allowed");
       }
 
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        throw new Error("File size must be less than 10MB");
+      // Validate file size (50MB limit for videos, 10MB for images)
+      const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        const maxSizeMB = isVideo ? "50MB" : "10MB";
+        throw new Error(`File size must be less than ${maxSizeMB}`);
       }
 
       // Generate unique filename
