@@ -187,21 +187,23 @@ export default function LandingPageEditorPage() {
     if (!page) return;
     setSaving(true);
 
+    const savePayload = {
+      title: page.title,
+      slug: page.slug,
+      content: editorMode === "template"
+        ? { ...page.content, templateData }
+        : page.content,
+      theme: page.theme,
+      seo_title: page.seo_title,
+      seo_description: page.seo_description,
+      status: page.status,
+    };
+
     try {
       const res = await fetch(`/api/landing-pages/${page.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: page.title,
-          slug: page.slug,
-          content: editorMode === "template"
-            ? { ...page.content, templateData }
-            : page.content,
-          theme: page.theme,
-          seo_title: page.seo_title,
-          seo_description: page.seo_description,
-          status: page.status,
-        }),
+        body: JSON.stringify(savePayload),
       });
 
       if (!res.ok) {

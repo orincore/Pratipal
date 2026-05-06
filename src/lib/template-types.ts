@@ -220,7 +220,7 @@ export interface MediaFieldOptions {
 }
 
 export const DEFAULT_MEDIA_SETTINGS: MediaFieldOptions = {
-  autoplay: false,
+  autoplay: true,
   mute: true,
 };
 

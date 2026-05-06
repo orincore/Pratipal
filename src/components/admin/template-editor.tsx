@@ -582,11 +582,12 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
   const handleMediaSettingsChange = useCallback(
     (key: string, value: Partial<MediaFieldOptions>) => {
       const current = mediaSettings[key] || DEFAULT_MEDIA_SETTINGS;
+      const newSettings = { ...current, ...value };
       onChange({
         ...data,
         mediaSettings: {
           ...mediaSettings,
-          [key]: { ...current, ...value },
+          [key]: newSettings,
         },
       });
     },
@@ -758,7 +759,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           <Input value={data.hero.ctaButtonLink} onChange={(e) => update("hero", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder={data.hero.ctaButtonAction === "url" ? "https://example.com" : "#register"} />
         </div>
         <ImageField
-          label="Hero Image"
+          label="Hero Image (Media Settings apply to all carousel slides)"
           value={data.hero.heroImage}
           onChange={(v) => update("hero", { heroImage: v })}
           settings={mediaSettings[heroImageKey]}
@@ -767,7 +768,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         />
         <div className="space-y-2">
           <Label className="text-xs text-gray-500">Carousel Slides</Label>
-          <p className="text-[11px] text-gray-400">Add images, videos, or YouTube links. Leave empty to fallback to the hero image.</p>
+          <p className="text-[11px] text-gray-400">Add images, videos, or YouTube links. Autoplay/mute settings are controlled by Hero Image above.</p>
           {data.hero.heroMedia.map((media, i) => {
             const slideKey = mediaKey("hero", "heroMedia", i, "url");
             return (
@@ -796,9 +797,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
                     arr[i] = { ...arr[i], url: v };
                     update("hero", { heroMedia: arr });
                   }}
-                  settings={mediaSettings[slideKey]}
-                  onSettingsChange={(value) => handleMediaSettingsChange(slideKey, value)}
-                  onClearSettings={() => clearMediaSettings(slideKey)}
+                  // Note: Carousel slides inherit autoplay/mute from Hero Image above
                 />
                 <Input
                   value={media.label || ""}

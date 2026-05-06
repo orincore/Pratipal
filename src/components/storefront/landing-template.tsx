@@ -62,6 +62,30 @@ const hasContent = (value?: string | null) => Boolean(value && value.trim().leng
 const resolveLink = (value?: string | null) => (value && value.trim().length ? value.trim() : "#");
 
 // ---------------------------------------------------------------------------
+// YouTube Embed — respects user mute setting (browser may block unmuted autoplay)
+// ---------------------------------------------------------------------------
+function YouTubeEmbed({ videoId, autoplay, muted, className }: {
+  videoId: string;
+  autoplay: boolean;
+  muted: boolean;
+  className?: string;
+}) {
+  // Use the muted setting as provided (browser may block unmuted autoplay)
+  const src = `https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? "1" : "0"}&mute=${muted ? "1" : "0"}&loop=${autoplay ? "1" : "0"}&playlist=${videoId}&rel=0&modestbranding=1&playsinline=1`;
+
+  return (
+    <iframe
+      key={`${videoId}-${autoplay}`}
+      src={src}
+      className={["absolute inset-0 h-full w-full", className].filter(Boolean).join(" ")}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+      loading="eager"
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // FAQ Item Component (accordion)
 // ---------------------------------------------------------------------------
 function FaqItem({ item, primaryColor }: { item: { question: string; answer: string }; primaryColor: string }) {
@@ -563,11 +587,13 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     return (
       <div className="group relative w-full h-full">
         <div className="relative w-full h-full">
-          {heroSlides.map((slide, index) => (
+          {heroSlides.map((slide, index) => {
+            const isSlideActive = index === currentHeroSlide;
+            return (
             <div
-              key={`${slide.url}-${index}`}
+              key={`${slide.url}-${index}-${isSlideActive ? 'active' : 'inactive'}`}
               className={`absolute inset-0 transition-all duration-700 ease-in-out ${
-                index === currentHeroSlide
+                isSlideActive
                   ? "opacity-100 scale-100"
                   : "opacity-0 scale-95 pointer-events-none"
               }`}
@@ -576,14 +602,16 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                 wrapperClassName: "absolute inset-0 w-full h-full",
                 className: "w-full h-full object-cover",
                 alt: slide.label || `Hero slide ${index + 1}`,
+                isActive: isSlideActive,
               })}
-              {slide.label && index === currentHeroSlide && (
+              {slide.label && isSlideActive && (
                 <div className="absolute bottom-6 left-6 bg-white/80 backdrop-blur px-4 py-2 rounded-full text-xs font-semibold text-gray-700">
                   {slide.label}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {heroSlides.length > 1 && (
@@ -631,7 +659,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
   const renderMedia = (
     url?: string,
     key?: string,
-    options: { className?: string; wrapperClassName?: string; alt?: string } = {}
+    options: { className?: string; wrapperClassName?: string; alt?: string; isActive?: boolean } = {}
   ) => {
     if (!url) return null;
     const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
@@ -640,27 +668,23 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     if (isYouTube) {
       const youtubeId = extractYouTubeId(url);
       if (!youtubeId) return null;
-      const settings = key ? mediaSettings[key] || DEFAULT_MEDIA_SETTINGS : DEFAULT_MEDIA_SETTINGS;
-      const params = new URLSearchParams({
-        autoplay: settings.autoplay ? "1" : "0",
-        mute: settings.mute ? "1" : "0",
-        rel: "0",
-        modestbranding: "1",
-        playsinline: "1",
-      });
-      const iframe = (
-        <iframe
-          src={`https://www.youtube.com/embed/${youtubeId}?${params.toString()}`}
-          className={[
-            "absolute inset-0 h-full w-full",
-            options.className,
-          ].filter(Boolean).join(" ")}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
-      );
+      
+      // For hero carousel slides, fallback to hero.heroImage settings if no specific slide settings
+      let settings = key ? mediaSettings[key] : undefined;
+      if (!settings && key?.startsWith('hero.heroMedia.')) {
+        settings = mediaSettings['hero.heroImage'];
+      }
+      settings = settings || DEFAULT_MEDIA_SETTINGS;
+      
+      const shouldAutoplay = settings.autoplay;
+      const isMuted = settings.mute;
       return withWrapper(
-        iframe,
+        <YouTubeEmbed
+          videoId={youtubeId}
+          autoplay={shouldAutoplay && options.isActive !== false}
+          muted={isMuted}
+          className={options.className}
+        />,
         options.wrapperClassName || "relative w-full overflow-hidden aspect-video"
       );
     }
@@ -1385,14 +1409,14 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
             if (block.mediaType === "youtube") {
               const videoId = extractYouTubeId(block.mediaUrl);
               if (!videoId) return null;
+              const settings = mediaSettings[blockKey] || DEFAULT_MEDIA_SETTINGS;
               
               return (
                 <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-lg">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${videoId}`}
-                    className="absolute inset-0 w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
+                  <YouTubeEmbed
+                    videoId={videoId}
+                    autoplay={settings.autoplay}
+                    muted={settings.mute}
                   />
                 </div>
               );
