@@ -282,7 +282,7 @@ function MediaField({
     if (!value) return 'link';
     if (value.includes('youtube.com') || value.includes('youtu.be')) return 'youtube';
     if (value.includes('instagram.com')) return 'instagram';
-    if (value.match(/\.(mp4|webm|ogg)$/i)) return 'link';
+    if (value.match(/\.(mp4|webm|ogg)$/i) || value.match(/\/uploads\/.*\.(mp4|webm|ogg)/i)) return 'upload';
     return 'link';
   });
   const currentSettings = settings || DEFAULT_MEDIA_SETTINGS;
@@ -296,20 +296,63 @@ function MediaField({
     if (file.size > 50 * 1024 * 1024) { toast.error("Max 50MB"); return; }
     const formData = new FormData();
     formData.append("file", file);
+    const toastId = "tpl-upload";
+    let dismissed = false;
+    
+    // Calculate timeout based on file size (10s per MB, min 30s, max 5min)
+    const fileSizeMB = file.size / (1024 * 1024);
+    const uploadTimeout = Math.max(30000, Math.min(300000, fileSizeMB * 10000));
+    
+    // Auto-dismiss toast after timeout to prevent stuck state
+    const timeoutId = setTimeout(() => {
+      if (!dismissed) {
+        toast.dismiss(toastId);
+        toast.error("Upload timed out. Check your network or R2 configuration.", { id: toastId });
+        dismissed = true;
+      }
+    }, uploadTimeout);
+
     try {
-      toast.loading("Uploading...", { id: "tpl-upload" });
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      toast.loading("Uploading...", { id: toastId });
+      
+      // Add timeout to fetch (slightly shorter than toast timeout)
+      const controller = new AbortController();
+      const fetchTimeout = uploadTimeout - 5000;
+      const timeoutId2 = setTimeout(() => controller.abort(), fetchTimeout);
+      
+      const res = await fetch("/api/upload", { 
+        method: "POST", 
+        body: formData,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId2);
+      
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
         throw new Error(err.error || "Upload failed");
       }
       const data = await res.json();
       onChange(data.url);
-      toast.success(`Uploaded${data.storage === 'r2' ? ' to R2' : ' locally'}!`, { id: "tpl-upload" });
+      toast.success(`Uploaded${data.storage === 'r2' ? ' to R2' : ' locally'}!`, { id: toastId });
     } catch (err: any) {
-      toast.error(err.message || "Upload failed", { id: "tpl-upload" });
+      console.error("Upload error:", err);
+      // Check if it's a network/extension blocking error
+      if (err.name === 'AbortError') {
+        toast.error("Upload timed out. Check R2 configuration on Vercel or network connection.", { id: toastId });
+      } else if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
+        toast.error("Upload blocked. Check browser extensions or R2 configuration.", { id: toastId });
+      } else {
+        toast.error(err.message || "Upload failed", { id: toastId });
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      if (!dismissed) {
+        toast.dismiss(toastId);
+        dismissed = true;
+      }
+      e.target.value = "";
     }
-    e.target.value = "";
   }, [onChange]);
 
   const extractYouTubeId = (url: string) => {
@@ -327,7 +370,7 @@ function MediaField({
 
   const isYouTube = value.includes('youtube.com') || value.includes('youtu.be');
   const isInstagram = value.includes('instagram.com');
-  const isVideo = value.match(/\.(mp4|webm|ogg)$/i);
+  const isVideo = value.match(/\.(mp4|webm|ogg)$/i) || value.match(/\/uploads\/.*\.(mp4|webm|ogg)/i);
   const isImage = !isYouTube && !isInstagram && !isVideo;
   const youtubeId = isYouTube ? extractYouTubeId(value) : null;
   const youtubeEmbedUrl = youtubeId
@@ -759,7 +802,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
           <Input value={data.hero.ctaButtonLink} onChange={(e) => update("hero", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder={data.hero.ctaButtonAction === "url" ? "https://example.com" : "#register"} />
         </div>
         <ImageField
-          label="Hero Image (Media Settings apply to all carousel slides)"
+          label="Hero Image (Controls autoplay/mute for all carousel slides)"
           value={data.hero.heroImage}
           onChange={(v) => update("hero", { heroImage: v })}
           settings={mediaSettings[heroImageKey]}
@@ -797,7 +840,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
                     arr[i] = { ...arr[i], url: v };
                     update("hero", { heroMedia: arr });
                   }}
-                  // Note: Carousel slides inherit autoplay/mute from Hero Image above
+                  // Note: Settings inherited from Hero Image above
                 />
                 <Input
                   value={media.label || ""}

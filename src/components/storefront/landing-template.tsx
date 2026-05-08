@@ -690,18 +690,101 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     }
 
     if (isVideo) {
-      const settings = key ? mediaSettings[key] || DEFAULT_MEDIA_SETTINGS : DEFAULT_MEDIA_SETTINGS;
-      return withWrapper(
-        <video
-          src={url}
-          className={options.className}
-          autoPlay={settings.autoplay}
-          muted={settings.mute}
-          loop={settings.autoplay}
-          controls={!settings.autoplay}
-        />,
-        options.wrapperClassName
-      );
+      // For hero carousel slides, fallback to hero.heroImage settings if no specific slide settings
+      let settings = key ? mediaSettings[key] : undefined;
+      if (!settings && key?.startsWith('hero.heroMedia.')) {
+        settings = mediaSettings['hero.heroImage'];
+      }
+      settings = settings || DEFAULT_MEDIA_SETTINGS;
+      
+      const videoId = `video-${key || Date.now()}`;
+      
+      // Use a controlled video component with custom play/pause overlay
+      const VideoWithControls = () => {
+        const videoRef = React.useRef<HTMLVideoElement>(null);
+        const [isPlaying, setIsPlaying] = React.useState(false);
+        
+        const togglePlayPause = () => {
+          const video = videoRef.current;
+          if (!video) return;
+          if (video.paused) {
+            video.play();
+            setIsPlaying(true);
+          } else {
+            video.pause();
+            setIsPlaying(false);
+          }
+        };
+        
+        React.useEffect(() => {
+          const video = videoRef.current;
+          if (!video) return;
+          
+          const handlePlay = () => setIsPlaying(true);
+          const handlePause = () => setIsPlaying(false);
+          const handleEnded = () => setIsPlaying(false);
+          
+          video.addEventListener('play', handlePlay);
+          video.addEventListener('pause', handlePause);
+          video.addEventListener('ended', handleEnded);
+          
+          return () => {
+            video.removeEventListener('play', handlePlay);
+            video.removeEventListener('pause', handlePause);
+            video.removeEventListener('ended', handleEnded);
+          };
+        }, []);
+        
+        React.useEffect(() => {
+          const video = videoRef.current;
+          if (!video) return;
+          
+          // If settings say unmuted but browser forced mute, try to unmute after play starts
+          const handlePlay = () => {
+            if (!settings.mute && video.muted) {
+              video.muted = false;
+            }
+          };
+          
+          video.addEventListener('play', handlePlay);
+          return () => video.removeEventListener('play', handlePlay);
+        }, [settings.mute]);
+        
+        return (
+          <div className="relative w-full h-full">
+            <video
+              ref={videoRef}
+              src={url}
+              className={`${options.className}`}
+              style={{ objectFit: 'cover' }}
+              autoPlay={settings.autoplay}
+              muted={settings.mute}
+              loop={settings.autoplay}
+              controls={true}
+              controlsList="nodownload"
+              playsInline
+            />
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/50 hover:bg-white/80 text-gray-900 shadow-md transition-all hover:scale-110"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? (
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+              ) : (
+                <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              )}
+            </button>
+          </div>
+        );
+      };
+      
+      return withWrapper(<VideoWithControls />, options.wrapperClassName);
     }
 
     return withWrapper(
