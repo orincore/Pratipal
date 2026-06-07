@@ -160,7 +160,7 @@ export default async function BlogPostPage({ params }: Props) {
         {/* Share buttons */}
         <div className="mt-8 bg-white border border-stone-100 rounded-2xl p-6 shadow-sm">
           <p className="font-semibold text-gray-700 mb-3 text-sm">Share this Article</p>
-          <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/blogs/${blog.slug}`} />
+          <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://pratipal.in'}/blogs/${blog.slug}`} />
         </div>
 
         {/* Back link */}

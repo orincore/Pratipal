@@ -602,7 +602,7 @@ export function BookingPageClient() {
           <div className="mt-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
             <p className="font-semibold text-gray-700 mb-3 text-sm text-center">Share Our Booking Page</p>
             <div className="flex justify-center">
-              <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/booking`} />
+              <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://pratipal.in'}/booking`} />
             </div>
           </div>
         </div>
