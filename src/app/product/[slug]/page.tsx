@@ -62,6 +62,7 @@ export async function generateMetadata({ params }: ProductParams): Promise<Metad
   return {
     title: `${product.name} | Pratipal`,
     description: product.meta_description || product.short_description || product.description,
+    alternates: { canonical: `/product/${product.slug}` },
     openGraph: {
       title: `${product.name} | Pratipal`,
       description: product.meta_description || product.short_description,

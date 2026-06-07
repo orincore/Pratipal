@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Shipping Policy | Pratipal",
   description: "Read Pratipal's Shipping Policy — delivery timelines, charges, and order processing details.",
+  alternates: { canonical: "/shipping-policy" },
 };
 
 export default function ShippingPolicyPage() {

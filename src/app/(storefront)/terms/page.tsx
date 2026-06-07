@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Terms and Conditions | Pratipal",
   description: "Read the Terms and Conditions governing your use of Pratipal.in.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

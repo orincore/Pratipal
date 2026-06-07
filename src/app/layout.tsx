@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import Script from "next/script";
 import LogoMark from "@/app/assets/logo.png";
 import { FloatingActionButton } from "@/components/ui/floating-action-button";
+import { SITE_URL } from "@/lib/seo";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -21,7 +22,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'),
+  metadataBase: new URL(SITE_URL),
   title: "Pratipal | Healing & Wellness Store",
   description:
     "Discover crystal-infused healing candles, therapeutic essential oil roll-ons, and energy intention salts crafted with love and intention.",

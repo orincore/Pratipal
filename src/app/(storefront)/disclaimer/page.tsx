@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Disclaimer | Pratipal",
   description: "Read the Disclaimer for Pratipal.in regarding the use of information on our website.",
+  alternates: { canonical: "/disclaimer" },
 };
 
 export default function DisclaimerPage() {

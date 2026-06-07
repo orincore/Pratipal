@@ -10,6 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: page?.seo.title || "Mood & Energy Refresher | Pratipal",
     description: page?.seo.description || "",
+    alternates: { canonical: "/mood-refresher" },
   };
 }
 

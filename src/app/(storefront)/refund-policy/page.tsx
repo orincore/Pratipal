@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Refund Policy | Pratipal",
   description: "Read Pratipal's Refund Policy. All purchases are final and non-refundable due to the nature of our digital and healing offerings.",
+  alternates: { canonical: "/refund-policy" },
 };
 
 export default function RefundPolicyPage() {

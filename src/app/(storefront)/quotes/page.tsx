@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Daily Quotes | Pratipal",
   description: "A collection of daily inspirational quotes to uplift and guide your healing journey.",
+  alternates: { canonical: "/quotes" },
 };
 
 async function getQuotes() {

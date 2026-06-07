@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { getProducts } from "@/services/api";
 import { HomePageClient } from "@/components/storefront/home-page-client";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function HomePage() {
   try {

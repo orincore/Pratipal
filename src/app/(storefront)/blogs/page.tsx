@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Blog | Pratipal",
   description: "Insights on holistic healing, essential oils, and conscious living.",
+  alternates: { canonical: "/blogs" },
 };
 
 async function getBlogs() {

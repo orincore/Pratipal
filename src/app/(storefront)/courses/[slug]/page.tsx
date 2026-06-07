@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connectDB } from "@/lib/mongodb";
 import Course from "@/models/Course";
 import CourseDetailClient from "./CourseDetailClient";
+import { SITE_URL } from "@/lib/seo";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -23,16 +24,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!course) return { title: "Course Not Found" };
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://pratipal.in";
-
   return {
     title: course.seo_title || course.title,
     description: course.seo_description || course.subtitle,
     keywords: course.seo_keywords || undefined,
+    alternates: { canonical: `/courses/${slug}` },
     openGraph: {
       title: course.seo_title || course.title,
       description: course.seo_description || course.subtitle,
-      url: `${siteUrl}/courses/${slug}`,
+      url: `${SITE_URL}/courses/${slug}`,
       images: course.featured_image ? [{ url: course.featured_image }] : [],
       type: "website",
     },

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Youtube from "@tiptap/extension-youtube";
@@ -76,6 +77,7 @@ import {
   Trash2,
   Replace,
   ArrowDownToLine,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -315,6 +317,104 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
+  // Tracks which kind of element was last selected so we only auto-switch the
+  // side panel to "Style" on a *new* selection (and not on every caret move).
+  const lastElementKindRef = useRef<string | null>(null);
+  // Human-readable label for the currently selected block (shown in the
+  // floating action bar so the user always knows what they're editing).
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Contextual selection sync — THE core of "click an element to edit it".
+  // Runs on BOTH content changes and selection changes (clicks, arrow keys) so
+  // selecting any existing element immediately reveals its properties panel.
+  // ---------------------------------------------------------------------------
+  const syncSelection = useCallback((ed: Editor) => {
+    const sel = ed.state.selection;
+    const { $from } = sel;
+    const nodeSel = (sel as any).node as
+      | { type: { name: string }; attrs: Record<string, any> }
+      | undefined;
+
+    // --- Button: either the cursor sits inside it, or the node is selected ---
+    let isButton = false;
+    if (nodeSel?.type?.name === "customButton") {
+      setBtnAttrs({ ...DEFAULT_BUTTON_ATTRS, ...(nodeSel.attrs as Partial<ButtonAttrs>) });
+      isButton = true;
+    } else if ($from.parent.type.name === "customButton") {
+      setBtnAttrs({ ...DEFAULT_BUTTON_ATTRS, ...($from.parent.attrs as Partial<ButtonAttrs>) });
+      isButton = true;
+    }
+    setShowBtnPanel(isButton);
+
+    // --- Image (atom node → NodeSelection on click) ---
+    const isImage = nodeSel?.type?.name === "image";
+    if (isImage) {
+      setImgWidth(nodeSel!.attrs.width || "100%");
+      setImgAlign(nodeSel!.attrs.align || "center");
+    }
+    setShowImgPanel(isImage);
+
+    // --- Section / two-column: walk ancestors, or the node itself ---
+    let foundTwoCol = false;
+    let foundSection = false;
+
+    if (nodeSel?.type?.name === "twoColumnSection") {
+      setTwoColAttrs({ ...DEFAULT_TWO_COL_ATTRS, ...(nodeSel.attrs as Partial<TwoColumnAttrs>) });
+      foundTwoCol = true;
+    }
+    if (nodeSel?.type?.name === "pageSection") {
+      setSectionAttrs({ ...DEFAULT_SECTION_ATTRS, ...(nodeSel.attrs as Partial<PageSectionAttrs>) });
+      foundSection = true;
+    }
+
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const ancestor = $from.node(depth);
+      if (ancestor.type.name === "twoColumnSection" && !foundTwoCol) {
+        setTwoColAttrs({ ...DEFAULT_TWO_COL_ATTRS, ...(ancestor.attrs as Partial<TwoColumnAttrs>) });
+        foundTwoCol = true;
+      }
+      if (ancestor.type.name === "pageSection" && !foundSection) {
+        setSectionAttrs({ ...DEFAULT_SECTION_ATTRS, ...(ancestor.attrs as Partial<PageSectionAttrs>) });
+        foundSection = true;
+      }
+    }
+    setShowTwoColPanel(foundTwoCol);
+    setShowSectionPanel(foundSection);
+
+    // --- Determine selected kind, label, and auto-reveal the Style panel ---
+    const kind = isButton
+      ? "button"
+      : isImage
+      ? "image"
+      : foundTwoCol
+      ? "twocol"
+      : foundSection
+      ? "section"
+      : null;
+
+    const labels: Record<string, string> = {
+      button: "Button",
+      image: "Image",
+      twocol: "Two-Column",
+      section: "Section",
+    };
+    setSelectedLabel(kind ? labels[kind] : null);
+
+    // The element-specific property panels live in the "Elements" (widgets)
+    // tab. Switch to it on a *new* selection so the properties are visible,
+    // then scroll them into view.
+    if (kind && kind !== lastElementKindRef.current) {
+      setActiveTab("widgets");
+      requestAnimationFrame(() => {
+        document
+          .querySelector("[data-element-properties]")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    lastElementKindRef.current = kind;
+  }, []);
+
   // ---- TipTap editor ----
   const editor = useEditor({
     extensions: [
@@ -352,53 +452,19 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         return;
       }
       emitChange(ed.getJSON(), settings);
-
-      // Detect if cursor is on a customButton node
-      const { $from } = ed.state.selection;
-      const node = $from.parent;
-      if (node.type.name === "customButton") {
-        setBtnAttrs({ ...DEFAULT_BUTTON_ATTRS, ...(node.attrs as Partial<ButtonAttrs>) });
-        setShowBtnPanel(true);
-      } else {
-        setShowBtnPanel(false);
-      }
-
-      // Detect if cursor is on an image node
-      const sel = ed.state.selection;
-      const selectedNode = (sel as any).node;
-      if (selectedNode?.type?.name === "image") {
-        setImgWidth(selectedNode.attrs.width || "100%");
-        setImgAlign(selectedNode.attrs.align || "center");
-        setShowImgPanel(true);
-      } else {
-        setShowImgPanel(false);
-      }
-
-      // Detect if cursor is inside a twoColumnSection or pageSection
-      let depth = $from.depth;
-      let foundTwoCol = false;
-      let foundSection = false;
-      while (depth > 0) {
-        const ancestor = $from.node(depth);
-        if (ancestor.type.name === "twoColumnSection" && !foundTwoCol) {
-          setTwoColAttrs({ ...DEFAULT_TWO_COL_ATTRS, ...(ancestor.attrs as Partial<TwoColumnAttrs>) });
-          setShowTwoColPanel(true);
-          foundTwoCol = true;
-        }
-        if (ancestor.type.name === "pageSection" && !foundSection) {
-          setSectionAttrs({ ...DEFAULT_SECTION_ATTRS, ...(ancestor.attrs as Partial<PageSectionAttrs>) });
-          setShowSectionPanel(true);
-          foundSection = true;
-        }
-        depth--;
-      }
-      if (!foundTwoCol) setShowTwoColPanel(false);
-      if (!foundSection) setShowSectionPanel(false);
+      syncSelection(ed);
+    },
+    onSelectionUpdate: ({ editor: ed }) => {
+      // Fires on every click / caret move — this is what makes selecting an
+      // existing element open its editor instantly.
+      syncSelection(ed);
     },
     editorProps: {
       attributes: {
+        // `tiptap` class is required for the canvas hover/selection styles in
+        // globals.css to apply.
         class:
-          "prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[600px] px-6 py-4",
+          "tiptap prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[600px] px-6 py-4",
       },
     },
     immediatelyRender: false,
@@ -546,11 +612,15 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       });
     }
 
-    // Run on every transaction (content change)
+    // Re-inject only when the document structure changes — not on every caret
+    // move — to avoid needless DOM churn while clicking/selecting elements.
     injectButtons();
-    editor.on("transaction", injectButtons);
+    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (transaction.docChanged) injectButtons();
+    };
+    editor.on("transaction", onTransaction);
     return () => {
-      editor.off("transaction", injectButtons);
+      editor.off("transaction", onTransaction);
       // Cleanup buttons
       const editorEl = editor?.view?.dom;
       if (editorEl) {
@@ -742,6 +812,67 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     // Fallback: delete the current block
     editor.chain().focus().deleteNode("paragraph").run();
   }, [editor]);
+
+  // ---- Duplicate the currently selected block element ----
+  const duplicateSelectedNode = useCallback(() => {
+    if (!editor) return;
+    const { state } = editor;
+    const { selection } = state;
+    const sel = selection as any;
+    const duplicatableTypes = new Set([
+      "twoColumnSection",
+      "pageSection",
+      "customButton",
+      "image",
+      "blockquote",
+      "codeBlock",
+      "youtube",
+    ]);
+
+    // NodeSelection (image / button / section selected directly)
+    if (sel.node && duplicatableTypes.has(sel.node.type.name)) {
+      const node = sel.node;
+      const insertPos = selection.to;
+      const tr = state.tr.insert(insertPos, node.copy(node.content));
+      editor.view.dispatch(tr);
+      toast.success(`${node.type.name === "image" ? "Image" : "Element"} duplicated`);
+      return;
+    }
+
+    // Cursor inside a block — walk up to the nearest duplicatable ancestor
+    const { $from } = selection;
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth);
+      if (duplicatableTypes.has(node.type.name)) {
+        const after = $from.after(depth);
+        const tr = state.tr.insert(after, node.copy(node.content));
+        editor.view.dispatch(tr);
+        toast.success("Element duplicated");
+        return;
+      }
+    }
+    toast.error("Select an element to duplicate");
+  }, [editor]);
+
+  // ---- Keyboard: Esc clears node selection, Del/Backspace removes it ----
+  useEffect(() => {
+    if (!editor) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (!editor || !editor.isFocused) return;
+      const sel = editor.state.selection as any;
+      const isNodeSelection = !!sel.node;
+      if (e.key === "Escape") {
+        // Collapse any node selection back to a caret and blur element panels
+        const pos = editor.state.selection.to;
+        editor.chain().setTextSelection(pos).run();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && isNodeSelection) {
+        e.preventDefault();
+        deleteSelectedNode();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editor, deleteSelectedNode]);
 
   // ---- Delete image at current selection ----
   const deleteImage = useCallback(() => {
@@ -1264,6 +1395,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
               </PanelSection>
 
               {/* ===== ELEMENT-SPECIFIC PANELS ===== */}
+              {hasElementPanel && <div data-element-properties />}
               {showBtnPanel && (
                 <PanelSection title="Button Properties" icon={<MousePointerClick className="h-4 w-4" />} defaultOpen badge="Active">
                   <div className="space-y-3">
@@ -1693,6 +1825,14 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel) && (
           <div className="sticky top-3 z-30 flex justify-center pointer-events-none">
             <div className="pointer-events-auto inline-flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg px-2 py-1.5">
+              {selectedLabel && (
+                <>
+                  <span className="h-7 px-2.5 inline-flex items-center gap-1.5 rounded-lg bg-violet-50 text-violet-700 text-[11px] font-semibold">
+                    <Layers className="h-3.5 w-3.5" /> {selectedLabel}
+                  </span>
+                  <div className="w-px h-4 bg-gray-200" />
+                </>
+              )}
               {showImgPanel && (
                 <>
                   <button
@@ -1721,14 +1861,62 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
               )}
               <button
                 type="button"
+                onClick={duplicateSelectedNode}
+                title="Duplicate Element"
+                className="h-7 px-2.5 flex items-center gap-1.5 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <Copy className="h-3.5 w-3.5" /> Duplicate
+              </button>
+              <div className="w-px h-4 bg-gray-200" />
+              <button
+                type="button"
                 onClick={deleteSelectedNode}
-                title="Delete Element"
+                title="Delete Element (Del)"
                 className="h-7 px-2.5 flex items-center gap-1.5 rounded-lg text-[11px] font-medium text-red-600 hover:bg-red-50 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Delete
               </button>
             </div>
           </div>
+        )}
+
+        {/* Inline text formatting bubble — appears when text is selected */}
+        {editor && (
+          <BubbleMenu
+            editor={editor}
+            shouldShow={({ editor: ed, from, to }) => {
+              // Only for non-empty *text* selections (not node selections like
+              // images/buttons, which have their own floating bar).
+              if (from === to) return false;
+              if ((ed.state.selection as any).node) return false;
+              return ed.isEditable;
+            }}
+          >
+            <div className="inline-flex items-center gap-0.5 bg-gray-900 text-white rounded-lg shadow-xl px-1 py-1">
+              <BubbleButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
+                <Bold className="h-3.5 w-3.5" />
+              </BubbleButton>
+              <BubbleButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italic">
+                <Italic className="h-3.5 w-3.5" />
+              </BubbleButton>
+              <BubbleButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Underline">
+                <UnderlineIcon className="h-3.5 w-3.5" />
+              </BubbleButton>
+              <BubbleButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Strikethrough">
+                <Strikethrough className="h-3.5 w-3.5" />
+              </BubbleButton>
+              <div className="w-px h-4 bg-white/20 mx-0.5" />
+              <BubbleButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })} title="Heading 2">
+                <Heading2 className="h-3.5 w-3.5" />
+              </BubbleButton>
+              <BubbleButton onClick={handleSetLink} active={editor.isActive("link")} title="Add Link">
+                <LinkIcon className="h-3.5 w-3.5" />
+              </BubbleButton>
+              <BubbleButton onClick={() => editor.chain().focus().toggleHighlight({ color: hlColor }).run()} active={editor.isActive("highlight")} title="Highlight">
+                <Highlighter className="h-3.5 w-3.5" />
+              </BubbleButton>
+            </div>
+          </BubbleMenu>
         )}
 
         <div className="min-h-full p-6">
@@ -1757,6 +1945,31 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
 // ---------------------------------------------------------------------------
 // Toolbar helpers
 // ---------------------------------------------------------------------------
+
+function BubbleButton({
+  onClick,
+  active,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  active?: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`h-7 w-7 flex items-center justify-center rounded-md transition-colors ${
+        active ? "bg-white text-gray-900" : "text-white/80 hover:bg-white/15 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
 
 function ToolbarButton({
   onClick,

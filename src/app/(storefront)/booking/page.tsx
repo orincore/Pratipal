@@ -7,6 +7,7 @@ import Script from "next/script";
 export const metadata: Metadata = {
   title: "Services & Booking | Pratipal Healing",
   description: "Book your personalized healing session — One to One, Need Based, Group Healing, or Learning Curve.",
+  alternates: { canonical: "/booking" },
 };
 
 async function getActiveServices() {
