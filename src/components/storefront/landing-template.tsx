@@ -1297,9 +1297,9 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">{t.gallery.title}</h2>
               <p className="text-lg text-gray-600 font-body">{t.gallery.subtitle}</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               {t.gallery.images.map((img, i) => (
-                <div key={i} className="group relative rounded-2xl overflow-hidden aspect-[4/3] shadow-md hover:shadow-xl transition-all duration-300">
+                <div key={i} className="group relative rounded-2xl overflow-hidden aspect-[4/3] shadow-md hover:shadow-xl transition-all duration-300 w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.667rem)]">
                   {renderMedia(img.url, mediaKey("gallery", "images", i, "url"), {
                     className: "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
                     alt: img.caption,
