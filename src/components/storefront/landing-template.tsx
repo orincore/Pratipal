@@ -521,6 +521,112 @@ function InvitationDialog({
   const update = (field: keyof ReturnType<typeof createEmpty>, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // Lock background scroll while the dialog is open. iOS Safari (and Radix's
+  // default lock) let touch drags fall through to the page behind the form, so
+  // we (1) pin the body with position:fixed and (2) intercept touchmove at the
+  // document level — allowing scroll only inside the form's scroll area and
+  // cancelling it everywhere else (overlay, the form's non-scrolling regions).
+  useEffect(() => {
+    if (!open) return;
+
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+
+    let startY = 0;
+    // Movement (px) below which a gesture is treated as a tap, not a scroll.
+    // Cancelling these tiny jitters on iOS also cancels tap-to-focus, which
+    // stops the keyboard from opening — so we leave them entirely alone.
+    const TAP_THRESHOLD = 8;
+    const onTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0]?.clientY ?? 0;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const dy = (e.touches[0]?.clientY ?? 0) - startY;
+      if (Math.abs(dy) < TAP_THRESHOLD) return; // tap, not a scroll — let it focus
+      const area = scrollAreaRef.current;
+      const target = e.target as Node | null;
+      // Drag outside the form's scroll area → never let it move the page.
+      if (!area || !target || !area.contains(target)) {
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
+      // Inside the scroll area: block the rubber-band overscroll at the edges
+      // that otherwise chains to the background.
+      const atTop = area.scrollTop <= 0;
+      const atBottom = area.scrollTop + area.clientHeight >= area.scrollHeight;
+      if ((atTop && dy > 0) || (atBottom && dy < 0)) {
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    document.addEventListener("touchstart", onTouchStart, { passive: false });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    // Keyboard handling (mobile only): on phones the popup is full-screen at
+    // 100dvh, which does NOT shrink when the on-screen keyboard opens — so the
+    // lower fields end up hidden behind the keyboard with no room to scroll.
+    // We resize the popup to the VisualViewport's *visible* height, which makes
+    // the form area shorter than its content and therefore scrollable, letting
+    // the user reach every field above the keyboard.
+    const vv = window.visualViewport;
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    const syncViewport = () => {
+      const el = contentRef.current;
+      if (!el || !isMobile || !vv) return;
+      el.style.height = `${vv.height}px`;
+      el.style.top = `${vv.offsetTop}px`;
+    };
+    if (isMobile && vv) {
+      syncViewport();
+      vv.addEventListener("resize", syncViewport);
+      vv.addEventListener("scroll", syncViewport);
+    }
+
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      window.scrollTo(0, scrollY);
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      if (vv) {
+        vv.removeEventListener("resize", syncViewport);
+        vv.removeEventListener("scroll", syncViewport);
+      }
+      const el = contentRef.current;
+      if (el) {
+        el.style.height = "";
+        el.style.top = "";
+      }
+    };
+  }, [open]);
+
+  // When a field gains focus, wait for the keyboard/viewport to settle, then
+  // bring the field comfortably into the visible area so it's never hidden
+  // behind the keyboard.
+  const handleFieldFocus = (e: React.FocusEvent<HTMLDivElement>) => {
+    const el = e.target;
+    if (!(el instanceof HTMLElement)) return;
+    if (!el.matches("input, select, textarea")) return;
+    window.setTimeout(() => {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 300);
+  };
+
   const handleOpenChange = (o: boolean) => {
     onOpenChange(o);
     if (!o) {
@@ -585,9 +691,14 @@ function InvitationDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] rounded-3xl border-0 p-0 overflow-hidden">
-        <div className="flex flex-col md:flex-row max-h-[90vh]">
-          <div className="flex-1 p-6 sm:p-8 overflow-y-auto">
+      <DialogContent
+        ref={contentRef}
+        className="flex flex-col gap-0 border-0 p-0 overflow-hidden
+          max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:rounded-none
+          sm:w-[95vw] sm:max-w-2xl sm:max-h-[90dvh] sm:rounded-3xl"
+      >
+        <div className="flex flex-1 min-h-0 flex-col md:flex-row">
+          <div ref={scrollAreaRef} onFocusCapture={handleFieldFocus} className="flex-1 min-h-0 p-6 pb-24 sm:p-8 sm:pb-8 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
             <DialogHeader>
               <DialogTitle className="font-display text-xl sm:text-2xl text-violet-900">{invitation.formTitle}</DialogTitle>
               <DialogDescription className="text-gray-500 text-xs sm:text-sm">
@@ -609,7 +720,7 @@ function InvitationDialog({
                   value={form.firstName}
                   onChange={(e) => update("firstName", e.target.value)}
                   placeholder="Enter your name"
-                  className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
+                  className="h-10 sm:h-11 mt-1 rounded-xl text-base sm:text-sm"
                   required
                 />
               </div>
@@ -620,7 +731,7 @@ function InvitationDialog({
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
                   placeholder="you@example.com"
-                  className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
+                  className="h-10 sm:h-11 mt-1 rounded-xl text-base sm:text-sm"
                   required
                 />
               </div>
@@ -630,7 +741,7 @@ function InvitationDialog({
                   <select
                     value={form.countryCode}
                     onChange={(e) => update("countryCode", e.target.value)}
-                    className="h-10 sm:h-11 rounded-xl border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring w-[80px] sm:w-[90px] flex-shrink-0"
+                    className="h-10 sm:h-11 rounded-xl border border-input bg-background px-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring w-[80px] sm:w-[90px] flex-shrink-0"
                   >
                     <option value="+91">🇮🇳 +91</option>
                     <option value="+1">🇺🇸 +1</option>
@@ -656,7 +767,7 @@ function InvitationDialog({
                     value={form.whatsapp}
                     onChange={(e) => update("whatsapp", e.target.value)}
                     placeholder="98765 43210"
-                    className="h-10 sm:h-11 rounded-xl flex-1 text-sm"
+                    className="h-10 sm:h-11 rounded-xl flex-1 text-base sm:text-sm"
                     type="tel"
                     required
                   />
@@ -668,7 +779,7 @@ function InvitationDialog({
                   value={form.location}
                   onChange={(e) => update("location", e.target.value)}
                   placeholder="e.g. Mumbai, India"
-                  className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
+                  className="h-10 sm:h-11 mt-1 rounded-xl text-base sm:text-sm"
                 />
               </div>
 
@@ -860,11 +971,6 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
                 alt: slide.label || `Hero slide ${index + 1}`,
                 isActive: isSlideActive,
               })}
-              {slide.label && isSlideActive && (
-                <div className="absolute bottom-6 left-6 bg-white/80 backdrop-blur px-4 py-2 rounded-full text-xs font-semibold text-gray-700">
-                  {slide.label}
-                </div>
-              )}
             </div>
             );
           })}

@@ -92,7 +92,8 @@ export const LeadForm = Node.create({
     const a = { ...DEFAULT_LEAD_FORM_ATTRS, ...(node.attrs as Partial<LeadFormAttrs>) };
 
     const inputStyle =
-      "display:block;width:100%;box-sizing:border-box;height:44px;padding:0 14px;margin-bottom:12px;border:1px solid #d1d5db;border-radius:10px;font-size:0.95rem;outline:none;background:#fff;color:#111827";
+      // font-size:16px prevents iOS Safari from auto-zooming the field on focus.
+      "display:block;width:100%;box-sizing:border-box;height:44px;padding:0 14px;margin-bottom:12px;border:1px solid #d1d5db;border-radius:10px;font-size:16px;outline:none;background:#fff;color:#111827";
     const formStyle = [
       "display:inline-block",
       "text-align:left",
