@@ -68,7 +68,7 @@ export const MarqueeStrip = Node.create({
       mergeAttributes(HTMLAttributes, {
         "data-marquee-strip": "",
         class: "rb-marquee",
-        style: `background:${a.backgroundColor};color:${a.textColor};padding:12px 0;width:100%`,
+        style: `background:${a.backgroundColor};color:${a.textColor};width:100%`,
       }),
       [
         "div",

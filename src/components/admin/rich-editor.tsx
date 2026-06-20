@@ -2447,7 +2447,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       </div>
 
       {/* ===== MAIN CANVAS (Editor Content) — left of the tools panel ===== */}
-      <div className="order-1 flex-1 min-w-0 bg-gray-100 overflow-y-auto relative">
+      <div className="order-1 flex-1 min-w-0 bg-gray-100 overflow-y-auto overflow-x-hidden relative">
         {/* Floating Action Bar */}
         {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel) && (
           <div className="sticky top-3 z-30 flex justify-center pointer-events-none">

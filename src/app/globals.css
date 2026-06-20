@@ -795,13 +795,31 @@
  * express media queries or keyframes.
  * ------------------------------------------------------------------------- */
 .rb-container {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 1120px;
   margin: 0 auto;
   padding: 0 20px;
 }
+/* Content-block sections must never exceed their column or introduce a
+ * horizontal scrollbar — keeps the editor canvas a fixed size as blocks are
+ * inserted / selected. */
+section[data-feature-grid],
+section[data-stats-row],
+section[data-faq-accordion],
+section[data-testimonial-cards],
+section[data-image-gallery],
+div[data-marquee-strip] {
+  box-sizing: border-box;
+  max-width: 100%;
+}
 .rb-grid {
   display: grid;
   gap: 20px;
+  min-width: 0;
+}
+.rb-grid > * {
+  min-width: 0;
 }
 .rb-grid-1 { grid-template-columns: 1fr; }
 .rb-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -826,14 +844,25 @@
   gap: 16px 40px;
 }
 
-/* Marquee strip */
+/* Marquee strip.
+ * The scrolling track is absolutely positioned so its (very wide) intrinsic
+ * content is taken OUT of normal flow — it can never widen the wrapper, the
+ * editor canvas, or the page. The wrapper is a fixed-height clipping box. */
 .rb-marquee {
+  position: relative;
   overflow: hidden;
-  white-space: nowrap;
+  width: 100%;
+  max-width: 100%;
+  height: 44px;
 }
 .rb-marquee-track {
-  display: inline-flex;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  display: flex;
   align-items: center;
+  white-space: nowrap;
   will-change: transform;
   animation-name: rb-marquee-scroll;
   animation-timing-function: linear;
