@@ -786,3 +786,70 @@
   overflow: hidden;
   pointer-events: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Rich-editor content blocks (feature grid, stats, FAQ, testimonials,
+ * marquee, gallery). These classes are emitted by the TipTap node renderHTML
+ * and shared by BOTH the editor canvas and the published page, so they live in
+ * globals.css (loaded in both contexts) rather than inline styles which cannot
+ * express media queries or keyframes.
+ * ------------------------------------------------------------------------- */
+.rb-container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+.rb-grid {
+  display: grid;
+  gap: 20px;
+}
+.rb-grid-1 { grid-template-columns: 1fr; }
+.rb-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rb-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rb-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) {
+  .rb-grid-3,
+  .rb-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .rb-grid-2,
+  .rb-grid-3,
+  .rb-grid-4 { grid-template-columns: 1fr; }
+}
+
+/* Stats row */
+.rb-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px 40px;
+}
+
+/* Marquee strip */
+.rb-marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.rb-marquee-track {
+  display: inline-flex;
+  align-items: center;
+  will-change: transform;
+  animation-name: rb-marquee-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes rb-marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-33.333%); }
+}
+
+/* FAQ accordion (native <details>) */
+.rb-faq summary { list-style: none; }
+.rb-faq summary::-webkit-details-marker { display: none; }
+.rb-faq-item > summary .rb-faq-icon {
+  transition: transform 0.2s ease;
+}
+.rb-faq-item[open] > summary .rb-faq-icon {
+  transform: rotate(45deg);
+}

@@ -37,6 +37,12 @@ import {
   DEFAULT_LEAD_FORM_ATTRS,
   type LeadFormAttrs,
 } from "@/lib/tiptap/extensions/lead-form";
+import { FeatureGrid, DEFAULT_FEATURE_ITEM } from "@/lib/tiptap/extensions/feature-grid";
+import { StatsRow, DEFAULT_STAT_ITEM } from "@/lib/tiptap/extensions/stats-row";
+import { FaqAccordion, DEFAULT_FAQ_ITEM } from "@/lib/tiptap/extensions/faq-accordion";
+import { TestimonialCards, DEFAULT_TESTIMONIAL_ITEM } from "@/lib/tiptap/extensions/testimonial-cards";
+import { MarqueeStrip } from "@/lib/tiptap/extensions/marquee-strip";
+import { ImageGallery, DEFAULT_GALLERY_ITEM } from "@/lib/tiptap/extensions/image-gallery";
 import {
   DEFAULT_CONTENT_SETTINGS,
   type LandingContent,
@@ -89,11 +95,19 @@ import {
   RemoveFormatting,
   WrapText,
   FormInput,
+  Sparkles,
+  BarChart3,
+  HelpCircle,
+  MessageSquare,
+  Megaphone,
+  Images,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -265,6 +279,349 @@ function WidgetButton({
 }
 
 // ---------------------------------------------------------------------------
+// Array items editor — generic add / remove / edit for a block's items[]
+// ---------------------------------------------------------------------------
+
+interface ItemFieldDef {
+  key: string;
+  label: string;
+  type?: "text" | "textarea";
+  placeholder?: string;
+}
+
+function ArrayItemsEditor({
+  items,
+  onChange,
+  fields,
+  makeDefault,
+  addLabel,
+}: {
+  items: any[];
+  onChange: (items: any[]) => void;
+  fields: ItemFieldDef[];
+  makeDefault: () => any;
+  addLabel: string;
+}) {
+  const list = Array.isArray(items) ? items : [];
+  const updateField = (index: number, key: string, value: string) =>
+    onChange(list.map((it, i) => (i === index ? { ...it, [key]: value } : it)));
+  const removeItem = (index: number) => onChange(list.filter((_, i) => i !== index));
+  const move = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= list.length) return;
+    const next = [...list];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-2">
+      {list.map((item, i) => (
+        <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Item {i + 1}</span>
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => move(i, -1)}
+                disabled={i === 0}
+                className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                title="Move up"
+              >
+                <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
+              </button>
+              <button
+                type="button"
+                onClick={() => move(i, 1)}
+                disabled={i === list.length - 1}
+                className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                title="Move down"
+              >
+                <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+              </button>
+              <button
+                type="button"
+                onClick={() => removeItem(i)}
+                className="h-6 w-6 flex items-center justify-center rounded text-red-400 hover:text-red-600 hover:bg-red-50"
+                title="Remove item"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          {fields.map((f) =>
+            f.type === "textarea" ? (
+              <Textarea
+                key={f.key}
+                value={item[f.key] ?? ""}
+                onChange={(e) => updateField(i, f.key, e.target.value)}
+                placeholder={f.placeholder || f.label}
+                rows={2}
+                className="text-xs bg-white border-gray-200 resize-none"
+              />
+            ) : (
+              <Input
+                key={f.key}
+                value={item[f.key] ?? ""}
+                onChange={(e) => updateField(i, f.key, e.target.value)}
+                placeholder={f.placeholder || f.label}
+                className="h-8 text-xs bg-white border-gray-200"
+              />
+            )
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...list, makeDefault()])}
+        className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-dashed border-violet-300 bg-violet-50 text-violet-600 text-[11px] font-medium hover:bg-violet-100 transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" /> {addLabel}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Contextual editor for the selected content block (feature grid, stats, …)
+// ---------------------------------------------------------------------------
+
+function ContentBlockPanel({
+  block,
+  onAttr,
+  onItems,
+  onDelete,
+}: {
+  block: { type: string; attrs: any };
+  onAttr: (key: string, value: any) => void;
+  onItems: (items: any[]) => void;
+  onDelete: () => void;
+}) {
+  const a = block.attrs || {};
+  const removeBtn = (
+    <button
+      type="button"
+      onClick={onDelete}
+      className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors"
+    >
+      <Trash2 className="h-3.5 w-3.5" /> Remove Block
+    </button>
+  );
+
+  const HeadingField = (
+    <div>
+      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Heading</Label>
+      <Input value={a.heading ?? ""} onChange={(e) => onAttr("heading", e.target.value)} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+    </div>
+  );
+
+  const ColumnsField = (
+    <div>
+      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Columns</Label>
+      <SegmentedControl
+        options={[{ label: "2", value: "2" }, { label: "3", value: "3" }, { label: "4", value: "4" }]}
+        value={String(a.columns ?? 3)}
+        onChange={(v) => onAttr("columns", Number(v))}
+      />
+    </div>
+  );
+
+  if (block.type === "featureGrid") {
+    return (
+      <div className="space-y-3">
+        {removeBtn}
+        {HeadingField}
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Subheading</Label>
+          <Input value={a.subheading ?? ""} onChange={(e) => onAttr("subheading", e.target.value)} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        {ColumnsField}
+        <ColorRow label="Accent" value={a.accentColor ?? "#7c3aed"} onChange={(v) => onAttr("accentColor", v)} />
+        <ColorRow label="Card Background" value={a.cardBackground ?? "#ffffff"} onChange={(v) => onAttr("cardBackground", v)} />
+        <ColorRow label="Section Background" value={a.backgroundColor ?? "transparent"} onChange={(v) => onAttr("backgroundColor", v)} />
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Features</Label>
+          <ArrayItemsEditor
+            items={a.items}
+            onChange={onItems}
+            makeDefault={() => ({ ...DEFAULT_FEATURE_ITEM })}
+            addLabel="Add feature"
+            fields={[
+              { key: "icon", label: "Icon (emoji)", placeholder: "✨ emoji" },
+              { key: "title", label: "Title" },
+              { key: "description", label: "Description", type: "textarea" },
+            ]}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (block.type === "statsRow") {
+    return (
+      <div className="space-y-3">
+        {removeBtn}
+        <ColorRow label="Value Color" value={a.valueColor ?? "#7c3aed"} onChange={(v) => onAttr("valueColor", v)} />
+        <ColorRow label="Label Color" value={a.labelColor ?? "#6b7280"} onChange={(v) => onAttr("labelColor", v)} />
+        <ColorRow label="Section Background" value={a.backgroundColor ?? "transparent"} onChange={(v) => onAttr("backgroundColor", v)} />
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Stats</Label>
+          <ArrayItemsEditor
+            items={a.items}
+            onChange={onItems}
+            makeDefault={() => ({ ...DEFAULT_STAT_ITEM })}
+            addLabel="Add stat"
+            fields={[
+              { key: "value", label: "Value", placeholder: "e.g. 10k+" },
+              { key: "label", label: "Label", placeholder: "e.g. Members" },
+            ]}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (block.type === "faqAccordion") {
+    return (
+      <div className="space-y-3">
+        {removeBtn}
+        {HeadingField}
+        <ColorRow label="Accent" value={a.accentColor ?? "#7c3aed"} onChange={(v) => onAttr("accentColor", v)} />
+        <ColorRow label="Card Background" value={a.cardBackground ?? "#ffffff"} onChange={(v) => onAttr("cardBackground", v)} />
+        <ColorRow label="Section Background" value={a.backgroundColor ?? "transparent"} onChange={(v) => onAttr("backgroundColor", v)} />
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Questions</Label>
+          <ArrayItemsEditor
+            items={a.items}
+            onChange={onItems}
+            makeDefault={() => ({ ...DEFAULT_FAQ_ITEM })}
+            addLabel="Add question"
+            fields={[
+              { key: "question", label: "Question" },
+              { key: "answer", label: "Answer", type: "textarea" },
+            ]}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (block.type === "testimonialCards") {
+    return (
+      <div className="space-y-3">
+        {removeBtn}
+        {HeadingField}
+        {ColumnsField}
+        <ColorRow label="Accent" value={a.accentColor ?? "#7c3aed"} onChange={(v) => onAttr("accentColor", v)} />
+        <ColorRow label="Card Background" value={a.cardBackground ?? "#ffffff"} onChange={(v) => onAttr("cardBackground", v)} />
+        <ColorRow label="Section Background" value={a.backgroundColor ?? "transparent"} onChange={(v) => onAttr("backgroundColor", v)} />
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Testimonials</Label>
+          <ArrayItemsEditor
+            items={a.items}
+            onChange={onItems}
+            makeDefault={() => ({ ...DEFAULT_TESTIMONIAL_ITEM })}
+            addLabel="Add testimonial"
+            fields={[
+              { key: "quote", label: "Quote", type: "textarea" },
+              { key: "name", label: "Name" },
+              { key: "role", label: "Role / title" },
+              { key: "avatar", label: "Avatar URL (optional)" },
+            ]}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (block.type === "marqueeStrip") {
+    const text = Array.isArray(a.items) ? a.items.join("\n") : "";
+    return (
+      <div className="space-y-3">
+        {removeBtn}
+        <ColorRow label="Background" value={a.backgroundColor ?? "#7c3aed"} onChange={(v) => onAttr("backgroundColor", v)} />
+        <ColorRow label="Text Color" value={a.textColor ?? "#ffffff"} onChange={(v) => onAttr("textColor", v)} />
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Speed (seconds)</Label>
+          <Input
+            type="number"
+            min={4}
+            value={a.speed ?? 25}
+            onChange={(e) => onAttr("speed", Number(e.target.value) || 25)}
+            className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+          />
+        </div>
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Items (one per line)</Label>
+          <Textarea
+            value={text}
+            onChange={(e) => onItems(e.target.value.split("\n"))}
+            rows={4}
+            className="text-xs mt-1 bg-gray-50 border-gray-200 resize-none"
+            placeholder={"Limited spots\n100% satisfaction\nTrusted by thousands"}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (block.type === "imageGallery") {
+    return (
+      <div className="space-y-3">
+        {removeBtn}
+        {HeadingField}
+        {ColumnsField}
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Corner Radius (px)</Label>
+          <Input
+            type="number"
+            min={0}
+            value={a.rounded ?? 16}
+            onChange={(e) => onAttr("rounded", Number(e.target.value) || 0)}
+            className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+          />
+        </div>
+        <ColorRow label="Section Background" value={a.backgroundColor ?? "transparent"} onChange={(v) => onAttr("backgroundColor", v)} />
+        <div>
+          <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Images</Label>
+          <ArrayItemsEditor
+            items={a.items}
+            onChange={onItems}
+            makeDefault={() => ({ ...DEFAULT_GALLERY_ITEM })}
+            addLabel="Add image"
+            fields={[
+              { key: "url", label: "Image URL", placeholder: "https://…" },
+              { key: "caption", label: "Caption (optional)" },
+            ]}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// Atom content-block node types that share the consolidated block panel.
+const CONTENT_BLOCK_TYPES = [
+  "featureGrid",
+  "statsRow",
+  "faqAccordion",
+  "testimonialCards",
+  "marqueeStrip",
+  "imageGallery",
+];
+
+const BLOCK_PANEL_LABELS: Record<string, string> = {
+  featureGrid: "Feature Grid",
+  statsRow: "Stats",
+  faqAccordion: "FAQ",
+  testimonialCards: "Testimonials",
+  marqueeStrip: "Marquee",
+  imageGallery: "Gallery",
+};
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -302,6 +659,11 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
   // Lead form panel
   const [showFormPanel, setShowFormPanel] = useState(false);
   const [formAttrs, setFormAttrs] = useState<LeadFormAttrs>({ ...DEFAULT_LEAD_FORM_ATTRS });
+
+  // Content blocks (feature grid, stats, FAQ, testimonials, marquee, gallery).
+  // These share one consolidated "active block" panel keyed off the selected
+  // node's type — far less boilerplate than per-block state.
+  const [activeBlock, setActiveBlock] = useState<{ type: string; attrs: any } | null>(null);
 
   // Left panel active tab
   const [activeTab, setActiveTab] = useState<"widgets" | "style">("widgets");
@@ -377,6 +739,14 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     }
     setShowFormPanel(isLeadForm);
 
+    // --- Content blocks (atom nodes → NodeSelection on click) ---
+    const isContentBlock = !!nodeSel && CONTENT_BLOCK_TYPES.includes(nodeSel.type.name);
+    if (isContentBlock) {
+      setActiveBlock({ type: nodeSel!.type.name, attrs: { ...nodeSel!.attrs } });
+    } else {
+      setActiveBlock(null);
+    }
+
     // --- Section / two-column: walk ancestors, or the node itself ---
     let foundTwoCol = false;
     let foundSection = false;
@@ -411,6 +781,8 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       ? "image"
       : isLeadForm
       ? "leadform"
+      : isContentBlock
+      ? nodeSel!.type.name
       : foundTwoCol
       ? "twocol"
       : foundSection
@@ -423,6 +795,12 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       leadform: "Form",
       twocol: "Two-Column",
       section: "Section",
+      featureGrid: "Feature Grid",
+      statsRow: "Stats",
+      faqAccordion: "FAQ",
+      testimonialCards: "Testimonials",
+      marqueeStrip: "Marquee",
+      imageGallery: "Gallery",
     };
     setSelectedLabel(kind ? labels[kind] : null);
 
@@ -471,6 +849,12 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       ColumnContent,
       PageSection,
       LeadForm,
+      FeatureGrid,
+      StatsRow,
+      FaqAccordion,
+      TestimonialCards,
+      MarqueeStrip,
+      ImageGallery,
     ],
     content: content?.doc || "",
     onUpdate: ({ editor: ed }) => {
@@ -617,6 +1001,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                   "youtube",
                   "image",
                   "leadForm",
+                  ...CONTENT_BLOCK_TYPES,
                 ].includes(nodeTypeName)
               ) {
                 const from = resolved.before(depth);
@@ -827,6 +1212,51 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     toast.success("Form removed");
   }, [editor]);
 
+  // ---- Content block insert + update helpers ----
+  const insertFeatureGrid = useCallback(() => {
+    editor?.commands.insertFeatureGrid({ accentColor: themeColors?.primary ?? "#7c3aed" });
+  }, [editor, themeColors]);
+  const insertStatsRow = useCallback(() => {
+    editor?.commands.insertStatsRow({ valueColor: themeColors?.primary ?? "#7c3aed" });
+  }, [editor, themeColors]);
+  const insertFaqAccordion = useCallback(() => {
+    editor?.commands.insertFaqAccordion({ accentColor: themeColors?.primary ?? "#7c3aed" });
+  }, [editor, themeColors]);
+  const insertTestimonialCards = useCallback(() => {
+    editor?.commands.insertTestimonialCards({ accentColor: themeColors?.primary ?? "#7c3aed" });
+  }, [editor, themeColors]);
+  const insertMarqueeStrip = useCallback(() => {
+    editor?.commands.insertMarqueeStrip({ backgroundColor: themeColors?.primary ?? "#7c3aed" });
+  }, [editor, themeColors]);
+  const insertImageGallery = useCallback(() => {
+    editor?.commands.insertImageGallery();
+  }, [editor]);
+
+  // Update one attribute on the currently-selected content block. The editor's
+  // onUpdate → syncSelection re-reads the node, so the panel stays in sync; we
+  // also optimistically update local state for snappy typing.
+  const updateBlockAttr = useCallback(
+    (key: string, value: any) => {
+      if (!editor || !activeBlock) return;
+      editor.commands.updateAttributes(activeBlock.type, { [key]: value });
+      setActiveBlock((prev) => (prev ? { ...prev, attrs: { ...prev.attrs, [key]: value } } : prev));
+    },
+    [editor, activeBlock]
+  );
+
+  // Update the items[] array on the selected content block (add / remove / edit).
+  const updateBlockItems = useCallback(
+    (items: any[]) => updateBlockAttr("items", items),
+    [updateBlockAttr]
+  );
+
+  const deleteActiveBlock = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().deleteSelection().run();
+    setActiveBlock(null);
+    toast.success("Block removed");
+  }, [editor]);
+
   // ---- Delete the currently selected/focused node ----
   const deleteSelectedNode = useCallback(() => {
     if (!editor) return;
@@ -885,6 +1315,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       "blockquote",
       "codeBlock",
       "youtube",
+      ...CONTENT_BLOCK_TYPES,
     ]);
 
     // NodeSelection (image / button / section selected directly)
@@ -1046,7 +1477,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
   const charCount = editor.getText().length;
 
   // Check if any element-specific panel is active
-  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel;
+  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel || !!activeBlock;
 
   return (
     <div className="flex h-full w-full min-w-0">
@@ -1199,6 +1630,48 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                     label="Line Break"
                     color="gray"
                     onClick={() => editor.chain().focus().setHardBreak().run()}
+                  />
+                </div>
+              </PanelSection>
+
+              {/* ===== SECTIONS & BLOCKS ===== */}
+              <PanelSection title="Sections & Blocks" icon={<Layers className="h-4 w-4" />} defaultOpen>
+                <div className="grid grid-cols-3 gap-2">
+                  <WidgetButton
+                    icon={<Sparkles className="h-5 w-5" />}
+                    label="Features"
+                    color="violet"
+                    onClick={insertFeatureGrid}
+                  />
+                  <WidgetButton
+                    icon={<BarChart3 className="h-5 w-5" />}
+                    label="Stats"
+                    color="blue"
+                    onClick={insertStatsRow}
+                  />
+                  <WidgetButton
+                    icon={<HelpCircle className="h-5 w-5" />}
+                    label="FAQ"
+                    color="amber"
+                    onClick={insertFaqAccordion}
+                  />
+                  <WidgetButton
+                    icon={<MessageSquare className="h-5 w-5" />}
+                    label="Reviews"
+                    color="green"
+                    onClick={insertTestimonialCards}
+                  />
+                  <WidgetButton
+                    icon={<Megaphone className="h-5 w-5" />}
+                    label="Marquee"
+                    color="rose"
+                    onClick={insertMarqueeStrip}
+                  />
+                  <WidgetButton
+                    icon={<Images className="h-5 w-5" />}
+                    label="Gallery"
+                    color="gray"
+                    onClick={insertImageGallery}
                   />
                 </div>
               </PanelSection>
@@ -1778,6 +2251,22 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                     </div>
                     <p className="text-[10px] text-gray-400">Collects Name, Email &amp; Mobile (required). Submissions appear under the page&apos;s Invitations.</p>
                   </div>
+                </PanelSection>
+              )}
+
+              {activeBlock && (
+                <PanelSection
+                  title={`${BLOCK_PANEL_LABELS[activeBlock.type] ?? "Block"} Properties`}
+                  icon={<Layers className="h-4 w-4" />}
+                  defaultOpen
+                  badge="Active"
+                >
+                  <ContentBlockPanel
+                    block={activeBlock}
+                    onAttr={updateBlockAttr}
+                    onItems={updateBlockItems}
+                    onDelete={deleteActiveBlock}
+                  />
                 </PanelSection>
               )}
 

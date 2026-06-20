@@ -21,6 +21,12 @@ import {
 } from "@/lib/tiptap/extensions/two-column";
 import { PageSection } from "@/lib/tiptap/extensions/page-section";
 import { LeadForm } from "@/lib/tiptap/extensions/lead-form";
+import { FeatureGrid } from "@/lib/tiptap/extensions/feature-grid";
+import { StatsRow } from "@/lib/tiptap/extensions/stats-row";
+import { FaqAccordion } from "@/lib/tiptap/extensions/faq-accordion";
+import { TestimonialCards } from "@/lib/tiptap/extensions/testimonial-cards";
+import { MarqueeStrip } from "@/lib/tiptap/extensions/marquee-strip";
+import { ImageGallery } from "@/lib/tiptap/extensions/image-gallery";
 import {
   normalizeLandingContent,
   DEFAULT_CONTENT_SETTINGS,
@@ -78,6 +84,12 @@ const extensions = [
   ColumnContent,
   PageSection,
   LeadForm,
+  FeatureGrid,
+  StatsRow,
+  FaqAccordion,
+  TestimonialCards,
+  MarqueeStrip,
+  ImageGallery,
 ];
 
 const FALLBACK_DOC: JSONContent = {
