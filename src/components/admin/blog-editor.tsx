@@ -9,6 +9,8 @@ import TextAlign from "@tiptap/extension-text-align";
 import Highlight from "@tiptap/extension-highlight";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
+import FontFamily from "@tiptap/extension-font-family";
+import { FONT_OPTIONS } from "@/lib/fonts";
 import Youtube from "@tiptap/extension-youtube";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useCallback, useRef, useState } from "react";
@@ -17,8 +19,9 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, Quote, Code, Minus,
   Link as LinkIcon, Image as ImageIcon, Youtube as YoutubeIcon,
-  Heading1, Heading2, Heading3, Highlighter, Undo, Redo, Loader2,
+  Heading1, Heading2, Heading3, Heading4, Highlighter, Undo, Redo, Loader2,
   Pilcrow, ChevronDown, Crop, AlignHorizontalJustifyCenter,
+  Unlink, RemoveFormatting, WrapText, Type, ImagePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -323,11 +326,46 @@ function Divider() {
   return <div className="w-px h-6 bg-gray-200 mx-1 flex-shrink-0" />;
 }
 
+// Labeled tool button (WordPress-style) — used in the right-hand 2-per-row grid.
+function ToolTile({ onClick, active, title, icon, label, disabled }: {
+  onClick: () => void; active?: boolean; title: string;
+  icon: React.ReactNode; label: string; disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      disabled={disabled}
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      className={cn(
+        "flex items-center gap-2 h-9 px-2.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+        active
+          ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:text-gray-900"
+      )}
+    >
+      <span className="flex-shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function ToolGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-0.5">{label}</p>
+      <div className="grid grid-cols-2 gap-1.5">{children}</div>
+    </div>
+  );
+}
+
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
 export function BlogEditor({ content, onChange }: BlogEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [textColor, setTextColor] = useState("#111827");
+  const [hlColor, setHlColor] = useState("#FEF08A");
 
   const uploadToR2 = useCallback(async (file: File): Promise<string | null> => {
     if (!file.type.startsWith("image/")) { toast.error("Only image files are supported"); return null; }
@@ -356,6 +394,7 @@ export function BlogEditor({ content, onChange }: BlogEditorProps) {
       Underline,
       TextStyle,
       Color,
+      FontFamily,
       Highlight.configure({ multicolor: true }),
       Link.configure({ openOnClick: false, HTMLAttributes: { class: "text-emerald-600 underline" } }),
       ResizableImage,
@@ -366,7 +405,17 @@ export function BlogEditor({ content, onChange }: BlogEditorProps) {
     content,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: "prose prose-sm sm:prose max-w-none min-h-[400px] px-5 py-4 focus:outline-none" },
+      attributes: {
+        dir: "ltr",
+        class: "blog-editor-content prose prose-sm sm:prose max-w-none min-h-[400px] px-5 py-4 focus:outline-none text-left",
+      },
+      // Links must never navigate/open inside the editor — clicking one should
+      // only place the cursor so editing flow isn't disturbed.
+      handleClick(_view, _pos, event) {
+        const anchor = (event.target as HTMLElement)?.closest?.("a");
+        if (anchor) event.preventDefault();
+        return false;
+      },
       handlePaste(view, event) {
         const items = event.clipboardData?.items;
         if (!items) return false;
@@ -432,66 +481,130 @@ export function BlogEditor({ content, onChange }: BlogEditorProps) {
     if (url) editor.commands.setYoutubeVideo({ src: url });
   }, [editor]);
 
+  const addImageByUrl = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt("Enter image URL");
+    if (url) editor.chain().focus().insertContent({ type: "resizableImage", attrs: { src: url } }).run();
+  }, [editor]);
+
+  const clearFormatting = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().unsetAllMarks().clearNodes().run();
+  }, [editor]);
+
+  const applyTextColor = useCallback((color: string) => {
+    if (!editor) return;
+    setTextColor(color);
+    editor.chain().focus().setColor(color).run();
+  }, [editor]);
+
+  const applyHighlight = useCallback((color: string) => {
+    if (!editor) return;
+    setHlColor(color);
+    editor.chain().focus().setHighlight({ color }).run();
+  }, [editor]);
+
   if (!editor) return null;
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+    <div className="border border-gray-200 rounded-xl bg-white flex items-start">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 border-b border-gray-200 bg-gray-50">
-        <ToolbarButton title="Undo" onClick={() => editor.chain().focus().undo().run()}><Undo className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Redo" onClick={() => editor.chain().focus().redo().run()}><Redo className="h-4 w-4" /></ToolbarButton>
-        <Divider />
+      {/* Tools — fixed to the right side (WordPress-style, 2 per row) */}
+      <div dir="ltr" className="order-2 w-[248px] flex-shrink-0 self-stretch border-l border-gray-200 bg-gray-50 rounded-r-xl">
+        <div className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto p-3 space-y-4">
 
-        {/* Block type */}
-        <ToolbarButton title="Paragraph" active={editor.isActive("paragraph")} onClick={() => editor.chain().focus().setParagraph().run()}><Pilcrow className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Heading 1" active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Heading 2" active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Heading 3" active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 className="h-4 w-4" /></ToolbarButton>
-        <Divider />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-0.5">Font</p>
+            <select
+              value={editor.getAttributes("textStyle").fontFamily || ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) editor.chain().focus().unsetFontFamily().run();
+                else editor.chain().focus().setFontFamily(v).run();
+              }}
+              className="w-full h-9 px-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-300"
+            >
+              {FONT_OPTIONS.map((f) => (
+                <option key={f.label} value={f.stack} style={{ fontFamily: f.stack || undefined }}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Inline formatting */}
-        <ToolbarButton title="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Strikethrough" active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough className="h-4 w-4" /></ToolbarButton>
+          <ToolGroup label="Blocks">
+            <ToolTile title="Paragraph" label="Paragraph" icon={<Pilcrow className="h-4 w-4" />} active={editor.isActive("paragraph")} onClick={() => editor.chain().focus().setParagraph().run()} />
+            <ToolTile title="Quote" label="Quote" icon={<Quote className="h-4 w-4" />} active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
+            <ToolTile title="Heading 1" label="Heading 1" icon={<Heading1 className="h-4 w-4" />} active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} />
+            <ToolTile title="Heading 2" label="Heading 2" icon={<Heading2 className="h-4 w-4" />} active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} />
+            <ToolTile title="Heading 3" label="Heading 3" icon={<Heading3 className="h-4 w-4" />} active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} />
+            <ToolTile title="Heading 4" label="Heading 4" icon={<Heading4 className="h-4 w-4" />} active={editor.isActive("heading", { level: 4 })} onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()} />
+          </ToolGroup>
 
-        {/* Color dropdowns */}
-        <ColorDropdown type="text" editor={editor} />
-        <ColorDropdown type="highlight" editor={editor} />
-        <Divider />
+          <ToolGroup label="Format">
+            <ToolTile title="Bold" label="Bold" icon={<Bold className="h-4 w-4" />} active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
+            <ToolTile title="Italic" label="Italic" icon={<Italic className="h-4 w-4" />} active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} />
+            <ToolTile title="Underline" label="Underline" icon={<UnderlineIcon className="h-4 w-4" />} active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+            <ToolTile title="Strikethrough" label="Strike" icon={<Strikethrough className="h-4 w-4" />} active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} />
+            <ToolTile title="Inline Code" label="Code" icon={<Code className="h-4 w-4" />} active={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} />
+            <ToolTile title="Clear Formatting" label="Clear" icon={<RemoveFormatting className="h-4 w-4" />} onClick={clearFormatting} />
+          </ToolGroup>
 
-        {/* Alignment */}
-        <ToolbarButton title="Align Left" active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()}><AlignLeft className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Align Center" active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()}><AlignCenter className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Align Right" active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()}><AlignRight className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Justify" active={editor.isActive({ textAlign: "justify" })} onClick={() => editor.chain().focus().setTextAlign("justify").run()}><AlignJustify className="h-4 w-4" /></ToolbarButton>
-        <Divider />
+          <ToolGroup label="Align">
+            <ToolTile title="Align Left" label="Left" icon={<AlignLeft className="h-4 w-4" />} active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()} />
+            <ToolTile title="Align Center" label="Center" icon={<AlignCenter className="h-4 w-4" />} active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()} />
+            <ToolTile title="Align Right" label="Right" icon={<AlignRight className="h-4 w-4" />} active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()} />
+            <ToolTile title="Justify" label="Justify" icon={<AlignJustify className="h-4 w-4" />} active={editor.isActive({ textAlign: "justify" })} onClick={() => editor.chain().focus().setTextAlign("justify").run()} />
+          </ToolGroup>
 
-        {/* Lists & blocks */}
-        <ToolbarButton title="Bullet List" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}><List className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Ordered List" active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Blockquote" active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Code Block" active={editor.isActive("codeBlock")} onClick={() => editor.chain().focus().toggleCodeBlock().run()}><Code className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Horizontal Rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}><Minus className="h-4 w-4" /></ToolbarButton>
-        <Divider />
+          <ToolGroup label="Lists & Blocks">
+            <ToolTile title="Bullet List" label="Bullet" icon={<List className="h-4 w-4" />} active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+            <ToolTile title="Numbered List" label="Numbered" icon={<ListOrdered className="h-4 w-4" />} active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+            <ToolTile title="Code Block" label="Code Block" icon={<Code className="h-4 w-4" />} active={editor.isActive("codeBlock")} onClick={() => editor.chain().focus().toggleCodeBlock().run()} />
+            <ToolTile title="Divider" label="Divider" icon={<Minus className="h-4 w-4" />} onClick={() => editor.chain().focus().setHorizontalRule().run()} />
+          </ToolGroup>
 
-        {/* Media */}
-        <ToolbarButton title="Add Link" active={editor.isActive("link")} onClick={addLink}><LinkIcon className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton title="Upload Image" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-        </ToolbarButton>
-        <ToolbarButton title="Add YouTube" onClick={addYoutube}><YoutubeIcon className="h-4 w-4" /></ToolbarButton>
+          <ToolGroup label="Color">
+            <label className="flex items-center gap-2 h-9 px-2.5 rounded-lg text-xs font-medium border bg-white text-gray-600 border-gray-200 hover:bg-gray-100 cursor-pointer">
+              <Type className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate flex-1">Text</span>
+              <span className="relative h-5 w-5 flex-shrink-0">
+                <input type="color" value={textColor} onChange={(e) => applyTextColor(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <span className="block h-5 w-5 rounded border border-gray-300" style={{ backgroundColor: textColor }} />
+              </span>
+            </label>
+            <label className="flex items-center gap-2 h-9 px-2.5 rounded-lg text-xs font-medium border bg-white text-gray-600 border-gray-200 hover:bg-gray-100 cursor-pointer">
+              <Highlighter className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate flex-1">Mark</span>
+              <span className="relative h-5 w-5 flex-shrink-0">
+                <input type="color" value={hlColor} onChange={(e) => applyHighlight(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <span className="block h-5 w-5 rounded border border-gray-300" style={{ backgroundColor: hlColor }} />
+              </span>
+            </label>
+          </ToolGroup>
+
+          <ToolGroup label="Insert">
+            <ToolTile title="Add / Edit Link" label="Link" icon={<LinkIcon className="h-4 w-4" />} active={editor.isActive("link")} onClick={addLink} />
+            <ToolTile title="Remove Link" label="Unlink" icon={<Unlink className="h-4 w-4" />} disabled={!editor.isActive("link")} onClick={() => editor.chain().focus().unsetLink().run()} />
+            <ToolTile title="Upload Image" label="Image" icon={uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />} disabled={uploading} onClick={() => fileInputRef.current?.click()} />
+            <ToolTile title="Image from URL" label="Image URL" icon={<ImagePlus className="h-4 w-4" />} onClick={addImageByUrl} />
+            <ToolTile title="Add YouTube Video" label="Video" icon={<YoutubeIcon className="h-4 w-4" />} onClick={addYoutube} />
+            <ToolTile title="Line Break" label="Line Break" icon={<WrapText className="h-4 w-4" />} onClick={() => editor.chain().focus().setHardBreak().run()} />
+          </ToolGroup>
+
+        </div>
       </div>
 
-      {uploading && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border-b border-emerald-100 text-xs text-emerald-700">
-          <Loader2 className="h-3 w-3 animate-spin" /> Uploading image to R2...
-        </div>
-      )}
-
-      <EditorContent editor={editor} />
+      {/* Content — left of the tools panel */}
+      <div className="order-1 flex-1 min-w-0 rounded-l-xl overflow-hidden">
+        {uploading && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border-b border-emerald-100 text-xs text-emerald-700">
+            <Loader2 className="h-3 w-3 animate-spin" /> Uploading image to R2...
+          </div>
+        )}
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

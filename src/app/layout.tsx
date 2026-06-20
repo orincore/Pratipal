@@ -6,6 +6,7 @@ import Script from "next/script";
 import LogoMark from "@/app/assets/logo.png";
 import { FloatingActionButton } from "@/components/ui/floating-action-button";
 import { SITE_URL } from "@/lib/seo";
+import { GOOGLE_FONTS_HREF } from "@/lib/fonts";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -47,6 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Selectable web fonts (editors + public pages) */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
         {/* Google Tag Manager */}
         <Script
           id="gtm-head"

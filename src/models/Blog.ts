@@ -14,6 +14,9 @@ export interface IBlog extends Document {
   read_time?: number; // minutes
   seo_title?: string;
   seo_description?: string;
+  seo_keyword?: string; // focus / target keyword
+  schema_type?: string; // JSON-LD @type, e.g. Article, BlogPosting, NewsArticle
+  custom_schema?: string; // raw custom JSON-LD structured data (overrides schema_type)
   created_at: Date;
   updated_at: Date;
 }
@@ -33,6 +36,9 @@ const BlogSchema = new Schema<IBlog>(
     read_time: { type: Number },
     seo_title: { type: String },
     seo_description: { type: String },
+    seo_keyword: { type: String },
+    schema_type: { type: String, default: "Article" },
+    custom_schema: { type: String, default: "" },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

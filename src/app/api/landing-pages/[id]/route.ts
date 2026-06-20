@@ -50,6 +50,8 @@ export async function PATCH(
     "theme",
     "seo_title",
     "seo_description",
+    "schema_type",
+    "custom_schema",
     "status",
   ];
 

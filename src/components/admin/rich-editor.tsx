@@ -12,6 +12,8 @@ import Color from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
+import FontFamily from "@tiptap/extension-font-family";
+import { FONT_OPTIONS } from "@/lib/fonts";
 import {
   CustomButton,
   DEFAULT_BUTTON_ATTRS,
@@ -31,6 +33,11 @@ import {
   type PageSectionAttrs,
 } from "@/lib/tiptap/extensions/page-section";
 import {
+  LeadForm,
+  DEFAULT_LEAD_FORM_ATTRS,
+  type LeadFormAttrs,
+} from "@/lib/tiptap/extensions/lead-form";
+import {
   DEFAULT_CONTENT_SETTINGS,
   type LandingContent,
   type LandingContentSettings,
@@ -44,6 +51,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
   List,
   ListOrdered,
   Quote,
@@ -78,6 +86,9 @@ import {
   Replace,
   ArrowDownToLine,
   Copy,
+  RemoveFormatting,
+  WrapText,
+  FormInput,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -288,6 +299,10 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
   const [showSectionPanel, setShowSectionPanel] = useState(false);
   const [sectionAttrs, setSectionAttrs] = useState<PageSectionAttrs>({ ...DEFAULT_SECTION_ATTRS });
 
+  // Lead form panel
+  const [showFormPanel, setShowFormPanel] = useState(false);
+  const [formAttrs, setFormAttrs] = useState<LeadFormAttrs>({ ...DEFAULT_LEAD_FORM_ATTRS });
+
   // Left panel active tab
   const [activeTab, setActiveTab] = useState<"widgets" | "style">("widgets");
 
@@ -355,6 +370,13 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     }
     setShowImgPanel(isImage);
 
+    // --- Lead form (atom node → NodeSelection on click) ---
+    const isLeadForm = nodeSel?.type?.name === "leadForm";
+    if (isLeadForm) {
+      setFormAttrs({ ...DEFAULT_LEAD_FORM_ATTRS, ...(nodeSel!.attrs as Partial<LeadFormAttrs>) });
+    }
+    setShowFormPanel(isLeadForm);
+
     // --- Section / two-column: walk ancestors, or the node itself ---
     let foundTwoCol = false;
     let foundSection = false;
@@ -387,6 +409,8 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       ? "button"
       : isImage
       ? "image"
+      : isLeadForm
+      ? "leadform"
       : foundTwoCol
       ? "twocol"
       : foundSection
@@ -396,6 +420,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     const labels: Record<string, string> = {
       button: "Button",
       image: "Image",
+      leadform: "Form",
       twocol: "Two-Column",
       section: "Section",
     };
@@ -424,7 +449,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       }),
       Link.configure({
         openOnClick: false,
-        HTMLAttributes: { class: "text-blue-600 underline cursor-pointer" },
+        HTMLAttributes: { class: "text-blue-600 underline" },
       }),
       Youtube.configure({
         HTMLAttributes: { class: "w-full aspect-video rounded-lg" },
@@ -435,6 +460,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       Underline,
       Color,
       TextStyle,
+      FontFamily,
       Highlight.configure({ multicolor: true }),
       Placeholder.configure({
         placeholder: "Start writing your landing page content...",
@@ -444,6 +470,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       ColumnMedia,
       ColumnContent,
       PageSection,
+      LeadForm,
     ],
     content: content?.doc || "",
     onUpdate: ({ editor: ed }) => {
@@ -465,6 +492,13 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         // globals.css to apply.
         class:
           "tiptap prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[600px] px-6 py-4",
+      },
+      // Links must never navigate/open inside the editor — clicking one should
+      // only place the cursor so editing flow isn't disturbed.
+      handleClick(_view, _pos, event) {
+        const anchor = (event.target as HTMLElement)?.closest?.("a");
+        if (anchor) event.preventDefault();
+        return false;
       },
     },
     immediatelyRender: false,
@@ -489,6 +523,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       "section[data-page-section]",
       "div[data-two-col]",
       "div[data-button]",
+      "div[data-lead-form]",
       "img",
       "div[data-youtube-video]",
       "blockquote",
@@ -581,6 +616,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                   "horizontalRule",
                   "youtube",
                   "image",
+                  "leadForm",
                 ].includes(nodeTypeName)
               ) {
                 const from = resolved.before(depth);
@@ -770,6 +806,27 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     [editor]
   );
 
+  const insertLeadForm = useCallback(() => {
+    if (!editor) return;
+    editor.commands.insertLeadForm({ buttonColor: themeColors?.primary ?? "#111827" });
+  }, [editor, themeColors]);
+
+  const updateFormAttr = useCallback(
+    (key: keyof LeadFormAttrs, value: any) => {
+      if (!editor) return;
+      setFormAttrs((prev) => ({ ...prev, [key]: value }));
+      editor.commands.updateLeadForm({ [key]: value });
+    },
+    [editor]
+  );
+
+  const deleteLeadForm = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().deleteSelection().run();
+    setShowFormPanel(false);
+    toast.success("Form removed");
+  }, [editor]);
+
   // ---- Delete the currently selected/focused node ----
   const deleteSelectedNode = useCallback(() => {
     if (!editor) return;
@@ -824,6 +881,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       "pageSection",
       "customButton",
       "image",
+      "leadForm",
       "blockquote",
       "codeBlock",
       "youtube",
@@ -988,10 +1046,10 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
   const charCount = editor.getText().length;
 
   // Check if any element-specific panel is active
-  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel;
+  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel;
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full w-full min-w-0">
       <input
         ref={fileInputRef}
         type="file"
@@ -1007,8 +1065,8 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         className="hidden"
       />
 
-      {/* ===== LEFT PANEL (Elementor-style) ===== */}
-      <div className="w-[300px] min-w-[300px] bg-white border-r border-gray-200 flex flex-col h-full overflow-hidden">
+      {/* ===== TOOLS PANEL (Elementor-style) — fixed to the right side ===== */}
+      <div className="order-2 w-[300px] min-w-[300px] bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
         {/* Panel Header with Tabs */}
         <div className="border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white">
           <div className="flex">
@@ -1095,6 +1153,12 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                     onClick={() => insertSection()}
                   />
                   <WidgetButton
+                    icon={<FormInput className="h-5 w-5" />}
+                    label="Form"
+                    color="green"
+                    onClick={insertLeadForm}
+                  />
+                  <WidgetButton
                     icon={<PanelLeftDashed className="h-5 w-5" />}
                     label="2-Col Left"
                     color="blue"
@@ -1119,10 +1183,22 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                     onClick={() => editor.chain().focus().toggleBulletList().run()}
                   />
                   <WidgetButton
+                    icon={<ListOrdered className="h-5 w-5" />}
+                    label="Numbered"
+                    color="gray"
+                    onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                  />
+                  <WidgetButton
                     icon={<Code2 className="h-5 w-5" />}
                     label="Code"
                     color="gray"
                     onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                  />
+                  <WidgetButton
+                    icon={<WrapText className="h-5 w-5" />}
+                    label="Line Break"
+                    color="gray"
+                    onClick={() => editor.chain().focus().setHardBreak().run()}
                   />
                 </div>
               </PanelSection>
@@ -1130,6 +1206,26 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
               {/* ===== TEXT FORMATTING ===== */}
               <PanelSection title="Text Formatting" icon={<Bold className="h-4 w-4" />}>
                 <div className="space-y-3">
+                  {/* Font Family */}
+                  <div>
+                    <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Font</Label>
+                    <select
+                      value={editor.getAttributes("textStyle").fontFamily || ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (!v) editor.chain().focus().unsetFontFamily().run();
+                        else editor.chain().focus().setFontFamily(v).run();
+                      }}
+                      className="w-full h-9 px-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300"
+                    >
+                      {FONT_OPTIONS.map((f) => (
+                        <option key={f.label} value={f.stack} style={{ fontFamily: f.stack || undefined }}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Inline Formatting */}
                   <div>
                     <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Inline Style</Label>
@@ -1169,6 +1265,12 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                       >
                         <Code className="h-4 w-4" />
                       </ToolbarButton>
+                      <ToolbarButton
+                        onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+                        title="Clear Formatting"
+                      >
+                        <RemoveFormatting className="h-4 w-4" />
+                      </ToolbarButton>
                     </div>
                   </div>
 
@@ -1203,6 +1305,13 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                         title="Heading 3"
                       >
                         <Heading3 className="h-4 w-4" />
+                      </ToolbarButton>
+                      <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
+                        active={editor.isActive("heading", { level: 4 })}
+                        title="Heading 4"
+                      >
+                        <Heading4 className="h-4 w-4" />
                       </ToolbarButton>
                     </div>
                   </div>
@@ -1370,29 +1479,6 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                 </div>
               </PanelSection>
 
-              {/* ===== HISTORY ===== */}
-              <PanelSection title="History" icon={<Undo className="h-4 w-4" />}>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => editor.chain().focus().undo().run()}
-                    disabled={!editor.can().undo()}
-                    className="flex-1 h-9"
-                  >
-                    <Undo className="h-3.5 w-3.5 mr-1.5" /> Undo
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => editor.chain().focus().redo().run()}
-                    disabled={!editor.can().redo()}
-                    className="flex-1 h-9"
-                  >
-                    <Redo className="h-3.5 w-3.5 mr-1.5" /> Redo
-                  </Button>
-                </div>
-              </PanelSection>
 
               {/* ===== ELEMENT-SPECIFIC PANELS ===== */}
               {hasElementPanel && <div data-element-properties />}
@@ -1643,6 +1729,58 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                 </PanelSection>
               )}
 
+              {showFormPanel && (
+                <PanelSection title="Form Properties" icon={<FormInput className="h-4 w-4" />} defaultOpen badge="Active">
+                  <div className="space-y-3">
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={deleteLeadForm}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remove Form
+                      </button>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Title</Label>
+                      <Input value={formAttrs.title} onChange={(e) => updateFormAttr("title", e.target.value)} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Description</Label>
+                      <Input value={formAttrs.description} onChange={(e) => updateFormAttr("description", e.target.value)} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Button Text</Label>
+                      <Input value={formAttrs.buttonText} onChange={(e) => updateFormAttr("buttonText", e.target.value)} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+                    </div>
+                    <ColorRow label="Button Color" value={formAttrs.buttonColor} onChange={(v) => updateFormAttr("buttonColor", v)} />
+                    <ColorRow label="Button Text" value={formAttrs.buttonTextColor} onChange={(v) => updateFormAttr("buttonTextColor", v)} />
+                    <ColorRow label="Background" value={formAttrs.backgroundColor} onChange={(v) => updateFormAttr("backgroundColor", v)} />
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Alignment</Label>
+                      <SegmentedControl
+                        options={[
+                          { label: "Left", value: "left" },
+                          { label: "Center", value: "center" },
+                          { label: "Right", value: "right" },
+                        ]}
+                        value={formAttrs.align}
+                        onChange={(v) => updateFormAttr("align", v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] text-gray-600">Ask for Location</Label>
+                      <Switch checked={formAttrs.showLocation} onCheckedChange={(v) => updateFormAttr("showLocation", v)} />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Success Message</Label>
+                      <Input value={formAttrs.successMessage} onChange={(e) => updateFormAttr("successMessage", e.target.value)} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+                    </div>
+                    <p className="text-[10px] text-gray-400">Collects Name, Email &amp; Mobile (required). Submissions appear under the page&apos;s Invitations.</p>
+                  </div>
+                </PanelSection>
+              )}
+
               {showTwoColPanel && (
                 <PanelSection title="Two-Column Layout" icon={<Columns className="h-4 w-4" />} defaultOpen badge="Active">
                   <div className="space-y-3">
@@ -1819,10 +1957,10 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         </div>
       </div>
 
-      {/* ===== MAIN CANVAS (Editor Content) ===== */}
-      <div className="flex-1 bg-gray-100 overflow-y-auto relative">
+      {/* ===== MAIN CANVAS (Editor Content) — left of the tools panel ===== */}
+      <div className="order-1 flex-1 min-w-0 bg-gray-100 overflow-y-auto relative">
         {/* Floating Action Bar */}
-        {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel) && (
+        {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel) && (
           <div className="sticky top-3 z-30 flex justify-center pointer-events-none">
             <div className="pointer-events-auto inline-flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg px-2 py-1.5">
               {selectedLabel && (

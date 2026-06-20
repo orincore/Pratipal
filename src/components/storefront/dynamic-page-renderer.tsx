@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { generateHTML } from "@tiptap/html";
 import StarterKit from "@tiptap/starter-kit";
@@ -11,6 +11,7 @@ import Underline from "@tiptap/extension-underline";
 import Color from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
+import FontFamily from "@tiptap/extension-font-family";
 import { ResizableImage } from "@/lib/tiptap/extensions/resizable-image";
 import { CustomButton } from "@/lib/tiptap/extensions/custom-button";
 import {
@@ -19,6 +20,7 @@ import {
   ColumnContent,
 } from "@/lib/tiptap/extensions/two-column";
 import { PageSection } from "@/lib/tiptap/extensions/page-section";
+import { LeadForm } from "@/lib/tiptap/extensions/lead-form";
 import {
   normalizeLandingContent,
   DEFAULT_CONTENT_SETTINGS,
@@ -34,6 +36,8 @@ interface DynamicPageRendererProps {
     background: string;
   };
   title: string;
+  pageSlug?: string;
+  landingPageId?: string;
 }
 
 const extensions = [
@@ -64,6 +68,7 @@ const extensions = [
   Underline,
   Color,
   TextStyle,
+  FontFamily,
   Highlight.configure({
     multicolor: true,
   }),
@@ -72,6 +77,7 @@ const extensions = [
   ColumnMedia,
   ColumnContent,
   PageSection,
+  LeadForm,
 ];
 
 const FALLBACK_DOC: JSONContent = {
@@ -113,8 +119,11 @@ export function DynamicPageRenderer({
   content,
   theme,
   title,
+  pageSlug,
+  landingPageId,
 }: DynamicPageRendererProps) {
   const [isClient, setIsClient] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -154,6 +163,76 @@ export function DynamicPageRenderer({
   }, [sanitizedDoc, content, isClient]);
 
   const safeHtml = html || "<p>Failed to load page content.</p>";
+
+  // Hydrate any lead-capture forms rendered from the static HTML so they
+  // actually submit to /api/invitations (the HTML itself is non-interactive).
+  useEffect(() => {
+    if (!isClient) return;
+    const root = articleRef.current;
+    if (!root) return;
+    const forms = Array.from(
+      root.querySelectorAll<HTMLFormElement>("[data-lead-form] form")
+    );
+    const cleanups: Array<() => void> = [];
+
+    forms.forEach((form) => {
+      const wrapper = form.closest("[data-lead-form]") as HTMLElement | null;
+      const msg = form.querySelector("[data-lead-form-message]") as HTMLElement | null;
+      const btn = form.querySelector("[data-lead-form-submit]") as HTMLButtonElement | null;
+      const originalBtnText = btn?.textContent || "Sign Up";
+
+      const showError = (text: string) => {
+        if (!msg) return;
+        msg.style.display = "block";
+        msg.style.background = "#fef2f2";
+        msg.style.color = "#b91c1c";
+        msg.textContent = text;
+      };
+
+      const handler = async (e: Event) => {
+        e.preventDefault();
+        const data: Record<string, string> = {};
+        form.querySelectorAll<HTMLInputElement>("[data-field]").forEach((input) => {
+          data[input.getAttribute("data-field")!] = input.value.trim();
+        });
+
+        if (!data.firstName || !data.email || !data.whatsapp) {
+          showError("Please fill in your name, email and mobile number.");
+          return;
+        }
+
+        if (btn) { btn.disabled = true; btn.textContent = "Submitting..."; }
+        if (msg) msg.style.display = "none";
+
+        try {
+          const res = await fetch("/api/invitations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              firstName: data.firstName,
+              email: data.email,
+              whatsappNumber: data.whatsapp,
+              location: data.location || "",
+              landingPageSlug: pageSlug || "",
+              landingPageId: landingPageId || "",
+            }),
+          });
+          if (!res.ok) throw new Error("request failed");
+          const success = wrapper?.getAttribute("data-success") || "Thank you! Your details have been received.";
+          form.innerHTML =
+            `<div style="text-align:center;padding:20px;color:#047857;font-weight:600;font-size:1rem">${success}</div>`;
+        } catch {
+          showError("Something went wrong. Please try again.");
+          if (btn) { btn.disabled = false; btn.textContent = originalBtnText; }
+        }
+      };
+
+      form.addEventListener("submit", handler);
+      cleanups.push(() => form.removeEventListener("submit", handler));
+    });
+
+    return () => cleanups.forEach((fn) => fn());
+  }, [isClient, safeHtml, pageSlug, landingPageId]);
 
   // Use settings background if set, otherwise fall back to theme background
   const pageBg = settings.backgroundColor !== "#FFFFFF"
@@ -282,6 +361,7 @@ export function DynamicPageRenderer({
         }}
       />
       <article
+        ref={articleRef}
         className="dynamic-page mx-auto"
         style={{
           maxWidth: `${settings.maxWidth}px`,

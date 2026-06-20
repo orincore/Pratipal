@@ -249,9 +249,13 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
           <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-teal-400/15 rounded-full blur-xl" />
         </div>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <Button variant="ghost" onClick={() => router.push("/courses")} className="text-white hover:text-emerald-100 mb-6">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Courses
-          </Button>
+          <button
+            type="button"
+            onClick={() => router.push("/courses")}
+            className="inline-flex items-center gap-2 mb-6 rounded-full bg-white/15 hover:bg-white/25 border border-white/30 text-white text-sm font-medium px-4 py-2 backdrop-blur-sm transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Courses
+          </button>
           <div className="grid lg:grid-cols-2 gap-8 items-center">
             <div>
               {course.category && <Badge className="mb-4 bg-white/20 text-white border-white/30">{course.category}</Badge>}

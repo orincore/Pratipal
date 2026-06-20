@@ -69,6 +69,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { DEFAULT_MEDIA_SETTINGS, type LandingTemplateData, type MediaFieldOptions } from "@/lib/template-types";
+import { FONT_OPTIONS } from "@/lib/fonts";
 
 const mediaKey = (...parts: (string | number)[]) => parts.join(".");
 
@@ -596,7 +597,7 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
 
   const update = useCallback(
     <K extends keyof LandingTemplateData>(section: K, value: Partial<LandingTemplateData[K]>) => {
-      onChange({ ...data, [section]: { ...data[section], ...value } });
+      onChange({ ...data, [section]: { ...(data[section] as object), ...value } });
     },
     [data, onChange]
   );
@@ -681,6 +682,21 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
         <ColorField label="Hero BG" value={data.colors.heroBg} onChange={(v) => updateColors("heroBg", v)} />
         <ColorField label="Dark BG" value={data.colors.darkBg} onChange={(v) => updateColors("darkBg", v)} />
         <ColorField label="Body BG" value={data.colors.bodyBg} onChange={(v) => updateColors("bodyBg", v)} />
+        <div className="pt-1">
+          <Label className="text-xs text-gray-600">Font</Label>
+          <select
+            value={data.fontFamily || ""}
+            onChange={(e) => onChange({ ...data, fontFamily: e.target.value })}
+            className="w-full h-9 mt-1 px-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300"
+          >
+            {FONT_OPTIONS.map((f) => (
+              <option key={f.label} value={f.stack} style={{ fontFamily: f.stack || undefined }}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-gray-400 mt-1">Applies to the whole landing page.</p>
+        </div>
       </Section>
     ),
     floatingButton: (

@@ -25,7 +25,7 @@ async function getPublishedPage(slug: string) {
 
   const { LandingPage } = await getDB();
   const page = await LandingPage.findOne({ slug, status: "published" })
-    .select("title slug seo_title seo_description content theme")
+    .select("title slug seo_title seo_description schema_type custom_schema content theme")
     .lean();
 
   if (!page) {
@@ -53,6 +53,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// Build JSON-LD structured data: prefer the admin-provided custom JSON-LD,
+// otherwise generate a minimal object from the chosen schema type.
+function buildSchema(page: any): object | null {
+  const custom = (page.custom_schema || "").trim();
+  if (custom) {
+    try {
+      return JSON.parse(custom);
+    } catch {
+      // Invalid JSON — skip rather than emit broken structured data.
+      return null;
+    }
+  }
+  const type = (page.schema_type || "").trim();
+  if (!type || type.toLowerCase() === "none") return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": type,
+    name: page.seo_title || page.title,
+    description: page.seo_description || undefined,
+  };
+}
+
 export default async function DynamicLandingPage({ params }: Props) {
   const { slug } = await params;
   const page = await getPublishedPage(slug);
@@ -61,25 +83,41 @@ export default async function DynamicLandingPage({ params }: Props) {
     notFound();
   }
 
+  const schema = buildSchema(page!);
+  const schemaScript = schema ? (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  ) : null;
+
   // Check if this page uses the fixed template (has templateData in content)
   const content = page!.content as any;
   const hasTemplate = content?.templateData != null;
 
   if (hasTemplate) {
     return (
-      <LandingTemplate
-        data={content.templateData}
-        landingPageId={page!.id}
-        pageSlug={page!.slug || slug}
-      />
+      <>
+        {schemaScript}
+        <LandingTemplate
+          data={content.templateData}
+          landingPageId={page!.id}
+          pageSlug={page!.slug || slug}
+        />
+      </>
     );
   }
 
   return (
-    <DynamicPageRenderer
-      content={page!.content}
-      theme={page!.theme}
-      title={page!.title}
-    />
+    <>
+      {schemaScript}
+      <DynamicPageRenderer
+        content={page!.content}
+        theme={page!.theme}
+        title={page!.title}
+        pageSlug={page!.slug || slug}
+        landingPageId={page!.id}
+      />
+    </>
   );
 }

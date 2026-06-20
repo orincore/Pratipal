@@ -13,18 +13,22 @@ export const metadata: Metadata = {
   alternates: { canonical: "/blogs" },
 };
 
-async function getBlogs() {
+async function getBlogs(category?: string) {
   await connectDB();
-  const blogs = await Blog.find({ status: "published" })
+  const query: Record<string, any> = { status: "published" };
+  if (category) query.category = category;
+  const blogs = await Blog.find(query)
     .select("title slug excerpt featured_image category tags author read_time featured created_at")
     .sort({ created_at: -1 })
     .lean() as any[];
   return blogs.map((b) => ({ ...b, id: b._id.toString() }));
 }
 
-export default async function BlogsPage() {
-  const blogs = await getBlogs();
-  const featured = blogs.find((b) => b.featured);
+export default async function BlogsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+  const { category } = await searchParams;
+  const blogs = await getBlogs(category);
+  // Don't pin a "featured" hero when filtering by category — show a clean grid.
+  const featured = category ? undefined : blogs.find((b) => b.featured);
   const rest = blogs.filter((b) => !b.featured || b.id !== featured?.id);
 
   return (
@@ -65,8 +69,21 @@ export default async function BlogsPage() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
+        {category && (
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <p className="text-sm text-stone-600">
+              Showing posts in <span className="font-semibold text-emerald-700">{category}</span>
+            </p>
+            <Link href="/blogs" className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+              Clear filter
+            </Link>
+          </div>
+        )}
+
         {blogs.length === 0 && (
-          <div className="text-center py-24 text-stone-400">No posts yet. Check back soon.</div>
+          <div className="text-center py-24 text-stone-400">
+            {category ? "No posts in this category yet." : "No posts yet. Check back soon."}
+          </div>
         )}
 
         {/* Featured post */}

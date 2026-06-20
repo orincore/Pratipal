@@ -245,6 +245,7 @@ export interface LandingTemplateData {
   sectionOrder?: string[];
   mediaSettings?: Record<string, MediaFieldOptions>;
   sectionBg?: Record<string, string>; // per-section background color overrides
+  fontFamily?: string; // global font-family stack for the whole template
 }
 
 // ---------------------------------------------------------------------------
@@ -502,5 +503,6 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     sectionOrder: data.sectionOrder || DEFAULT_TEMPLATE_DATA.sectionOrder,
     mediaSettings: data.mediaSettings || DEFAULT_TEMPLATE_DATA.mediaSettings,
     sectionBg: data.sectionBg || {},
+    fontFamily: data.fontFamily || "",
   };
 }

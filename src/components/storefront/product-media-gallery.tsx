@@ -18,9 +18,11 @@ export function ProductMediaGallery({ images, name, className }: ProductMediaGal
 
   return (
     <div className={cn("w-full space-y-3", className)}>
-      {/* Main image: full width on mobile, 480px on desktop */}
+      {/* Main image: full width on mobile, 480px on desktop.
+          Fixed 1:1 (square) ratio so it never dominates the page —
+          recommended source image size: 1200×1200px. */}
       <div className="w-full sm:w-[480px] sm:mx-auto overflow-hidden rounded-2xl sm:rounded-[28px] bg-white shadow-sm border border-gray-100">
-        <div className="relative w-full" style={{ aspectRatio: "2/3", maxHeight: "80vh" }}>
+        <div className="relative w-full mx-auto" style={{ aspectRatio: "1/1", maxHeight: "70vh" }}>
           <Image
             key={safeImages[activeIndex]}
             src={safeImages[activeIndex]}

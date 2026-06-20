@@ -245,6 +245,9 @@ export default function EcommerceOrdersPage() {
                     <td className="py-3 hidden md:table-cell">
                       <div className="font-medium">{order.customer_name}</div>
                       <div className="text-xs text-muted-foreground">{order.customer_email}</div>
+                      {((order as any).customer_phone || order.shipping_address?.phone) && (
+                        <div className="text-xs text-muted-foreground">📞 {(order as any).customer_phone || order.shipping_address?.phone}</div>
+                      )}
                     </td>
                     <td className="py-3 font-semibold">₹{order.total.toFixed(2)}</td>
                     <td className="py-3 hidden sm:table-cell">
@@ -300,6 +303,15 @@ export default function EcommerceOrdersPage() {
                     {selectedOrder.customer_email}
                     <CopyBtn text={selectedOrder.customer_email} id="cust_email" copied={copied} copy={copy} />
                   </div>
+                  {(() => {
+                    const phone = (selectedOrder as any).customer_phone || selectedOrder.shipping_address?.phone;
+                    return phone ? (
+                      <div className="text-sm text-muted-foreground flex items-center">
+                        📞 {phone}
+                        <CopyBtn text={phone} id="cust_phone" copied={copied} copy={copy} />
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Status</div>

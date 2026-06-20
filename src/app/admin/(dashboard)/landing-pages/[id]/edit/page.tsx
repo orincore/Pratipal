@@ -59,6 +59,8 @@ interface PageData {
   };
   seo_title: string;
   seo_description: string;
+  schema_type: string;
+  custom_schema: string;
   status: string;
   created_at: string;
   updated_at: string;
@@ -159,6 +161,8 @@ export default function LandingPageEditorPage() {
         }
         setPage({
           ...data.page,
+          schema_type: data.page.schema_type || "",
+          custom_schema: data.page.custom_schema || "",
           content: normalized,
         });
         setLoading(false);
@@ -196,6 +200,8 @@ export default function LandingPageEditorPage() {
       theme: page.theme,
       seo_title: page.seo_title,
       seo_description: page.seo_description,
+      schema_type: page.schema_type,
+      custom_schema: page.custom_schema,
       status: page.status,
     };
 
@@ -608,6 +614,48 @@ export default function LandingPageEditorPage() {
                       className="text-xs mt-1 bg-gray-50 border-gray-200"
                       placeholder="Brief description for search results"
                     />
+                  </div>
+                </div>
+
+                {/* Structured Data (JSON-LD) */}
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                    <Code2 className="h-3.5 w-3.5" /> Structured Data (Schema)
+                  </h4>
+                  <div>
+                    <Label className="text-[11px] text-gray-500">Schema Type</Label>
+                    <select
+                      value={page.schema_type}
+                      onChange={(e) => setPage({ ...page, schema_type: e.target.value })}
+                      className="w-full h-8 text-xs mt-1 bg-gray-50 border border-gray-200 rounded-md px-2 focus:outline-none focus:ring-1 focus:ring-violet-300"
+                    >
+                      <option value="">None</option>
+                      <option value="WebPage">WebPage</option>
+                      <option value="Article">Article</option>
+                      <option value="BlogPosting">BlogPosting</option>
+                      <option value="Product">Product</option>
+                      <option value="Service">Service</option>
+                      <option value="Course">Course</option>
+                      <option value="Event">Event</option>
+                      <option value="Organization">Organization</option>
+                      <option value="FAQPage">FAQPage</option>
+                    </select>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Generates basic JSON-LD from the page title &amp; description.
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-[11px] text-gray-500">Custom JSON-LD <span className="text-gray-400">(overrides type)</span></Label>
+                    <Textarea
+                      value={page.custom_schema}
+                      onChange={(e) => setPage({ ...page, custom_schema: e.target.value })}
+                      rows={6}
+                      className="text-[11px] font-mono mt-1 bg-gray-50 border-gray-200"
+                      placeholder={'{\n  "@context": "https://schema.org",\n  "@type": "FAQPage",\n  "mainEntity": []\n}'}
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Paste full JSON-LD. Must be valid JSON or it will be ignored on the live page.
+                    </p>
                   </div>
                 </div>
               </div>

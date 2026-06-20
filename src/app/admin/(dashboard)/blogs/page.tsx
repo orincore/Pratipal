@@ -36,6 +36,9 @@ interface Blog {
   read_time?: number;
   seo_title?: string;
   seo_description?: string;
+  seo_keyword?: string;
+  schema_type?: string;
+  custom_schema?: string;
   created_at: string;
 }
 
@@ -51,6 +54,9 @@ const emptyForm = () => ({
   featured: false,
   seo_title: "",
   seo_description: "",
+  seo_keyword: "",
+  schema_type: "Article",
+  custom_schema: "",
 });
 
 export default function AdminBlogsPage() {
@@ -98,6 +104,9 @@ export default function AdminBlogsPage() {
       featured: blog.featured,
       seo_title: blog.seo_title || "",
       seo_description: blog.seo_description || "",
+      seo_keyword: blog.seo_keyword || "",
+      schema_type: blog.schema_type || "Article",
+      custom_schema: blog.custom_schema || "",
     });
     setTagInput("");
     setFormOpen(true);
@@ -180,7 +189,7 @@ export default function AdminBlogsPage() {
   // ── FORM VIEW ──
   if (formOpen) {
     return (
-      <div className="space-y-6 max-w-4xl">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Blog Editor</p>
@@ -199,6 +208,8 @@ export default function AdminBlogsPage() {
         </div>
 
         <form id="blog-form" onSubmit={handleSubmit} className="space-y-5">
+          {/* Narrow fields kept readable */}
+          <div className="max-w-4xl space-y-5">
           {/* Title */}
           <div>
             <Label>Title *</Label>
@@ -254,7 +265,9 @@ export default function AdminBlogsPage() {
             </div>
           </div>
 
-          {/* Content editor */}
+          </div>
+
+          {/* Content editor — full width so the tools dock at the page's right edge */}
           <div>
             <Label>Content *</Label>
             <div className="mt-1">
@@ -265,6 +278,8 @@ export default function AdminBlogsPage() {
             </div>
           </div>
 
+          {/* Narrow fields kept readable */}
+          <div className="max-w-4xl space-y-5">
           {/* Meta row */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -339,19 +354,55 @@ export default function AdminBlogsPage() {
           </div>
 
           {/* SEO */}
-          <details className="border rounded-xl p-4">
-            <summary className="cursor-pointer text-sm font-medium text-gray-600">SEO Settings (optional)</summary>
+          <details className="border rounded-xl p-4" open>
+            <summary className="cursor-pointer text-sm font-medium text-gray-600">SEO Settings</summary>
             <div className="mt-3 space-y-3">
               <div>
                 <Label>SEO Title</Label>
-                <Input value={formData.seo_title} onChange={(e) => setFormData((p) => ({ ...p, seo_title: e.target.value }))} className="mt-1" />
+                <Input value={formData.seo_title} onChange={(e) => setFormData((p) => ({ ...p, seo_title: e.target.value }))} className="mt-1" placeholder="Defaults to the post title" />
               </div>
               <div>
                 <Label>SEO Description</Label>
-                <Textarea value={formData.seo_description} onChange={(e) => setFormData((p) => ({ ...p, seo_description: e.target.value }))} rows={2} className="mt-1" />
+                <Textarea value={formData.seo_description} onChange={(e) => setFormData((p) => ({ ...p, seo_description: e.target.value }))} rows={2} className="mt-1" placeholder="Defaults to the excerpt" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Target Keyword <span className="text-gray-400 font-normal">(focus keyword)</span></Label>
+                  <Input
+                    value={formData.seo_keyword}
+                    onChange={(e) => setFormData((p) => ({ ...p, seo_keyword: e.target.value }))}
+                    className="mt-1"
+                    placeholder="e.g. essential oils for sleep"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">Used as page keywords &amp; in structured data.</p>
+                </div>
+                <div>
+                  <Label>Schema Type <span className="text-gray-400 font-normal">(structured data)</span></Label>
+                  <Select value={formData.schema_type} onValueChange={(v) => setFormData((p) => ({ ...p, schema_type: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Article">Article</SelectItem>
+                      <SelectItem value="BlogPosting">Blog Posting</SelectItem>
+                      <SelectItem value="NewsArticle">News Article</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-gray-400 mt-1">Emitted as JSON-LD for rich results.</p>
+                </div>
+              </div>
+              <div>
+                <Label>Custom JSON-LD Schema <span className="text-gray-400 font-normal">(overrides schema type)</span></Label>
+                <Textarea
+                  value={formData.custom_schema}
+                  onChange={(e) => setFormData((p) => ({ ...p, custom_schema: e.target.value }))}
+                  rows={6}
+                  className="mt-1 font-mono text-xs"
+                  placeholder={'{\n  "@context": "https://schema.org",\n  "@type": "FAQPage",\n  "mainEntity": []\n}'}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Paste full JSON-LD. Must be valid JSON or it will be ignored on the live page.</p>
               </div>
             </div>
           </details>
+          </div>
         </form>
       </div>
     );

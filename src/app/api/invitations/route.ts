@@ -24,8 +24,11 @@ export async function POST(req: NextRequest) {
 
     const { InvitationRequest } = await getDB();
 
+    const rawLandingPageId = sanitizeText(body.landingPageId);
     const invitationData = {
-      landing_page_id: sanitizeText(body.landingPageId) || undefined,
+      // landing_page_id is an ObjectId in the schema — only set it when it's a
+      // valid id, otherwise Mongoose throws a CastError and the whole sign-up fails.
+      landing_page_id: /^[a-f\d]{24}$/i.test(rawLandingPageId) ? rawLandingPageId : undefined,
       landing_page_slug: sanitizeText(body.landingPageSlug) || undefined,
       first_name: firstName,
       email,
@@ -34,6 +37,10 @@ export async function POST(req: NextRequest) {
     };
 
     await InvitationRequest.create(invitationData);
+
+    // Emails are best-effort: a mail/SMTP failure must NOT make the sign-up
+    // appear to fail, since the request has already been saved successfully.
+    try {
     // Send confirmation email to user
     await sendMail({
       to: email,
@@ -91,6 +98,10 @@ export async function POST(req: NextRequest) {
           </div>
         `,
       });
+    }
+    } catch (mailErr) {
+      // Log but don't fail the request — the sign-up was already saved.
+      console.error("Invitation email send failed (sign-up still saved)", mailErr);
     }
 
     return NextResponse.json({ success: true });

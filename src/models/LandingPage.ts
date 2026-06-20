@@ -7,6 +7,8 @@ export interface ILandingPage extends Document {
   theme: Record<string, any>;
   seo_title: string;
   seo_description: string;
+  schema_type?: string;     // JSON-LD @type (e.g. WebPage, Article, FAQPage, Custom)
+  custom_schema?: string;   // raw custom JSON-LD structured data
   status: "draft" | "published";
   created_at: Date;
   updated_at: Date;
@@ -28,6 +30,8 @@ const LandingPageSchema = new Schema<ILandingPage>(
     },
     seo_title: { type: String, default: "" },
     seo_description: { type: String, default: "" },
+    schema_type: { type: String, default: "" },
+    custom_schema: { type: String, default: "" },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
   },
   {

@@ -399,103 +399,359 @@ interface LandingTemplateProps {
   pageSlug?: string;
 }
 
-export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTemplateProps) {
-  const t = normalizeTemplateData(data);
-  const c = t.colors;
-  // Returns override bg color for a section, or falls back to the provided default
-  const sbg = (key: string, fallback: string) => (t.sectionBg?.[key]) || fallback;
-  const router = useRouter();
-  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'];
-  const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
-  const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
-  const mediaSettings = t.mediaSettings || {};
-  const createEmptyInvitationForm = () => ({
-    firstName: "",
-    email: "",
-    whatsapp: "",
-    countryCode: "+91",
-    location: "",
-  });
-  const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
-  const [invitationLoading, setInvitationLoading] = useState(false);
-  const [invitationSuccess, setInvitationSuccess] = useState(false);
-  const [invitationError, setInvitationError] = useState<string | null>(null);
-  const [invitationForm, setInvitationForm] = useState(createEmptyInvitationForm);
-  const isPreviewMode = !landingPageId;
+// Native <video> with a custom play/pause overlay. Defined at module level so
+// it keeps a stable identity across parent re-renders (otherwise the <video>
+// remounts and reloads on every keystroke/render — the "page keeps refreshing"
+// bug while filling the form).
+function VideoWithControls({
+  src,
+  className,
+  autoplay,
+  mute,
+}: {
+  src?: string;
+  className?: string;
+  autoplay?: boolean;
+  mute?: boolean;
+}) {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = React.useState(false);
 
-  const resetInvitationForm = () => setInvitationForm(createEmptyInvitationForm());
-
-  const handleInvitationDialogChange = (open: boolean) => {
-    setInvitationDialogOpen(open);
-    if (!open) {
-      setInvitationSuccess(false);
-      setInvitationError(null);
-      setInvitationLoading(false);
-      resetInvitationForm();
+  const togglePlayPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
     }
   };
 
-  const handleInvitationSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => setIsPlaying(false);
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
+    video.addEventListener("ended", handleEnded);
+    return () => {
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
+      video.removeEventListener("ended", handleEnded);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    // If settings say unmuted but the browser forced mute, unmute after play.
+    const handlePlay = () => {
+      if (!mute && video.muted) video.muted = false;
+    };
+    video.addEventListener("play", handlePlay);
+    return () => video.removeEventListener("play", handlePlay);
+  }, [mute]);
+
+  return (
+    <div className="relative w-full h-full">
+      <video
+        ref={videoRef}
+        src={src}
+        className={className}
+        style={{ objectFit: "cover" }}
+        autoPlay={autoplay}
+        muted={mute}
+        loop={autoplay}
+        controls={true}
+        controlsList="nodownload"
+        playsInline
+      />
+      <button
+        type="button"
+        onClick={togglePlayPause}
+        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/50 hover:bg-white/80 text-gray-900 shadow-md transition-all hover:scale-110"
+        aria-label={isPlaying ? "Pause" : "Play"}
+      >
+        {isPlaying ? (
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+          </svg>
+        ) : (
+          <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// Invitation / sign-up form in its own component so that typing only re-renders
+// THIS component — not the whole landing page (hero, carousels, 16 iframes…).
+// That whole-page re-render-per-keystroke was the "page keeps refreshing /
+// can't submit" production bug.
+function InvitationDialog({
+  open,
+  onOpenChange,
+  invitation,
+  primaryColor,
+  landingPageId,
+  pageSlug,
+  isPreviewMode,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  invitation: LandingTemplateData["invitation"];
+  primaryColor: string;
+  landingPageId?: string;
+  pageSlug?: string;
+  isPreviewMode: boolean;
+}) {
+  const router = useRouter();
+  const createEmpty = () => ({ firstName: "", email: "", whatsapp: "", countryCode: "+91", location: "" });
+  const [form, setForm] = useState(createEmpty);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const update = (field: keyof ReturnType<typeof createEmpty>, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleOpenChange = (o: boolean) => {
+    onOpenChange(o);
+    if (!o) {
+      setSuccess(false);
+      setError(null);
+      setLoading(false);
+      setForm(createEmpty());
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!invitationForm.firstName.trim() || !invitationForm.email.trim() || !invitationForm.whatsapp.trim()) {
-      setInvitationError("Please provide your name, email, and WhatsApp number.");
+    if (!form.firstName.trim() || !form.email.trim() || !form.whatsapp.trim()) {
+      setError("Please provide your name, email, and WhatsApp number.");
       return;
     }
-
-    setInvitationLoading(true);
-    setInvitationError(null);
+    setLoading(true);
+    setError(null);
 
     const payload = {
       landingPageId,
       landingPageSlug: pageSlug,
-      firstName: invitationForm.firstName.trim(),
-      email: invitationForm.email.trim(),
-      whatsappNumber: invitationForm.whatsapp.trim()
-        ? `${invitationForm.countryCode}${invitationForm.whatsapp.trim().replace(/^0+/, "")}`
+      firstName: form.firstName.trim(),
+      email: form.email.trim(),
+      whatsappNumber: form.whatsapp.trim()
+        ? `${form.countryCode}${form.whatsapp.trim().replace(/^0+/, "")}`
         : "",
-      location: invitationForm.location.trim(),
+      location: form.location.trim(),
     };
 
     try {
       if (isPreviewMode) {
         await new Promise((resolve) => setTimeout(resolve, 600));
-        // In preview mode, just show a brief success indicator then close
-        setInvitationSuccess(true);
-        resetInvitationForm();
+        setSuccess(true);
+        setForm(createEmpty());
         return;
       }
-
       const res = await fetch("/api/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
-
-      // Redirect to thank-you page
       const thankYouData = {
-        title: t.invitation.successTitle,
-        description: t.invitation.successDescription,
-        buttons: t.invitation.thankYouButtons || [],
+        title: invitation.successTitle,
+        description: invitation.successDescription,
+        buttons: invitation.thankYouButtons || [],
         from: pageSlug || "",
       };
       sessionStorage.setItem("thankYouData", JSON.stringify(thankYouData));
       router.push(`/${pageSlug}/thank-you`);
-      resetInvitationForm();
+      setForm(createEmpty());
     } catch (err: any) {
-      setInvitationError(err.message || "Unable to submit right now. Please try again later.");
+      setError(err.message || "Unable to submit right now. Please try again later.");
     } finally {
-      setInvitationLoading(false);
+      setLoading(false);
     }
   };
 
-  const updateInvitationForm = (field: keyof typeof invitationForm, value: string) => {
-    setInvitationForm((prev) => ({ ...prev, [field]: value }));
-  };
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] rounded-3xl border-0 p-0 overflow-hidden">
+        <div className="flex flex-col md:flex-row max-h-[90vh]">
+          <div className="flex-1 p-6 sm:p-8 overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-display text-xl sm:text-2xl text-violet-900">{invitation.formTitle}</DialogTitle>
+              <DialogDescription className="text-gray-500 text-xs sm:text-sm">
+                {invitation.subtitle}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-wrap gap-2 mt-4">
+              {invitation.formHighlights.map((item, i) => (
+                <span key={i} className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide bg-purple-100 text-purple-600 px-2.5 sm:px-3 py-1 rounded-full">
+                  ✓ {item}
+                </span>
+              ))}
+            </div>
+
+            <form className="mt-6 space-y-3.5 sm:space-y-4" onSubmit={handleSubmit}>
+              <div>
+                <Label className="text-xs text-gray-500">Your First Name</Label>
+                <Input
+                  value={form.firstName}
+                  onChange={(e) => update("firstName", e.target.value)}
+                  placeholder="Enter your name"
+                  className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">Your Best Email</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => update("email", e.target.value)}
+                  placeholder="you@example.com"
+                  className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">WhatsApp Number</Label>
+                <div className="flex gap-2 mt-1">
+                  <select
+                    value={form.countryCode}
+                    onChange={(e) => update("countryCode", e.target.value)}
+                    className="h-10 sm:h-11 rounded-xl border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring w-[80px] sm:w-[90px] flex-shrink-0"
+                  >
+                    <option value="+91">🇮🇳 +91</option>
+                    <option value="+1">🇺🇸 +1</option>
+                    <option value="+44">🇬🇧 +44</option>
+                    <option value="+61">🇦🇺 +61</option>
+                    <option value="+971">🇦🇪 +971</option>
+                    <option value="+65">🇸🇬 +65</option>
+                    <option value="+60">🇲🇾 +60</option>
+                    <option value="+64">🇳🇿 +64</option>
+                    <option value="+27">🇿🇦 +27</option>
+                    <option value="+49">🇩🇪 +49</option>
+                    <option value="+33">🇫🇷 +33</option>
+                    <option value="+81">🇯🇵 +81</option>
+                    <option value="+86">🇨🇳 +86</option>
+                    <option value="+55">🇧🇷 +55</option>
+                    <option value="+52">🇲🇽 +52</option>
+                    <option value="+92">🇵🇰 +92</option>
+                    <option value="+880">🇧🇩 +880</option>
+                    <option value="+94">🇱🇰 +94</option>
+                    <option value="+977">🇳🇵 +977</option>
+                  </select>
+                  <Input
+                    value={form.whatsapp}
+                    onChange={(e) => update("whatsapp", e.target.value)}
+                    placeholder="98765 43210"
+                    className="h-10 sm:h-11 rounded-xl flex-1 text-sm"
+                    type="tel"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">Location (City, Country)</Label>
+                <Input
+                  value={form.location}
+                  onChange={(e) => update("location", e.target.value)}
+                  placeholder="e.g. Mumbai, India"
+                  className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
+                />
+              </div>
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                  {error}
+                </div>
+              )}
+
+              {success ? (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-center">
+                  <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
+                  <p className="font-semibold text-emerald-700 mt-3">{invitation.successTitle}</p>
+                  <p className="text-sm text-emerald-600 mt-1">{invitation.successDescription}</p>
+                </div>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 sm:h-12 rounded-2xl text-sm sm:text-base font-semibold"
+                  style={{ backgroundColor: primaryColor, color: invitation.buttonTextColor || "#1B1F3A" }}
+                >
+                  {loading ? "Submitting..." : invitation.formButtonText}
+                </Button>
+              )}
+            </form>
+          </div>
+          <div className="hidden md:flex md:w-64 bg-gradient-to-br from-[#1B1F3A] via-[#2C1F55] to-[#44106E] text-white p-8 flex-col justify-between overflow-y-auto">
+            <div>
+              <h3 className="text-xl font-display font-semibold">Live Masterclass</h3>
+              <p className="text-sm text-white/80 mt-2">Experience a powerful energetic breakthrough session.</p>
+            </div>
+            <div className="mt-10 space-y-4 text-sm">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                  <Users className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Community</p>
+                  <p className="text-white/70 text-xs mt-0.5">Join {invitation.supportText}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                  <MessageSquare className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Live Q&A</p>
+                  <p className="text-white/70 text-xs mt-0.5">Ask your biggest transformation questions.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                  <Lock className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Private Access</p>
+                  <p className="text-white/70 text-xs mt-0.5">Receive a Zoom link after approval.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTemplateProps) {
+  const t = normalizeTemplateData(data);
+  const c = t.colors;
+  // Returns override bg color for a section, or falls back to the provided default
+  const sbg = (key: string, fallback: string) => (t.sectionBg?.[key]) || fallback;
+  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'];
+  const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
+  const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
+  const mediaSettings = t.mediaSettings || {};
+  // The invitation form lives in its own component (InvitationDialog) below so
+  // that typing in it does NOT re-render the whole landing page (which caused
+  // the "page keeps refreshing" / unsubmittable-form bug). Parent only owns the
+  // open state so any CTA can trigger it.
+  const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
+  const isPreviewMode = !landingPageId;
 
   const floatingButtonProps: FloatingButtonRenderProps | null = (() => {
     if (!t.floatingButton?.enabled) return null;
@@ -699,92 +955,17 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
       
       const videoId = `video-${key || Date.now()}`;
       
-      // Use a controlled video component with custom play/pause overlay
-      const VideoWithControls = () => {
-        const videoRef = React.useRef<HTMLVideoElement>(null);
-        const [isPlaying, setIsPlaying] = React.useState(false);
-        
-        const togglePlayPause = () => {
-          const video = videoRef.current;
-          if (!video) return;
-          if (video.paused) {
-            video.play();
-            setIsPlaying(true);
-          } else {
-            video.pause();
-            setIsPlaying(false);
-          }
-        };
-        
-        React.useEffect(() => {
-          const video = videoRef.current;
-          if (!video) return;
-          
-          const handlePlay = () => setIsPlaying(true);
-          const handlePause = () => setIsPlaying(false);
-          const handleEnded = () => setIsPlaying(false);
-          
-          video.addEventListener('play', handlePlay);
-          video.addEventListener('pause', handlePause);
-          video.addEventListener('ended', handleEnded);
-          
-          return () => {
-            video.removeEventListener('play', handlePlay);
-            video.removeEventListener('pause', handlePause);
-            video.removeEventListener('ended', handleEnded);
-          };
-        }, []);
-        
-        React.useEffect(() => {
-          const video = videoRef.current;
-          if (!video) return;
-          
-          // If settings say unmuted but browser forced mute, try to unmute after play starts
-          const handlePlay = () => {
-            if (!settings.mute && video.muted) {
-              video.muted = false;
-            }
-          };
-          
-          video.addEventListener('play', handlePlay);
-          return () => video.removeEventListener('play', handlePlay);
-        }, [settings.mute]);
-        
-        return (
-          <div className="relative w-full h-full">
-            <video
-              ref={videoRef}
-              src={url}
-              className={`${options.className}`}
-              style={{ objectFit: 'cover' }}
-              autoPlay={settings.autoplay}
-              muted={settings.mute}
-              loop={settings.autoplay}
-              controls={true}
-              controlsList="nodownload"
-              playsInline
-            />
-            <button
-              type="button"
-              onClick={togglePlayPause}
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-8 rounded-full bg-white/50 hover:bg-white/80 text-gray-900 shadow-md transition-all hover:scale-110"
-              aria-label={isPlaying ? 'Pause' : 'Play'}
-            >
-              {isPlaying ? (
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                </svg>
-              ) : (
-                <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
-              )}
-            </button>
-          </div>
-        );
-      };
-      
-      return withWrapper(<VideoWithControls />, options.wrapperClassName);
+      // Module-level component (see VideoWithControls) — must NOT be defined
+      // inline here, or it remounts (and the video reloads) on every render.
+      return withWrapper(
+        <VideoWithControls
+          src={url}
+          className={options.className}
+          autoplay={settings.autoplay}
+          mute={settings.mute}
+        />,
+        options.wrapperClassName
+      );
     }
 
     return withWrapper(
@@ -1326,156 +1507,15 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
             </div>
           </div>
 
-          <Dialog open={invitationDialogOpen} onOpenChange={handleInvitationDialogChange}>
-            <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] rounded-3xl border-0 p-0 overflow-hidden">
-              <div className="flex flex-col md:flex-row max-h-[90vh]">
-                <div className="flex-1 p-6 sm:p-8 overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="font-display text-xl sm:text-2xl text-violet-900">{t.invitation.formTitle}</DialogTitle>
-                    <DialogDescription className="text-gray-500 text-xs sm:text-sm">
-                      {t.invitation.subtitle}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {t.invitation.formHighlights.map((item, i) => (
-                      <span key={i} className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide bg-purple-100 text-purple-600 px-2.5 sm:px-3 py-1 rounded-full">
-                        ✓ {item}
-                      </span>
-                    ))}
-                  </div>
-
-                  <form className="mt-6 space-y-3.5 sm:space-y-4" onSubmit={handleInvitationSubmit}>
-                    <div>
-                      <Label className="text-xs text-gray-500">Your First Name</Label>
-                      <Input
-                        value={invitationForm.firstName}
-                        onChange={(e) => updateInvitationForm("firstName", e.target.value)}
-                        placeholder="Enter your name"
-                        className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">Your Best Email</Label>
-                      <Input
-                        type="email"
-                        value={invitationForm.email}
-                        onChange={(e) => updateInvitationForm("email", e.target.value)}
-                        placeholder="you@example.com"
-                        className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">WhatsApp Number</Label>
-                      <div className="flex gap-2 mt-1">
-                        <select
-                          value={invitationForm.countryCode}
-                          onChange={(e) => updateInvitationForm("countryCode", e.target.value)}
-                          className="h-10 sm:h-11 rounded-xl border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring w-[80px] sm:w-[90px] flex-shrink-0"
-                        >
-                          <option value="+91">🇮🇳 +91</option>
-                          <option value="+1">🇺🇸 +1</option>
-                          <option value="+44">🇬🇧 +44</option>
-                          <option value="+61">🇦🇺 +61</option>
-                          <option value="+971">🇦🇪 +971</option>
-                          <option value="+65">🇸🇬 +65</option>
-                          <option value="+60">🇲🇾 +60</option>
-                          <option value="+64">🇳🇿 +64</option>
-                          <option value="+27">🇿🇦 +27</option>
-                          <option value="+49">🇩🇪 +49</option>
-                          <option value="+33">🇫🇷 +33</option>
-                          <option value="+81">🇯🇵 +81</option>
-                          <option value="+86">🇨🇳 +86</option>
-                          <option value="+55">🇧🇷 +55</option>
-                          <option value="+52">🇲🇽 +52</option>
-                          <option value="+92">🇵🇰 +92</option>
-                          <option value="+880">🇧🇩 +880</option>
-                          <option value="+94">🇱🇰 +94</option>
-                          <option value="+977">🇳🇵 +977</option>
-                        </select>
-                        <Input
-                          value={invitationForm.whatsapp}
-                          onChange={(e) => updateInvitationForm("whatsapp", e.target.value)}
-                          placeholder="98765 43210"
-                          className="h-10 sm:h-11 rounded-xl flex-1 text-sm"
-                          type="tel"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">Location (City, Country)</Label>
-                      <Input
-                        value={invitationForm.location}
-                        onChange={(e) => updateInvitationForm("location", e.target.value)}
-                        placeholder="e.g. Mumbai, India"
-                        className="h-10 sm:h-11 mt-1 rounded-xl text-sm"
-                      />
-                    </div>
-
-                    {invitationError && (
-                      <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-                        {invitationError}
-                      </div>
-                    )}
-
-                    {invitationSuccess ? (
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-center">
-                        <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
-                        <p className="font-semibold text-emerald-700 mt-3">{t.invitation.successTitle}</p>
-                        <p className="text-sm text-emerald-600 mt-1">{t.invitation.successDescription}</p>
-                      </div>
-                    ) : (
-                      <Button
-                        type="submit"
-                        disabled={invitationLoading}
-                        className="w-full h-11 sm:h-12 rounded-2xl text-sm sm:text-base font-semibold"
-                        style={{ backgroundColor: c.primary, color: t.invitation.buttonTextColor || "#1B1F3A" }}
-                      >
-                        {invitationLoading ? "Submitting..." : t.invitation.formButtonText}
-                      </Button>
-                    )}
-                  </form>
-                </div>
-                <div className="hidden md:flex md:w-64 bg-gradient-to-br from-[#1B1F3A] via-[#2C1F55] to-[#44106E] text-white p-8 flex-col justify-between overflow-y-auto">
-                  <div>
-                    <h3 className="text-xl font-display font-semibold">Live Masterclass</h3>
-                    <p className="text-sm text-white/80 mt-2">Experience a powerful energetic breakthrough session.</p>
-                  </div>
-                  <div className="mt-10 space-y-4 text-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                        <Users className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">Community</p>
-                        <p className="text-white/70 text-xs mt-0.5">Join {t.invitation.supportText}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                        <MessageSquare className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">Live Q&A</p>
-                        <p className="text-white/70 text-xs mt-0.5">Ask your biggest transformation questions.</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                        <Lock className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">Private Access</p>
-                        <p className="text-white/70 text-xs mt-0.5">Receive a Zoom link after approval.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <InvitationDialog
+            open={invitationDialogOpen}
+            onOpenChange={setInvitationDialogOpen}
+            invitation={t.invitation}
+            primaryColor={c.primary}
+            landingPageId={landingPageId}
+            pageSlug={pageSlug}
+            isPreviewMode={isPreviewMode}
+          />
         </section>
       );
 
@@ -1664,16 +1704,20 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
   };
 
   return (
-    <div className="min-h-screen font-sans" style={{ backgroundColor: c.bodyBg }}>
-      {/* Inject marquee animation + fonts */}
+    <div
+      className="min-h-screen font-sans"
+      style={{ backgroundColor: c.bodyBg, ...(t.fontFamily ? { fontFamily: t.fontFamily } : {}) }}
+    >
+      {/* Inject marquee animation + fonts. A chosen template font overrides the
+          default body (and heading) fonts across the whole page. */}
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
         @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }
         @keyframes floating-cta-ring { 0% { transform: scale(0.85); opacity: 0.8; } 70% { transform: scale(1.25); opacity: 0; } 100% { opacity: 0; } }
         @keyframes floating-cta-bob { 0% { transform: translateY(0); } 50% { transform: translateY(-3px); } 100% { transform: translateY(0); } }
         .animate-marquee { animation: marquee 20s linear infinite; }
-        .font-display { font-family: 'Playfair Display', serif; }
-        .font-body { font-family: 'Inter', sans-serif; }
+        .font-display { font-family: ${t.fontFamily ? t.fontFamily : "'Playfair Display', serif"}; }
+        .font-body { font-family: ${t.fontFamily ? t.fontFamily : "'Inter', sans-serif"}; }
       `}} />
 
       {sectionOrder.map((sectionKey) => (
