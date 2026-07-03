@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 
 // R2 Configuration
@@ -88,6 +89,33 @@ export class R2Storage {
       console.error("R2 upload error:", error);
       throw new Error(`Failed to upload file: ${error.message}`);
     }
+  }
+
+  /**
+   * Generate a presigned URL the browser can PUT a file to directly.
+   * Bypasses the Vercel serverless function body (which has a hard ~4.5MB
+   * request limit), so large files like videos don't get rejected with a 413
+   * before the app's own size validation ever runs.
+   */
+  static async getPresignedUploadUrl(
+    fileName: string,
+    contentType: string,
+    folder: string = "uploads"
+  ): Promise<{ uploadUrl: string; url: string; key: string; fileName: string }> {
+    const fileExtension = fileName.split(".").pop() || "bin";
+    const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+    const key = `${folder}/${uniqueFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 600 });
+    const url = `${PUBLIC_URL_BASE}/${key}`;
+
+    return { uploadUrl, url, key, fileName: uniqueFileName };
   }
 
   /**

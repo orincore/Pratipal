@@ -295,8 +295,6 @@ function MediaField({
     const isVideo = file.type.startsWith("video/");
     if (!isImage && !isVideo) { toast.error("Please select an image or video"); return; }
     if (file.size > 50 * 1024 * 1024) { toast.error("Max 50MB"); return; }
-    const formData = new FormData();
-    formData.append("file", file);
     const toastId = "tpl-upload";
     let dismissed = false;
     
@@ -315,27 +313,41 @@ function MediaField({
 
     try {
       toast.loading("Uploading...", { id: toastId });
-      
+
       // Add timeout to fetch (slightly shorter than toast timeout)
       const controller = new AbortController();
       const fetchTimeout = uploadTimeout - 5000;
       const timeoutId2 = setTimeout(() => controller.abort(), fetchTimeout);
-      
-      const res = await fetch("/api/upload", { 
-        method: "POST", 
-        body: formData,
-        signal: controller.signal
+
+      // 1. Ask the app for a presigned R2 URL (tiny JSON request/response).
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, fileType: file.type, fileSize: file.size }),
+        signal: controller.signal,
       });
-      
-      clearTimeout(timeoutId2);
-      
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+      if (!presignRes.ok) {
+        const err = await presignRes.json().catch(() => ({ error: "Upload failed" }));
         throw new Error(err.error || "Upload failed");
       }
-      const data = await res.json();
-      onChange(data.url);
-      toast.success(`Uploaded${data.storage === 'r2' ? ' to R2' : ' locally'}!`, { id: toastId });
+      const { uploadUrl, url, storage } = await presignRes.json();
+
+      // 2. Upload the file bytes straight to R2, bypassing the Vercel
+      // function body limit that rejects anything over ~4.5MB.
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId2);
+
+      if (!putRes.ok) {
+        throw new Error("Upload failed");
+      }
+      onChange(url);
+      toast.success(`Uploaded${storage === 'r2' ? ' to R2' : ' locally'}!`, { id: toastId });
     } catch (err: any) {
       console.error("Upload error:", err);
       // Check if it's a network/extension blocking error
