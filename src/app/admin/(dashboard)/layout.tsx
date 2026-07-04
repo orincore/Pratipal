@@ -27,6 +27,7 @@ import {
   Star,
   Quote,
   Images,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,8 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/supabase/auth-context";
 import LogoMark from "@/app/assets/logo.png";
 import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-context";
+
+const MAIL_SYSTEM_URL = process.env.NEXT_PUBLIC_MAIL_SYSTEM_URL || "http://localhost:3001";
 
 const sidebarItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -50,6 +53,7 @@ const sidebarItems = [
   { label: "Daily Quotes", href: "/admin/quotes", icon: Quote },
   { label: "Gallery", href: "/admin/gallery", icon: Images },
   { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },
+  { label: "Email Marketing", href: MAIL_SYSTEM_URL, icon: Mail, external: true },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
@@ -153,7 +157,22 @@ export default function DashboardLayout({
           )}
         >
           <nav className="flex flex-col gap-1 p-4">
-            {sidebarItems.map((item) => {
+            {sidebarItems.map((item: any) => {
+              if (item.external) {
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setSidebarOpen(false)}
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </a>
+                );
+              }
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/admin" && pathname.startsWith(item.href));
