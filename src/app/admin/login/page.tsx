@@ -11,9 +11,39 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const { login, user, loading: authLoading } = useAuth();
 
+  const getRedirectUrl = () => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("redirect");
+    }
+    return null;
+  };
+
+  const handleRedirect = async (redirectTarget: string) => {
+    try {
+      const res = await fetch("/api/auth/token");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) {
+          const url = new URL(redirectTarget);
+          url.searchParams.set("token", data.token);
+          window.location.href = url.toString();
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch redirect token", e);
+    }
+    window.location.href = redirectTarget;
+  };
+
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/admin");
+      const redirect = getRedirectUrl();
+      if (redirect) {
+        handleRedirect(redirect);
+      } else {
+        router.replace("/admin");
+      }
     }
   }, [user, authLoading, router]);
   const [email, setEmail] = useState("");
@@ -36,8 +66,14 @@ export default function AdminLoginPage() {
     setError("");
     const result = await login(email, password);
     if (result.error) { setError(result.error); setLoading(false); return; }
-    router.push("/admin");
-    router.refresh();
+    
+    const redirect = getRedirectUrl();
+    if (redirect) {
+      handleRedirect(redirect);
+    } else {
+      router.push("/admin");
+      router.refresh();
+    }
   }
 
   return (
