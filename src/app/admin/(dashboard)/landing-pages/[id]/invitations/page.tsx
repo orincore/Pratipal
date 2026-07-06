@@ -83,6 +83,14 @@ export default function LandingPageInvitationsPage() {
   const [newWebinarAt, setNewWebinarAt] = useState("");
   const [newTimezone, setNewTimezone] = useState("Asia/Kolkata");
 
+  // Split date+time pickers (assembled on confirm)
+  const [regStartDate, setRegStartDate] = useState("");
+  const [regStartTime, setRegStartTime] = useState("09:00");
+  const [regEndDate, setRegEndDate] = useState("");
+  const [regEndTime, setRegEndTime] = useState("09:00");
+  const [webinarDate, setWebinarDate] = useState("");
+  const [webinarTime, setWebinarTime] = useState("09:00");
+
   const fetchWindows = useCallback(async () => {
     if (!landingPageId) return;
     setLoadingWindows(true);
@@ -148,9 +156,9 @@ export default function LandingPageInvitationsPage() {
       }
       setShowCreate(false);
       setNewName("");
-      setNewRegStart("");
-      setNewRegEnd("");
-      setNewWebinarAt("");
+      setNewRegStart(""); setRegStartDate(""); setRegStartTime("09:00");
+      setNewRegEnd(""); setRegEndDate(""); setRegEndTime("09:00");
+      setNewWebinarAt(""); setWebinarDate(""); setWebinarTime("09:00");
       await fetchWindows();
     } catch (err: any) {
       alert(err.message || "Failed to create window");
@@ -423,63 +431,188 @@ export default function LandingPageInvitationsPage() {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. July 2026 Batch"
-                  className="mt-1"
+                  className="mt-1 text-slate-900 placeholder:text-slate-400"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold text-slate-500">Registration Start *</Label>
-                  <Input
-                    type="datetime-local"
-                    required
-                    value={newRegStart}
-                    onChange={(e) => setNewRegStart(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold text-slate-500">Registration End *</Label>
-                  <Input
-                    type="datetime-local"
-                    required
-                    value={newRegEnd}
-                    onChange={(e) => setNewRegEnd(e.target.value)}
-                    className="mt-1"
-                  />
+
+              {/* Registration Start */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Registration Start *</Label>
+                <div className="mt-1 space-y-2">
+                  {newRegStart ? (
+                    <div className="flex items-center justify-between bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-violet-700">
+                        {new Date(`${regStartDate}T${regStartTime}`).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setNewRegStart(""); }}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-semibold cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Date</span>
+                          <input
+                            type="date"
+                            value={regStartDate}
+                            onChange={(e) => setRegStartDate(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Time</span>
+                          <input
+                            type="time"
+                            value={regStartTime}
+                            onChange={(e) => setRegStartTime(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!regStartDate || !regStartTime}
+                        onClick={() => setNewRegStart(`${regStartDate}T${regStartTime}`)}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                      >
+                        ✓ Confirm Start
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold text-slate-500">Webinar Date &amp; Time *</Label>
-                  <Input
-                    type="datetime-local"
-                    required
-                    value={newWebinarAt}
-                    onChange={(e) => setNewWebinarAt(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold text-slate-500">Timezone</Label>
-                  <Select value={newTimezone} onValueChange={setNewTimezone}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMEZONES.map((tz) => (
-                        <SelectItem key={tz} value={tz}>
-                          {tz}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+              {/* Registration End */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Registration End *</Label>
+                <div className="mt-1 space-y-2">
+                  {newRegEnd ? (
+                    <div className="flex items-center justify-between bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-violet-700">
+                        {new Date(`${regEndDate}T${regEndTime}`).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setNewRegEnd(""); }}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-semibold cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Date</span>
+                          <input
+                            type="date"
+                            value={regEndDate}
+                            onChange={(e) => setRegEndDate(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Time</span>
+                          <input
+                            type="time"
+                            value={regEndTime}
+                            onChange={(e) => setRegEndTime(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!regEndDate || !regEndTime}
+                        onClick={() => setNewRegEnd(`${regEndDate}T${regEndTime}`)}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                      >
+                        ✓ Confirm End
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Webinar Date & Time */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Webinar Date &amp; Time *</Label>
+                <div className="mt-1 space-y-2">
+                  {newWebinarAt ? (
+                    <div className="flex items-center justify-between bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-violet-700">
+                        {new Date(`${webinarDate}T${webinarTime}`).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setNewWebinarAt(""); }}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-semibold cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Date</span>
+                          <input
+                            type="date"
+                            value={webinarDate}
+                            onChange={(e) => setWebinarDate(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Time</span>
+                          <input
+                            type="time"
+                            value={webinarTime}
+                            onChange={(e) => setWebinarTime(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!webinarDate || !webinarTime}
+                        onClick={() => setNewWebinarAt(`${webinarDate}T${webinarTime}`)}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                      >
+                        ✓ Confirm Webinar Time
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Timezone */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Timezone</Label>
+                <Select value={newTimezone} onValueChange={setNewTimezone}>
+                  <SelectTrigger className="mt-1 w-full bg-white text-slate-900 border-slate-200 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz} value={tz}>
+                        {tz}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <p className="text-[11px] text-gray-400 leading-relaxed">
                 Only invitation submissions between the registration start/end count as registrants
                 for this window's reminders.
               </p>
-              <Button type="submit" disabled={creating} className="w-full bg-violet-600 hover:bg-violet-700">
+              <Button type="submit" disabled={creating} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 rounded-lg">
                 {creating ? "Creating..." : "Create Window"}
               </Button>
             </form>
