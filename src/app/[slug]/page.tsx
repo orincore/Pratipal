@@ -14,6 +14,17 @@ const RESERVED_SLUGS = new Set([
   "favicon.ico",
 ]);
 
+const DEFAULT_THEME = {
+  primary: "#0F8A5F",
+  secondary: "#0B4F6C",
+  accent: "#18A999",
+  background: "#FFFFFF",
+};
+
+function toTheme(theme: Record<string, any> | undefined) {
+  return { ...DEFAULT_THEME, ...theme };
+}
+
 interface Props {
   params: Promise<{ slug: string }>;
 }
@@ -34,7 +45,7 @@ async function getPublishedPage(slug: string) {
 
   return {
     ...page,
-    id: page._id ? page._id.toString() : page.id,
+    id: page._id.toString(),
   };
 }
 
@@ -113,7 +124,7 @@ export default async function DynamicLandingPage({ params }: Props) {
       {schemaScript}
       <DynamicPageRenderer
         content={page!.content}
-        theme={page!.theme}
+        theme={toTheme(page!.theme)}
         title={page!.title}
         pageSlug={page!.slug || slug}
         landingPageId={page!.id}

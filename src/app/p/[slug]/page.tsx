@@ -10,6 +10,17 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+const DEFAULT_THEME = {
+  primary: "#0F8A5F",
+  secondary: "#0B4F6C",
+  accent: "#18A999",
+  background: "#FFFFFF",
+};
+
+function toTheme(theme: Record<string, any> | undefined) {
+  return { ...DEFAULT_THEME, ...theme };
+}
+
 async function getPublishedPage(slug: string) {
   const { LandingPage } = await getDB();
   const page = await LandingPage.findOne({ slug, status: "published" })
@@ -22,7 +33,7 @@ async function getPublishedPage(slug: string) {
 
   return {
     ...page,
-    id: page._id ? page._id.toString() : page.id,
+    id: page._id.toString(),
   };
 }
 
@@ -65,7 +76,7 @@ export default async function DynamicLandingPage({ params }: Props) {
   return (
     <DynamicPageRenderer
       content={page!.content}
-      theme={page!.theme}
+      theme={toTheme(page!.theme)}
       title={page!.title}
     />
   );
