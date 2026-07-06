@@ -10,6 +10,7 @@ import CartItem from "@/models/CartItem";
 import LandingPage from "@/models/LandingPage";
 import Media from "@/models/Media";
 import InvitationRequest from "@/models/InvitationRequest";
+import InvitationWindow from "@/models/InvitationWindow";
 import HeroSection from "@/models/HeroSection";
 import ShippingSettings from "@/models/ShippingSettings";
 import SessionBooking from "@/models/SessionBooking";
@@ -31,6 +32,7 @@ export async function getDB() {
     LandingPage,
     Media,
     InvitationRequest,
+    InvitationWindow,
     HeroSection,
     ShippingSettings,
     SessionBooking,

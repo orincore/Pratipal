@@ -558,6 +558,14 @@ export default function LandingPageEditorPage() {
                       onCheckedChange={() => togglePublish()}
                     />
                   </div>
+                  <div className="pt-1 border-t border-gray-100 mt-1">
+                    <Link
+                      href={`/admin/landing-pages/${page.id}/invitations`}
+                      className="text-[11px] text-violet-600 hover:text-violet-800 font-medium"
+                    >
+                      Manage webinar registration windows &amp; reminders →
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Theme Colors */}

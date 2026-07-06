@@ -51,4 +51,9 @@ const LandingPageSchema = new Schema<ILandingPage>(
 LandingPageSchema.index({ slug: 1 });
 LandingPageSchema.index({ status: 1 });
 
-export default mongoose.models.LandingPage || mongoose.model<ILandingPage>("LandingPage", LandingPageSchema);
+// Force re-register on every module load so a schema change always takes effect
+// immediately, even in a long-running dev server process (Mongoose otherwise
+// caches the first-compiled schema in mongoose.models for the process lifetime).
+delete (mongoose.models as any).LandingPage;
+
+export default mongoose.model<ILandingPage>("LandingPage", LandingPageSchema);
