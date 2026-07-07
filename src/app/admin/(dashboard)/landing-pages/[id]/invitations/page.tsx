@@ -16,6 +16,7 @@ import {
   Plus,
   Users,
   X,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,8 @@ interface InvitationWindow {
   registration_end: string;
   webinar_starts_at: string;
   webinar_timezone: string;
+  join_link?: string | null;
+  join_platform?: string | null;
   registrant_count: number;
   created_at: string;
 }
@@ -82,6 +85,13 @@ export default function LandingPageInvitationsPage() {
   const [newRegEnd, setNewRegEnd] = useState("");
   const [newWebinarAt, setNewWebinarAt] = useState("");
   const [newTimezone, setNewTimezone] = useState("Asia/Kolkata");
+  const [newJoinLink, setNewJoinLink] = useState("");
+  const [newJoinPlatform, setNewJoinPlatform] = useState("zoom");
+
+  const [editingWindow, setEditingWindow] = useState<InvitationWindow | null>(null);
+  const [editJoinLink, setEditJoinLink] = useState("");
+  const [editJoinPlatform, setEditJoinPlatform] = useState("zoom");
+  const [savingJoinLink, setSavingJoinLink] = useState(false);
 
   // Split date+time pickers (assembled on confirm)
   const [regStartDate, setRegStartDate] = useState("");
@@ -148,6 +158,8 @@ export default function LandingPageInvitationsPage() {
           registration_end: new Date(newRegEnd).toISOString(),
           webinar_starts_at: new Date(newWebinarAt).toISOString(),
           webinar_timezone: newTimezone,
+          join_link: newJoinLink.trim() || undefined,
+          join_platform: newJoinLink.trim() ? newJoinPlatform : undefined,
         }),
       });
       if (!res.ok) {
@@ -159,13 +171,47 @@ export default function LandingPageInvitationsPage() {
       setNewRegStart(""); setRegStartDate(""); setRegStartTime("09:00");
       setNewRegEnd(""); setRegEndDate(""); setRegEndTime("09:00");
       setNewWebinarAt(""); setWebinarDate(""); setWebinarTime("09:00");
+      setNewJoinLink(""); setNewJoinPlatform("zoom");
       await fetchWindows();
     } catch (err: any) {
       alert(err.message || "Failed to create window");
     } finally {
       setCreating(false);
     }
-  }, [landingPageId, newName, newRegStart, newRegEnd, newWebinarAt, newTimezone, fetchWindows]);
+  }, [landingPageId, newName, newRegStart, newRegEnd, newWebinarAt, newTimezone, newJoinLink, newJoinPlatform, fetchWindows]);
+
+  const openEditJoinLink = useCallback((w: InvitationWindow, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingWindow(w);
+    setEditJoinLink(w.join_link || "");
+    setEditJoinPlatform(w.join_platform || "zoom");
+  }, []);
+
+  const handleSaveJoinLink = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingWindow) return;
+    setSavingJoinLink(true);
+    try {
+      const res = await fetch(`/api/landing-pages/${landingPageId}/invitation-windows/${editingWindow.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          join_link: editJoinLink.trim(),
+          join_platform: editJoinLink.trim() ? editJoinPlatform : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save join link");
+      }
+      setEditingWindow(null);
+      await fetchWindows();
+    } catch (err: any) {
+      alert(err.message || "Failed to save join link");
+    } finally {
+      setSavingJoinLink(false);
+    }
+  }, [landingPageId, editingWindow, editJoinLink, editJoinPlatform, fetchWindows]);
 
   const handleDeleteWindow = useCallback(async (w: InvitationWindow) => {
     if (!confirm(`Delete window "${w.name}"? This only removes the window, not the invitation submissions themselves.`)) return;
@@ -319,6 +365,20 @@ export default function LandingPageInvitationsPage() {
                         View <ChevronRight className="h-3.5 w-3.5" />
                       </span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={(e) => openEditJoinLink(w, e)}
+                      className={`flex items-center gap-1.5 text-[11px] rounded-lg px-2.5 py-1.5 border transition-colors ${
+                        w.join_link
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                          : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                      }`}
+                    >
+                      <Video className="h-3 w-3" />
+                      {w.join_link
+                        ? `Join link set (${w.join_platform || "other"})`
+                        : "Add join link (Zoom/Meet/Teams)"}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -598,7 +658,7 @@ export default function LandingPageInvitationsPage() {
                   <SelectTrigger className="mt-1 w-full bg-white text-slate-900 border-slate-200 rounded-lg">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[100000]">
                     {TIMEZONES.map((tz) => (
                       <SelectItem key={tz} value={tz}>
                         {tz}
@@ -608,12 +668,84 @@ export default function LandingPageInvitationsPage() {
                 </Select>
               </div>
 
+              {/* Join Link */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Join Link (optional)</Label>
+                <div className="mt-1 flex gap-2">
+                  <Select value={newJoinPlatform} onValueChange={setNewJoinPlatform}>
+                    <SelectTrigger className="w-32 bg-white text-slate-900 border-slate-200 rounded-lg flex-shrink-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[100000]">
+                      <SelectItem value="zoom">Zoom</SelectItem>
+                      <SelectItem value="google_meet">Google Meet</SelectItem>
+                      <SelectItem value="teams">Teams</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={newJoinLink}
+                    onChange={(e) => setNewJoinLink(e.target.value)}
+                    placeholder="https://zoom.us/j/..."
+                    className="text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Can also be added later — used for the WhatsApp/email "Join Webinar" button.
+                </p>
+              </div>
+
               <p className="text-[11px] text-gray-400 leading-relaxed">
                 Only invitation submissions between the registration start/end count as registrants
                 for this window's reminders.
               </p>
               <Button type="submit" disabled={creating} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 rounded-lg">
                 {creating ? "Creating..." : "Create Window"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingWindow && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-md w-full overflow-hidden text-left">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 text-base">Join Link — {editingWindow.name}</h3>
+              <button onClick={() => setEditingWindow(null)} className="p-1 hover:bg-slate-100 text-slate-400 rounded-lg">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveJoinLink} className="p-6 space-y-4">
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Platform</Label>
+                <Select value={editJoinPlatform} onValueChange={setEditJoinPlatform}>
+                  <SelectTrigger className="mt-1 w-full bg-white text-slate-900 border-slate-200 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[100000]">
+                    <SelectItem value="zoom">Zoom</SelectItem>
+                    <SelectItem value="google_meet">Google Meet</SelectItem>
+                    <SelectItem value="teams">Teams</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Meeting URL</Label>
+                <Input
+                  value={editJoinLink}
+                  onChange={(e) => setEditJoinLink(e.target.value)}
+                  placeholder="https://zoom.us/j/..."
+                  className="mt-1 text-slate-900 placeholder:text-slate-400"
+                />
+              </div>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Registrants tap "Join Webinar" from WhatsApp/email reminders and are redirected here —
+                you can change this link anytime without touching the approved WhatsApp template.
+              </p>
+              <Button type="submit" disabled={savingJoinLink} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 rounded-lg">
+                {savingJoinLink ? "Saving..." : "Save Join Link"}
               </Button>
             </form>
           </div>

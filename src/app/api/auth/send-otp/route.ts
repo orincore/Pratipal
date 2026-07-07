@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail } from "@/lib/mailer";
+import { BRAND, renderEmailLayout, emailCodeBox } from "@/lib/email-template";
 
 // In-memory OTP store: email → { otp, expires }
 // For production use Redis or MongoDB, but this works for a single-instance server
@@ -22,20 +23,15 @@ export async function POST(req: NextRequest) {
     await sendMail({
       to: email,
       subject: "Your Pratipal verification code",
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px;">
-          <div style="background:#fff;border-radius:10px;padding:28px;border:1px solid #e5e7eb;text-align:center;">
-            <div style="display:inline-block;background:linear-gradient(135deg,#059669,#0d9488);border-radius:50%;width:52px;height:52px;line-height:52px;font-size:24px;color:#fff;margin-bottom:16px;">✉️</div>
-            <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Verify your email</h2>
-            <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Enter this code to complete your Pratipal registration.</p>
-            <div style="background:#f0fdf4;border:2px dashed #6ee7b7;border-radius:12px;padding:20px;margin-bottom:24px;">
-              <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:#059669;">${otp}</span>
-            </div>
-            <p style="font-size:12px;color:#9ca3af;margin:0;">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
-          </div>
-          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:16px;">Pratipal · connect@pratipal.in</p>
-        </div>
-      `,
+      html: renderEmailLayout({
+        preheader: `Your verification code is ${otp}`,
+        badgeIcon: "mail",
+        heading: "Verify your email",
+        subheading: "Enter this code to complete your Pratipal registration.",
+        bodyHtml:
+          emailCodeBox(otp) +
+          `<p style="font-size:12px;color:${BRAND.textMuted};margin:0;text-align:center;">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>`,
+      }),
     });
 
     return NextResponse.json({ success: true });

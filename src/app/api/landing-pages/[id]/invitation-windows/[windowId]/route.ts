@@ -26,6 +26,8 @@ export async function PATCH(
   if (body.registration_end) payload.registration_end = new Date(body.registration_end);
   if (body.webinar_starts_at) payload.webinar_starts_at = new Date(body.webinar_starts_at);
   if (body.webinar_timezone) payload.webinar_timezone = body.webinar_timezone;
+  if (typeof body.join_link === "string") payload.join_link = body.join_link.trim();
+  if (typeof body.join_platform === "string") payload.join_platform = body.join_platform;
 
   if (Object.keys(payload).length === 0) {
     return NextResponse.json({ error: "No valid fields provided" }, { status: 400 });

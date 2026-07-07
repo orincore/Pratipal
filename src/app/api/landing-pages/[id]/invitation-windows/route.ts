@@ -74,6 +74,8 @@ export async function POST(
     registration_end: new Date(registrationEnd),
     webinar_starts_at: new Date(webinarStartsAt),
     webinar_timezone: body.webinar_timezone || "Asia/Kolkata",
+    join_link: body.join_link ? String(body.join_link).trim() : undefined,
+    join_platform: body.join_platform || undefined,
   });
 
   return NextResponse.json({ window: window.toJSON() }, { status: 201 });

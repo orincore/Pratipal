@@ -591,10 +591,42 @@ function ImageField({
 interface TemplateEditorProps {
   data: LandingTemplateData;
   onChange: (data: LandingTemplateData) => void;
+  landingPageId?: string;
 }
 
-export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
+export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditorProps) {
   const [draggedSection, setDraggedSection] = useState<string | null>(null);
+  const [testEmailTo, setTestEmailTo] = useState("");
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+
+  const handleSendTestInvitationEmail = useCallback(async () => {
+    if (!landingPageId) return;
+    setSendingTestEmail(true);
+    try {
+      const whatsappGroupLink = (data.invitation.thankYouButtons || []).find(
+        (b) => b.icon === "whatsapp" && b.url
+      )?.url;
+      const res = await fetch(`/api/landing-pages/${landingPageId}/test-invitation-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testEmailTo.trim() || undefined, whatsappGroupLink }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(result.error || "Failed to send test email");
+        return;
+      }
+      toast.success(
+        result.whatsappGroupLinkIncluded
+          ? `Test email sent to ${result.sentTo} (WhatsApp group button included)`
+          : `Test email sent to ${result.sentTo} (no WhatsApp group button set below)`
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send test email");
+    } finally {
+      setSendingTestEmail(false);
+    }
+  }, [landingPageId, testEmailTo, data.invitation.thankYouButtons]);
   
   const canonicalSections = useMemo(
     () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'],
@@ -2036,6 +2068,34 @@ export function TemplateEditor({ data, onChange }: TemplateEditorProps) {
             </div>
           ))}
         </div>
+
+        {landingPageId && (
+          <div className="border border-violet-200 bg-violet-50/60 rounded-xl p-3 mt-3">
+            <Label className="text-xs text-gray-600 font-semibold">
+              Test Registration Confirmation Email
+            </Label>
+            <p className="text-[11px] text-gray-500 mt-1 mb-2">
+              Sends a preview of the confirmation email (with the WhatsApp group button
+              above, if set) to check formatting before it goes out for real.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={testEmailTo}
+                onChange={(e) => setTestEmailTo(e.target.value)}
+                placeholder="you@example.com"
+                className="h-8 text-xs bg-white border-gray-200 flex-1"
+              />
+              <button
+                type="button"
+                disabled={sendingTestEmail}
+                onClick={handleSendTestInvitationEmail}
+                className="h-8 px-3 text-xs font-medium rounded-md bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white whitespace-nowrap"
+              >
+                {sendingTestEmail ? "Sending..." : "Send Test Email"}
+              </button>
+            </div>
+          </div>
+        )}
       </Section>
     );
       })()

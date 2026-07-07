@@ -12,6 +12,8 @@ export interface IInvitationWindow extends Document {
   registration_end: Date;
   webinar_starts_at: Date;
   webinar_timezone: string;
+  join_link?: string;
+  join_platform?: "zoom" | "google_meet" | "teams" | "other";
   created_at: Date;
   updated_at: Date;
 }
@@ -25,6 +27,8 @@ const InvitationWindowSchema = new Schema<IInvitationWindow>(
     registration_end: { type: Date, required: true },
     webinar_starts_at: { type: Date, required: true },
     webinar_timezone: { type: String, default: "Asia/Kolkata" },
+    join_link: { type: String },
+    join_platform: { type: String, enum: ["zoom", "google_meet", "teams", "other"] },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

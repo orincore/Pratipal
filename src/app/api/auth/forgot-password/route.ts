@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { sendMail } from "@/lib/mailer";
 import getDB from "@/lib/db";
+import { renderEmailLayout, emailCodeBox, emailNote } from "@/lib/email-template";
 
 // In-memory OTP store for password reset: email → { otp, expires }
 const resetOtpStore = new Map<string, { otp: string; expires: number }>();
@@ -34,21 +35,15 @@ export async function POST(req: NextRequest) {
     await sendMail({
       to: email,
       subject: "Reset your Pratipal password",
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px;">
-          <div style="background:#fff;border-radius:10px;padding:28px;border:1px solid #e5e7eb;text-align:center;">
-            <div style="display:inline-block;background:linear-gradient(135deg,#1b244a,#059669);border-radius:50%;width:52px;height:52px;line-height:52px;font-size:24px;color:#fff;margin-bottom:16px;">🔐</div>
-            <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Reset your password</h2>
-            <p style="color:#6b7280;font-size:14px;margin:0 0 4px;">Hi ${name},</p>
-            <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Use this code to reset your Pratipal password.</p>
-            <div style="background:#f0fdf4;border:2px dashed #6ee7b7;border-radius:12px;padding:20px;margin-bottom:24px;">
-              <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:#059669;">${otp}</span>
-            </div>
-            <p style="font-size:12px;color:#9ca3af;margin:0;">This code expires in <strong>10 minutes</strong>. If you didn't request this, ignore this email.</p>
-          </div>
-          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:16px;">Pratipal · connect@pratipal.in</p>
-        </div>
-      `,
+      html: renderEmailLayout({
+        preheader: `Your password reset code is ${otp}`,
+        badgeIcon: "lock",
+        heading: "Reset your password",
+        subheading: `Hi ${name}, use this code to reset your Pratipal password.`,
+        bodyHtml:
+          emailCodeBox(otp) +
+          `<p style="font-size:12px;color:#9ca3af;margin:0;text-align:center;">This code expires in <strong>10 minutes</strong>. If you didn't request this, ignore this email.</p>`,
+      }),
     });
 
     return NextResponse.json({ success: true });
@@ -116,21 +111,16 @@ export async function PATCH(req: NextRequest) {
     await sendMail({
       to: email,
       subject: "Your Pratipal password has been reset",
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px;">
-          <div style="background:#fff;border-radius:10px;padding:28px;border:1px solid #e5e7eb;text-align:center;">
-            <div style="display:inline-block;background:linear-gradient(135deg,#1b244a,#059669);border-radius:50%;width:52px;height:52px;line-height:52px;font-size:24px;color:#fff;margin-bottom:16px;">✅</div>
-            <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Password successfully reset</h2>
-            <p style="color:#6b7280;font-size:14px;margin:0 0 4px;">Hi ${name},</p>
-            <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">Your Pratipal account password was successfully changed on <strong>${resetTime} IST</strong>.</p>
-            <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">If you made this change, no further action is needed.</p>
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px;margin-bottom:8px;">
-              <p style="color:#dc2626;font-size:13px;margin:0;">If you did not reset your password, please contact us immediately at <a href="mailto:connect@pratipal.in" style="color:#dc2626;">connect@pratipal.in</a></p>
-            </div>
-          </div>
-          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:16px;">Pratipal · connect@pratipal.in</p>
-        </div>
-      `,
+      html: renderEmailLayout({
+        preheader: `Your password was changed on ${resetTime} IST`,
+        badgeIcon: "check",
+        heading: "Password successfully reset",
+        subheading: `Hi ${name}, your Pratipal account password was successfully changed on ${resetTime} IST. If you made this change, no further action is needed.`,
+        bodyHtml: emailNote(
+          `If you did not reset your password, please contact us immediately at <a href="mailto:connect@pratipal.in" style="font-weight:600;">connect@pratipal.in</a>`,
+          "danger"
+        ),
+      }),
     });
 
     return NextResponse.json({ success: true });

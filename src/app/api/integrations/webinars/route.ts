@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
       webinar_timezone: w.webinar_timezone,
       registration_start: w.registration_start,
       registration_end: w.registration_end,
+      join_link: w.join_link,
+      join_platform: w.join_platform,
       status: "published",
     }));
 

@@ -437,7 +437,7 @@ export default function LandingPageEditorPage() {
                 </Button>
               </div>
               <div className="flex-1 overflow-y-auto p-3">
-                <TemplateEditor data={templateData} onChange={setTemplateData} />
+                <TemplateEditor data={templateData} onChange={setTemplateData} landingPageId={pageId} />
               </div>
             </div>
             {/* Right: Live Preview */}

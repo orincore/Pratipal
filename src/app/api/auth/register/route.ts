@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const displayName = first_name || email.split("@")[0];
     sendMail({
       to: email,
-      subject: "Welcome to Pratipal 🌿",
+      subject: "Welcome to Pratipal",
       html: welcomeEmailHtml({ name: displayName }),
     }).catch(() => {});
 

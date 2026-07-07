@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import getDB from "@/lib/db";
 import { IWeightTier } from "@/models/ShippingSettings";
 import { sendMail, orderConfirmationHtml } from "@/lib/mailer";
+import { BRAND, renderEmailLayout, emailInfoCard } from "@/lib/email-template";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -275,43 +276,36 @@ export async function POST(req: NextRequest) {
         sendMail({
           to: adminEmail,
           subject: `New Order: ${orderNumber} — ₹${total.toFixed(2)}`,
-          html: `
-            <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px;">
-              <div style="background:#fff;border-radius:10px;padding:28px;border:1px solid #e5e7eb;">
-                <div style="text-align:center;margin-bottom:24px;">
-                  <div style="display:inline-block;background:linear-gradient(135deg,#1b244a,#059669);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;color:#fff;margin-bottom:12px;">🛍️</div>
-                  <h2 style="margin:0 0 8px;font-size:22px;color:#111827;">New Order Received</h2>
-                  <p style="color:#6b7280;font-size:14px;margin:0;">Order #${orderNumber}</p>
-                </div>
-                <div style="background:#f0fdf4;border-radius:12px;padding:20px;margin-bottom:20px;border:1px solid #bbf7d0;">
-                  <p style="font-size:14px;color:#166534;font-weight:600;margin:0 0 12px;">Customer Details:</p>
-                  <p style="font-size:14px;color:#374151;margin:6px 0;"><strong>Name:</strong> ${customer_name}</p>
-                  <p style="font-size:14px;color:#374151;margin:6px 0;"><strong>Email:</strong> <a href="mailto:${customer_email}" style="color:#059669;">${customer_email}</a></p>
-                  <p style="font-size:14px;color:#374151;margin:6px 0;"><strong>Payment:</strong> ${payment_method === "cod" ? "Cash on Delivery" : "Online Payment"}</p>
-                </div>
-                <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
-                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Order Items:</strong></p>
-                  <p style="font-size:13px;color:#6b7280;margin:0;white-space:pre-wrap;">${itemsList}</p>
-                </div>
-                <div style="background:#fef3c7;border-radius:10px;padding:16px;margin-bottom:16px;">
-                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Order Total:</strong></p>
-                  <p style="font-size:13px;color:#6b7280;margin:4px 0;">Subtotal: ₹${subtotal.toFixed(2)}</p>
-                  <p style="font-size:13px;color:#6b7280;margin:4px 0;">Tax (18%): ₹${tax.toFixed(2)}</p>
-                  <p style="font-size:13px;color:#6b7280;margin:4px 0;">Shipping: ${shipping_cost === 0 ? 'Free' : '₹' + shipping_cost.toFixed(2)}</p>
-                  <p style="font-size:16px;color:#111827;font-weight:700;margin:8px 0 0;border-top:1px solid #fde68a;padding-top:8px;">Total: ₹${total.toFixed(2)}</p>
-                </div>
-                <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
-                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Shipping Address:</strong></p>
-                  <p style="font-size:13px;color:#6b7280;margin:0;">${addrLine || "—"}</p>
-                </div>
-                ${notes ? `<div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
-                  <p style="font-size:13px;color:#374151;margin:0 0 8px;"><strong>Order Notes:</strong></p>
-                  <p style="font-size:13px;color:#6b7280;margin:0;white-space:pre-wrap;">${notes}</p>
-                </div>` : ''}
-                <p style="color:#6b7280;font-size:13px;margin:0;">Received at: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST</p>
-              </div>
-            </div>
-          `,
+          html: renderEmailLayout({
+            badgeIcon: "bag",
+            heading: "New Order Received",
+            subheading: `Order #${orderNumber}`,
+            bodyHtml:
+              emailInfoCard([
+                { icon: "user", label: "Name", value: customer_name },
+                { icon: "mail", label: "Email", value: `<a href="mailto:${customer_email}" style="color:${BRAND.navy};">${customer_email}</a>` },
+                { icon: "card", label: "Payment", value: payment_method === "cod" ? "Cash on Delivery" : "Online Payment" },
+              ]) +
+              `<div style="background:${BRAND.infoCardBg};border-radius:12px;padding:16px;margin-bottom:22px;">
+                <p style="font-size:13px;color:${BRAND.textDark};margin:0 0 8px;font-weight:600;">Order Items</p>
+                <p style="font-size:13px;color:${BRAND.textMuted};margin:0;white-space:pre-wrap;line-height:1.7;">${itemsList}</p>
+              </div>` +
+              emailInfoCard([
+                { icon: "fileText", label: "Subtotal", value: `₹${subtotal.toFixed(2)}` },
+                { icon: "fileText", label: "Tax (18%)", value: `₹${tax.toFixed(2)}` },
+                { icon: "truck", label: "Shipping", value: shipping_cost === 0 ? "Free" : `₹${shipping_cost.toFixed(2)}` },
+                { icon: "card", label: "Total", value: `₹${total.toFixed(2)}` },
+              ]) +
+              `<div style="background:${BRAND.infoCardBg};border-radius:12px;padding:16px;margin-bottom:${notes ? "22px" : "0"};">
+                <p style="font-size:13px;color:${BRAND.textDark};margin:0 0 8px;font-weight:600;">Shipping Address</p>
+                <p style="font-size:13px;color:${BRAND.textMuted};margin:0;">${addrLine || "—"}</p>
+              </div>` +
+              (notes ? `<div style="background:${BRAND.infoCardBg};border-radius:12px;padding:16px;">
+                <p style="font-size:13px;color:${BRAND.textDark};margin:0 0 8px;font-weight:600;">Order Notes</p>
+                <p style="font-size:13px;color:${BRAND.textMuted};margin:0;white-space:pre-wrap;">${notes}</p>
+              </div>` : ""),
+            footerNote: `Received at ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST — sent to the admin mailbox.`,
+          }),
         }).catch(() => {});
       }
     }
