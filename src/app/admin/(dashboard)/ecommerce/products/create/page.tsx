@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Upload, X, Plus, Image as ImageIcon, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ProductDescriptionEditor } from "@/components/admin/product-description-editor";
+import ReactCrop, { type Crop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
 interface MediaFile {
   id: string;
@@ -39,6 +42,15 @@ export default function CreateProductPage() {
   const [initializingProduct, setInitializingProduct] = useState(Boolean(editingProductId));
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
+
+  // Cropper Queue States
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [currentCropFile, setCurrentCropFile] = useState<File | null>(null);
+  const [cropImgSrc, setCropImgSrc] = useState<string>("");
+  const [crop, setCrop] = useState<Crop>();
+  const [aspect, setAspect] = useState<number | undefined>(1); // Default aspect ratio 1:1
+  const [editingMediaId, setEditingMediaId] = useState<string | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [newCategory, setNewCategory] = useState({
     name: "",
     slug: "",
@@ -242,56 +254,146 @@ export default function CreateProductPage() {
     }
   }
 
+  useEffect(() => {
+    if (cropQueue.length > 0 && !currentCropFile) {
+      const nextFile = cropQueue[0];
+      setCropQueue((prev) => prev.slice(1));
+
+      if (nextFile.type.startsWith("image/")) {
+        setCurrentCropFile(nextFile);
+        const reader = new FileReader();
+        reader.addEventListener("load", () => {
+          setCropImgSrc(reader.result?.toString() || "");
+        });
+        reader.readAsDataURL(nextFile);
+      } else {
+        uploadSingleFile(nextFile);
+      }
+    }
+  }, [cropQueue, currentCropFile]);
+
+  async function uploadSingleFile(file: File) {
+    setUploadingMedia(true);
+    try {
+      const uploadData = new FormData();
+      uploadData.append("file", file);
+
+      const res = await fetch("/api/upload/products", {
+        method: "POST",
+        body: uploadData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Upload failed");
+      }
+
+      const data = await res.json();
+      
+      const newMedia: MediaFile = {
+        id: Math.random().toString(36).substr(2, 9),
+        url: data.url,
+        type: data.type === "video" ? "video" : "image",
+      };
+
+      setMediaFiles((prev) => [...prev, newMedia]);
+
+      if (data.type === "image" && !formData.featured_image) {
+        handleChange("featured_image", data.url);
+      }
+      toast.success(`${file.name} uploaded successfully`);
+    } catch (err: any) {
+      toast.error(err.message || `Failed to upload ${file.name}`);
+    } finally {
+      setUploadingMedia(false);
+    }
+  }
+
+  function startCroppingExisting(media: MediaFile) {
+    setEditingMediaId(media.id);
+    setCropImgSrc(media.url);
+    const name = media.url.substring(media.url.lastIndexOf("/") + 1) || "image.jpg";
+    setCurrentCropFile(new File([], name, { type: "image/jpeg" }));
+  }
+
+  async function handleApplyCrop() {
+    if (!imgRef.current || !crop || !currentCropFile) return;
+
+    try {
+      const croppedBlob = await getCroppedImg(imgRef.current, crop);
+      const croppedFile = new File([croppedBlob], currentCropFile.name, {
+        type: "image/jpeg",
+      });
+
+      setUploadingMedia(true);
+      const uploadData = new FormData();
+      uploadData.append("file", croppedFile);
+
+      const res = await fetch("/api/upload/products", {
+        method: "POST",
+        body: uploadData,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Upload failed");
+      }
+
+      const data = await res.json();
+
+      if (editingMediaId) {
+        setMediaFiles((prev) =>
+          prev.map((m) =>
+            m.id === editingMediaId ? { ...m, url: data.url } : m
+          )
+        );
+        const oldMedia = mediaFiles.find((m) => m.id === editingMediaId);
+        if (oldMedia && formData.featured_image === oldMedia.url) {
+          handleChange("featured_image", data.url);
+        }
+        toast.success("Image cropped and updated successfully");
+      } else {
+        const newMedia: MediaFile = {
+          id: Math.random().toString(36).substr(2, 9),
+          url: data.url,
+          type: "image",
+        };
+        setMediaFiles((prev) => [...prev, newMedia]);
+        if (!formData.featured_image) {
+          handleChange("featured_image", data.url);
+        }
+        toast.success("Cropped image uploaded successfully");
+      }
+    } catch (e: any) {
+      toast.error("Failed to crop image: " + e.message);
+    } finally {
+      setCurrentCropFile(null);
+      setCropImgSrc("");
+      setCrop(undefined);
+      setEditingMediaId(null);
+    }
+  }
+
+  function handleCancelOrSkip() {
+    if (!editingMediaId && currentCropFile && currentCropFile.size > 0) {
+      uploadSingleFile(currentCropFile);
+    }
+    setCurrentCropFile(null);
+    setCropImgSrc("");
+    setCrop(undefined);
+    setEditingMediaId(null);
+  }
+
   async function handleMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setUploadingMedia(true);
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const isVideo = file.type.startsWith("video/");
-        const isImage = file.type.startsWith("image/");
-
-        if (!isImage && !isVideo) {
-          toast.error(`${file.name} is not a valid image or video`);
-          continue;
-        }
-
-        const uploadData = new FormData();
-        uploadData.append("file", file);
-
-        const res = await fetch("/api/upload/products", {
-          method: "POST",
-          body: uploadData,
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || "Upload failed");
-        }
-
-        const data = await res.json();
-        
-        const newMedia: MediaFile = {
-          id: Math.random().toString(36).substr(2, 9),
-          url: data.url,
-          type: data.type === "video" ? "video" : "image",
-        };
-
-        setMediaFiles((prev) => [...prev, newMedia]);
-
-        if (data.type === "image" && !formData.featured_image) {
-          handleChange("featured_image", data.url);
-        }
-      }
-
-      toast.success("Media uploaded successfully");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to upload media");
-    } finally {
-      setUploadingMedia(false);
+    const list: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      list.push(files[i]);
     }
+    setCropQueue((prev) => [...prev, ...list]);
+    e.target.value = "";
   }
 
   function removeMedia(id: string) {
@@ -475,14 +577,11 @@ export default function CreateProductPage() {
                   />
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="description">Full Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => handleChange("description", e.target.value)}
-                    placeholder="Detailed product description, features, benefits..."
-                    rows={6}
+                  <ProductDescriptionEditor
+                    content={formData.description}
+                    onChange={(val) => handleChange("description", val)}
                   />
                 </div>
               </CardContent>
@@ -543,28 +642,42 @@ export default function CreateProductPage() {
                             <Video className="h-8 w-8 text-gray-400" />
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center gap-2">
+                        <div className="absolute inset-0 z-20 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center gap-2">
                           {media.type === "image" && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => setAsFeatured(media.url)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              Set Featured
-                            </Button>
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setAsFeatured(media.url)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-xs h-7 px-2"
+                              >
+                                Set Featured
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startCroppingExisting(media)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-slate-800 border-slate-250 hover:bg-slate-50 text-xs h-7 px-2"
+                              >
+                                Crop
+                              </Button>
+                            </>
                           )}
-                          <Button
-                            size="icon"
-                            variant="destructive"
-                            onClick={() => removeMedia(media.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
                         </div>
+
+                        {/* Always visible delete button stacked on top */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeMedia(media.id); }}
+                          className="absolute top-2 right-2 z-30 p-1 bg-red-650 hover:bg-red-800 text-white rounded-full shadow-md hover:scale-110 transition-all duration-200 cursor-pointer"
+                          title="Remove image"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                         {formData.featured_image === media.url && (
-                          <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                          <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded font-medium shadow-sm">
                             Featured
                           </div>
                         )}
@@ -955,6 +1068,129 @@ export default function CreateProductPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Cropper Dialog */}
+      <Dialog open={Boolean(cropImgSrc)} onOpenChange={(open) => { if (!open) handleCancelOrSkip(); }}>
+        <DialogContent className="max-w-2xl bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-slate-800 text-lg font-bold">Crop &amp; Sizing Editor</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex flex-col items-center gap-4">
+            {/* Aspect Ratio selectors */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              {[
+                { label: "Free", value: undefined },
+                { label: "1:1 Square", value: 1 },
+                { label: "3:4 Portrait", value: 3/4 },
+                { label: "4:3 Landscape", value: 4/3 },
+                { label: "16:9 Banner", value: 16/9 },
+              ].map((opt, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    setAspect(opt.value);
+                    if (opt.value && crop) {
+                      setCrop({ ...crop, width: 100, height: 100 / opt.value });
+                    }
+                  }}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                    aspect === opt.value ? "bg-white shadow-sm text-emerald-600" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Cropping Canvas Frame */}
+            <div className="relative max-h-[380px] overflow-auto bg-slate-50 border border-slate-200 rounded-xl p-2 flex justify-center items-center w-full">
+              <ReactCrop
+                crop={crop}
+                onChange={(c) => setCrop(c)}
+                aspect={aspect}
+                className="max-w-full"
+              >
+                <img
+                  ref={imgRef}
+                  src={cropImgSrc}
+                  alt="Crop preview"
+                  onLoad={(e) => {
+                    const { width, height } = e.currentTarget;
+                    const cropWidth = Math.min(width, height) * 0.8;
+                    setCrop({
+                      unit: "px",
+                      x: (width - cropWidth) / 2,
+                      y: (height - (aspect ? cropWidth / aspect : cropWidth)) / 2,
+                      width: cropWidth,
+                      height: aspect ? cropWidth / aspect : cropWidth,
+                    });
+                  }}
+                  className="max-h-[350px] object-contain"
+                />
+              </ReactCrop>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 justify-end pt-4 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelOrSkip}
+              className="text-xs font-semibold text-slate-500 border-slate-200"
+            >
+              {editingMediaId ? "Cancel" : "Skip Cropping"}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleApplyCrop}
+              className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              Apply Crop &amp; Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function getCroppedImg(image: HTMLImageElement, crop: any): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    return Promise.reject(new Error("No 2d context"));
+  }
+
+  ctx.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    crop.width,
+    crop.height
+  );
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Canvas is empty"));
+          return;
+        }
+        resolve(blob);
+      },
+      "image/jpeg",
+      0.95
+    );
+  });
 }

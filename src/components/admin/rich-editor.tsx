@@ -13,6 +13,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
 import FontFamily from "@tiptap/extension-font-family";
+import { FontSize } from "@/lib/tiptap/extensions/font-size";
 import { FONT_OPTIONS } from "@/lib/fonts";
 import {
   CustomButton,
@@ -647,6 +648,18 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
   const [showImgPanel, setShowImgPanel] = useState(false);
   const [imgWidth, setImgWidth] = useState("100%");
   const [imgAlign, setImgAlign] = useState<"left" | "center" | "right">("center");
+  const [imgHeight, setImgHeight] = useState("auto");
+  const [imgAspectRatio, setImgAspectRatio] = useState("auto");
+  const [imgBorderRadius, setImgBorderRadius] = useState(12);
+  const [imgShadow, setImgShadow] = useState("none");
+  const [imgOpacity, setImgOpacity] = useState(100);
+  const [imgObjectFit, setImgObjectFit] = useState("cover");
+  const [imgMarginTop, setImgMarginTop] = useState(24);
+  const [imgMarginBottom, setImgMarginBottom] = useState(24);
+  const [imgHoverEffect, setImgHoverEffect] = useState("none");
+
+  // Section background image upload state refs
+  const bgImageInputRef = useRef<HTMLInputElement>(null);
 
   // Two-column section panel
   const [showTwoColPanel, setShowTwoColPanel] = useState(false);
@@ -729,6 +742,15 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     if (isImage) {
       setImgWidth(nodeSel!.attrs.width || "100%");
       setImgAlign(nodeSel!.attrs.align || "center");
+      setImgHeight(nodeSel!.attrs.height || "auto");
+      setImgAspectRatio(nodeSel!.attrs.aspectRatio || "auto");
+      setImgBorderRadius(nodeSel!.attrs.borderRadius !== undefined ? Number(nodeSel!.attrs.borderRadius) : 12);
+      setImgShadow(nodeSel!.attrs.shadow || "none");
+      setImgOpacity(nodeSel!.attrs.opacity !== undefined ? Number(nodeSel!.attrs.opacity) : 100);
+      setImgObjectFit(nodeSel!.attrs.objectFit || "cover");
+      setImgMarginTop(nodeSel!.attrs.marginTop !== undefined ? Number(nodeSel!.attrs.marginTop) : 24);
+      setImgMarginBottom(nodeSel!.attrs.marginBottom !== undefined ? Number(nodeSel!.attrs.marginBottom) : 24);
+      setImgHoverEffect(nodeSel!.attrs.hoverEffect || "none");
     }
     setShowImgPanel(isImage);
 
@@ -839,6 +861,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       Color,
       TextStyle,
       FontFamily,
+      FontSize,
       Highlight.configure({ multicolor: true }),
       Placeholder.configure({
         placeholder: "Start writing your landing page content...",
@@ -1145,14 +1168,25 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
   );
 
   const updateImageAttr = useCallback(
-    (key: string, value: string) => {
+    (key: string, value: any) => {
       if (!editor) return;
       if (key === "width") setImgWidth(value);
       if (key === "align") setImgAlign(value as any);
+      if (key === "height") setImgHeight(value);
+      if (key === "aspectRatio") setImgAspectRatio(value);
+      if (key === "borderRadius") setImgBorderRadius(Number(value));
+      if (key === "shadow") setImgShadow(value);
+      if (key === "opacity") setImgOpacity(Number(value));
+      if (key === "objectFit") setImgObjectFit(value);
+      if (key === "marginTop") setImgMarginTop(Number(value));
+      if (key === "marginBottom") setImgMarginBottom(Number(value));
+      if (key === "hoverEffect") setImgHoverEffect(value);
       editor.commands.updateAttributes("image", { [key]: value });
     },
     [editor]
   );
+
+
 
   const insertTwoCol = useCallback(
     (layout: "media-left" | "media-right") => {
@@ -1190,6 +1224,51 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
     },
     [editor]
   );
+
+  const handleBgImageUpload = useCallback(() => {
+    bgImageInputRef.current?.click();
+  }, []);
+
+  const onBgImageSelected = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file");
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        toast.loading("Uploading background...", { id: "bg-upload" });
+        const res = await fetch("/api/upload", { method: "POST", body: formData });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Upload failed");
+        }
+        const data = await res.json();
+        updateSectionAttr("backgroundImage", data.url);
+        updateSectionAttr("backgroundGradient", "");
+        toast.success(`Background uploaded${data.storage === 'r2' ? ' (uploaded to R2)' : ' (uploaded locally)'}!`, { id: "bg-upload" });
+      } catch (err: any) {
+        toast.error(err.message || "Upload failed", { id: "bg-upload" });
+      }
+      e.target.value = "";
+    },
+    [updateSectionAttr]
+  );
+
+  const GRADIENT_PRESETS = [
+    { label: "None", value: "" },
+    { label: "Peacock Blue", value: "linear-gradient(135deg, #0d9488 0%, #2563eb 100%)" },
+    { label: "Sunset Gold", value: "linear-gradient(135deg, #ea580c 0%, #eab308 100%)" },
+    { label: "Purple Haze", value: "linear-gradient(135deg, #7c3aed 0%, #db2777 100%)" },
+    { label: "Forest Mint", value: "linear-gradient(135deg, #059669 0%, #10b981 100%)" },
+  ];
 
   const insertLeadForm = useCallback(() => {
     if (!editor) return;
@@ -1495,6 +1574,13 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
         onChange={onReplaceImageSelected}
         className="hidden"
       />
+      <input
+        ref={bgImageInputRef}
+        type="file"
+        accept="image/*"
+        onChange={onBgImageSelected}
+        className="hidden"
+      />
 
       {/* ===== TOOLS PANEL (Elementor-style) — fixed to the right side ===== */}
       <div className="order-2 w-[300px] min-w-[300px] bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
@@ -1697,6 +1783,56 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Font Size, Line Height, Letter Spacing */}
+                  <div className="space-y-2 mt-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[10px] text-gray-400">Size (e.g. 16px, 1.25rem)</Label>
+                        <Input
+                          value={editor.getAttributes("textStyle").fontSize || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const cmds = editor.commands as any;
+                            if (!val) cmds.unsetFontSize();
+                            else cmds.setFontSize(val);
+                          }}
+                          className="h-8 text-xs bg-gray-50 border-gray-200"
+                          placeholder="e.g. 16px"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[10px] text-gray-400">Line Height</Label>
+                        <Input
+                          value={editor.getAttributes("textStyle").lineHeight || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const cmds = editor.commands as any;
+                            if (!val) cmds.unsetLineHeight();
+                            else cmds.setLineHeight(val);
+                          }}
+                          className="h-8 text-xs bg-gray-50 border-gray-200"
+                          placeholder="e.g. 1.5"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-[10px] text-gray-400">Letter Spacing</Label>
+                        <Input
+                          value={editor.getAttributes("textStyle").letterSpacing || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const cmds = editor.commands as any;
+                            if (!val) cmds.unsetLetterSpacing();
+                            else cmds.setLetterSpacing(val);
+                          }}
+                          className="h-8 text-xs bg-gray-50 border-gray-200"
+                          placeholder="e.g. 0.05em"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Inline Formatting */}
@@ -2042,6 +2178,112 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                         <Switch checked={btnAttrs.variant === "outline"} onCheckedChange={(v) => updateButtonAttr("variant", v ? "outline" : "solid")} />
                       </div>
                     </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider block mb-1">Typography</Label>
+                      <div className="space-y-2 bg-gray-50 p-2 rounded-lg border border-gray-150">
+                        <div>
+                          <span className="text-[10px] text-gray-400">Size (px)</span>
+                          <Input
+                            type="number"
+                            value={btnAttrs.fontSize || 16}
+                            onChange={(e) => updateButtonAttr("fontSize", Number(e.target.value))}
+                            className="h-8 text-xs bg-white border-gray-200"
+                            min={8}
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400">Weight</span>
+                          <SegmentedControl
+                            options={[
+                              { label: "Normal", value: "400" },
+                              { label: "Semi", value: "600" },
+                              { label: "Bold", value: "700" },
+                              { label: "Extra", value: "800" },
+                            ]}
+                            value={String(btnAttrs.fontWeight || 600)}
+                            onChange={(v) => updateButtonAttr("fontWeight", Number(v))}
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400">Letter Spacing (em)</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={btnAttrs.letterSpacing || 0.01}
+                            onChange={(e) => updateButtonAttr("letterSpacing", Number(e.target.value))}
+                            className="h-8 text-xs bg-white border-gray-200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider block mb-1">Hover & Transitions</Label>
+                      <div className="space-y-2 bg-gray-50 p-2 rounded-lg border border-gray-150">
+                        <ColorRow label="Hover BG" value={btnAttrs.hoverBg || btnAttrs.backgroundColor} onChange={(v) => updateButtonAttr("hoverBg", v)} />
+                        <ColorRow label="Hover Text" value={btnAttrs.hoverTextColor || btnAttrs.textColor} onChange={(v) => updateButtonAttr("hoverTextColor", v)} />
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] text-gray-600">Scale (1.05x)</span>
+                          <Switch checked={btnAttrs.hoverScale} onCheckedChange={(v) => updateButtonAttr("hoverScale", v)} />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-gray-600">Hover Shadow</span>
+                          <Switch checked={btnAttrs.hoverShadow} onCheckedChange={(v) => updateButtonAttr("hoverShadow", v)} />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400">Transition ({btnAttrs.transitionDuration || 200}ms)</span>
+                          <input
+                            type="range"
+                            min="100"
+                            max="1000"
+                            step="50"
+                            value={btnAttrs.transitionDuration || 200}
+                            onChange={(e) => updateButtonAttr("transitionDuration", Number(e.target.value))}
+                            className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider block mb-1">Entry Animation</Label>
+                      <div className="space-y-2 bg-gray-50 p-2 rounded-lg border border-gray-150">
+                        <div>
+                          <span className="text-[10px] text-gray-400">Effect</span>
+                          <SegmentedControl
+                            options={[
+                              { label: "None", value: "none" },
+                              { label: "Fade", value: "fade-in" },
+                              { label: "Slide", value: "slide-up" },
+                              { label: "Zoom", value: "zoom-in" },
+                              { label: "Bounce", value: "bounce" },
+                            ]}
+                            value={btnAttrs.animationEffect || "none"}
+                            onChange={(v) => updateButtonAttr("animationEffect", v)}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Duration (ms)</span>
+                            <Input
+                              type="number"
+                              value={btnAttrs.animationDuration || 800}
+                              onChange={(e) => updateButtonAttr("animationDuration", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={100}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Delay (ms)</span>
+                            <Input
+                              type="number"
+                              value={btnAttrs.animationDelay || 0}
+                              onChange={(e) => updateButtonAttr("animationDelay", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </PanelSection>
               )}
@@ -2106,6 +2348,114 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                         onChange={(v) => updateImageAttr("align", v)}
                       />
                     </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Height</Label>
+                      <Input
+                        value={imgHeight}
+                        onChange={(e) => updateImageAttr("height", e.target.value)}
+                        className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                        placeholder="e.g. auto or 300px"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Aspect Ratio</Label>
+                      <SegmentedControl
+                        options={[
+                          { label: "Auto", value: "auto" },
+                          { label: "16:9", value: "16/9" },
+                          { label: "4:3", value: "4/3" },
+                          { label: "1:1", value: "1/1" },
+                        ]}
+                        value={imgAspectRatio}
+                        onChange={(v) => updateImageAttr("aspectRatio", v)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Border Radius ({imgBorderRadius}px)</Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={imgBorderRadius}
+                        onChange={(e) => updateImageAttr("borderRadius", Number(e.target.value))}
+                        className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Shadow</Label>
+                      <SegmentedControl
+                        options={[
+                          { label: "None", value: "none" },
+                          { label: "Sm", value: "sm" },
+                          { label: "Md", value: "md" },
+                          { label: "Lg", value: "lg" },
+                          { label: "Xl", value: "xl" },
+                        ]}
+                        value={imgShadow}
+                        onChange={(v) => updateImageAttr("shadow", v)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Opacity ({imgOpacity}%)</Label>
+                      <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        value={imgOpacity}
+                        onChange={(e) => updateImageAttr("opacity", Number(e.target.value))}
+                        className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Object Fit</Label>
+                      <SegmentedControl
+                        options={[
+                          { label: "Cover", value: "cover" },
+                          { label: "Contain", value: "contain" },
+                          { label: "Fill", value: "fill" },
+                        ]}
+                        value={imgObjectFit}
+                        onChange={(v) => updateImageAttr("objectFit", v)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Margins (px)</Label>
+                      <div className="flex gap-2 mt-1">
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">Top</span>
+                          <Input
+                            type="number"
+                            value={imgMarginTop}
+                            onChange={(e) => updateImageAttr("marginTop", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">Bottom</span>
+                          <Input
+                            type="number"
+                            value={imgMarginBottom}
+                            onChange={(e) => updateImageAttr("marginBottom", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Hover Effect</Label>
+                      <SegmentedControl
+                        options={[
+                          { label: "None", value: "none" },
+                          { label: "Zoom", value: "zoom" },
+                          { label: "Fade", value: "fade" },
+                          { label: "Tilt", value: "tilt" },
+                        ]}
+                        value={imgHoverEffect}
+                        onChange={(v) => updateImageAttr("hoverEffect", v)}
+                      />
+                    </div>
                   </div>
                 </PanelSection>
               )}
@@ -2134,6 +2484,83 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                     </div>
                     <ColorRow label="Background" value={sectionAttrs.backgroundColor} onChange={(v) => updateSectionAttr("backgroundColor", v)} />
                     <ColorRow label="Text Color" value={sectionAttrs.textColor} onChange={(v) => updateSectionAttr("textColor", v)} />
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider block">Background Image</Label>
+                      <div className="flex gap-1.5 mt-1">
+                        <Input
+                          value={sectionAttrs.backgroundImage || ""}
+                          onChange={(e) => {
+                            updateSectionAttr("backgroundImage", e.target.value);
+                            updateSectionAttr("backgroundGradient", "");
+                          }}
+                          className="h-8 text-xs bg-gray-50 border-gray-200 flex-1"
+                          placeholder="Image URL or upload"
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleBgImageUpload}
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs border-gray-200"
+                        >
+                          Upload
+                        </Button>
+                      </div>
+                      {sectionAttrs.backgroundImage && (
+                        <button
+                          type="button"
+                          onClick={() => updateSectionAttr("backgroundImage", "")}
+                          className="text-[10px] text-red-500 mt-1 hover:underline block text-left"
+                        >
+                          Clear image
+                        </button>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider block">Background Gradient</Label>
+                      <select
+                        value={sectionAttrs.backgroundGradient || ""}
+                        onChange={(e) => {
+                          updateSectionAttr("backgroundGradient", e.target.value);
+                          updateSectionAttr("backgroundImage", "");
+                        }}
+                        className="w-full h-8 px-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                      >
+                        {GRADIENT_PRESETS.map((g) => (
+                          <option key={g.label} value={g.value}>
+                            {g.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        value={sectionAttrs.backgroundGradient || ""}
+                        onChange={(e) => {
+                          updateSectionAttr("backgroundGradient", e.target.value);
+                          updateSectionAttr("backgroundImage", "");
+                        }}
+                        className="h-8 text-xs bg-gray-50 border-gray-200 mt-1"
+                        placeholder="Custom CSS Gradient (linear-gradient...)"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Min Height (px)</Label>
+                      <Input
+                        type="number"
+                        value={sectionAttrs.minHeight || 0}
+                        onChange={(e) => updateSectionAttr("minHeight", Number(e.target.value))}
+                        className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                        min={0}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Border Radius (px)</Label>
+                      <Input
+                        type="number"
+                        value={sectionAttrs.borderRadius || 0}
+                        onChange={(e) => updateSectionAttr("borderRadius", Number(e.target.value))}
+                        className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                        min={0}
+                      />
+                    </div>
                     <div>
                       <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Padding</Label>
                       <div className="flex gap-2 mt-1">
@@ -2167,6 +2594,54 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
                       <div className="flex items-center justify-between">
                         <Label className="text-[11px] text-gray-600">Border Bottom</Label>
                         <Switch checked={sectionAttrs.borderBottom} onCheckedChange={(v) => updateSectionAttr("borderBottom", v)} />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider block mb-1">Entry Animation</Label>
+                      <div className="space-y-2 bg-gray-50 p-2 rounded-lg border border-gray-150">
+                        <div>
+                          <span className="text-[10px] text-gray-400">Effect</span>
+                          <select
+                            value={sectionAttrs.animationEffect || "none"}
+                            onChange={(e) => updateSectionAttr("animationEffect", e.target.value)}
+                            className="w-full h-8 px-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                          >
+                            <option value="none">None</option>
+                            <option value="fade-in">Fade In</option>
+                            <option value="slide-up">Slide Up</option>
+                            <option value="slide-left">Slide Left</option>
+                            <option value="zoom-in">Zoom In</option>
+                            <option value="bounce">Bounce</option>
+                          </select>
+                        </div>
+                        {sectionAttrs.animationEffect && sectionAttrs.animationEffect !== "none" && (
+                          <>
+                            <div>
+                              <span className="text-[10px] text-gray-400">Duration ({sectionAttrs.animationDuration || 800}ms)</span>
+                              <input
+                                type="range"
+                                min="200"
+                                max="3000"
+                                step="100"
+                                value={sectionAttrs.animationDuration || 800}
+                                onChange={(e) => updateSectionAttr("animationDuration", Number(e.target.value))}
+                                className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1"
+                              />
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-gray-400">Delay ({sectionAttrs.animationDelay || 0}ms)</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="2000"
+                                step="100"
+                                value={sectionAttrs.animationDelay || 0}
+                                onChange={(e) => updateSectionAttr("animationDelay", Number(e.target.value))}
+                                className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-1"
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                     {themeColors && (

@@ -14,6 +14,7 @@ import Highlight from "@tiptap/extension-highlight";
 import FontFamily from "@tiptap/extension-font-family";
 import { ResizableImage } from "@/lib/tiptap/extensions/resizable-image";
 import { CustomButton } from "@/lib/tiptap/extensions/custom-button";
+import { FontSize } from "@/lib/tiptap/extensions/font-size";
 import {
   TwoColumnSection,
   ColumnMedia,
@@ -79,6 +80,7 @@ const extensions = [
     multicolor: true,
   }),
   CustomButton,
+  FontSize,
   TwoColumnSection,
   ColumnMedia,
   ColumnContent,

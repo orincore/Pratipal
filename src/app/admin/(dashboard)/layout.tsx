@@ -54,6 +54,7 @@ const sidebarItems = [
   { label: "Gallery", href: "/admin/gallery", icon: Images },
   { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },
   { label: "Email Marketing", href: MAIL_SYSTEM_URL, icon: Mail, external: true },
+  { label: "Shop Layout", href: "/admin/settings/shop-layout", icon: Store },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

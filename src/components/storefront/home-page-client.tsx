@@ -28,6 +28,7 @@ import { CoursesSection } from "@/components/storefront/courses-section";
 import { GallerySection } from "@/components/storefront/gallery-section";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/storefront/product-card";
+import { useShopSettings } from "@/hooks/use-shop-settings";
 
 type SectionKey = Extract<HomepageSection, "featured" | "best_sellers" | "new_arrivals" | "on_sale">;
 const SECTION_KEYS: SectionKey[] = ["featured", "best_sellers", "new_arrivals", "on_sale"];
@@ -37,6 +38,7 @@ interface HomePageClientProps {
 }
 
 export function HomePageClient({ products }: HomePageClientProps) {
+  const { settings } = useShopSettings();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -776,6 +778,7 @@ function RecentBlogsSection() {
 }
 
 function FeaturedProducts({ products }: { products: Product[] }) {
+  const { settings } = useShopSettings();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   function scroll(dir: "left" | "right") {
@@ -826,7 +829,7 @@ function FeaturedProducts({ products }: { products: Product[] }) {
                     key={product.id}
                     className="snap-start flex-shrink-0 w-[calc(50%-6px)] sm:w-[calc(25%-9px)]"
                   >
-                    <ProductCard product={product} index={index} />
+                    <ProductCard product={product} index={index} settings={settings} />
                   </div>
                 ))}
               </div>

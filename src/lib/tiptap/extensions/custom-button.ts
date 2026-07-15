@@ -16,6 +16,17 @@ export interface ButtonAttrs {
   shadow: boolean;
   variant: ButtonVariant;
   width: ButtonWidth;
+  fontSize: number;
+  fontWeight: number;
+  letterSpacing: number;
+  hoverBg: string;
+  hoverTextColor: string;
+  hoverScale: boolean;
+  hoverShadow: boolean;
+  transitionDuration: number;
+  animationEffect: string;
+  animationDuration: number;
+  animationDelay: number;
 }
 
 declare module "@tiptap/core" {
@@ -39,6 +50,17 @@ export const DEFAULT_BUTTON_ATTRS: ButtonAttrs = {
   shadow: true,
   variant: "solid",
   width: "auto",
+  fontSize: 16,
+  fontWeight: 600,
+  letterSpacing: 0.01,
+  hoverBg: "",
+  hoverTextColor: "",
+  hoverScale: false,
+  hoverShadow: false,
+  transitionDuration: 200,
+  animationEffect: "none",
+  animationDuration: 800,
+  animationDelay: 0,
 };
 
 export const CustomButton = Node.create({
@@ -94,6 +116,10 @@ export const CustomButton = Node.create({
     const wrapperStyle = [`text-align:${attrs.align}`, "margin:1.5rem 0"].join(";");
     const isOutline = attrs.variant === "outline";
 
+    const shadowVal = attrs.shadow ? "0 15px 35px rgba(0,0,0,0.12)" : "none";
+    const hoverShadowVal = attrs.hoverShadow ? "0 20px 40px rgba(0,0,0,0.18)" : shadowVal;
+    const hoverScaleVal = attrs.hoverScale ? "scale(1.05)" : "scale(1)";
+
     const buttonStyles = [
       "display:inline-flex",
       "align-items:center",
@@ -103,14 +129,20 @@ export const CustomButton = Node.create({
       `border:2px solid ${attrs.borderColor}`,
       attrs.width === "full" ? "width:100%" : "width:auto",
       attrs.width === "full" ? "display:flex" : "display:inline-flex",
-      attrs.shadow ? "box-shadow:0 15px 35px rgba(0,0,0,0.12)" : "",
+      `box-shadow:${shadowVal}`,
       `background-color:${isOutline ? "transparent" : attrs.backgroundColor}`,
       `color:${attrs.textColor}`,
-      "font-weight:600",
+      `font-size:${attrs.fontSize}px`,
+      `font-weight:${attrs.fontWeight}`,
+      `letter-spacing:${attrs.letterSpacing}em`,
+      `transition:all ${attrs.transitionDuration}ms ease`,
       "text-decoration:none",
-      "letter-spacing:0.01em",
-      "transition:all 0.2s ease",
       "cursor:pointer",
+      `--btn-hover-bg:${attrs.hoverBg || (isOutline ? "transparent" : attrs.backgroundColor)}`,
+      `--btn-hover-color:${attrs.hoverTextColor || attrs.textColor}`,
+      `--btn-hover-scale:${hoverScaleVal}`,
+      `--btn-hover-shadow:${hoverShadowVal}`,
+      `--btn-transition-duration:${attrs.transitionDuration}ms`,
     ].filter(Boolean);
 
     const elementAttrs = {
@@ -122,9 +154,22 @@ export const CustomButton = Node.create({
       "data-width": attrs.width,
     };
 
+    const wrapperAttrs: Record<string, any> = {
+      "data-button": "",
+    };
+
+    let style = wrapperStyle;
+    if (attrs.animationEffect && attrs.animationEffect !== "none") {
+      wrapperAttrs["data-animation"] = attrs.animationEffect;
+      style = style + `;animation-duration:${attrs.animationDuration}ms;animation-delay:${attrs.animationDelay}ms`;
+      wrapperAttrs["class"] = `ve-animate ve-animate-${attrs.animationEffect}`;
+    }
+
+    wrapperAttrs["style"] = style;
+
     return [
       "div",
-      mergeAttributes({ "data-button": "", style: wrapperStyle }),
+      mergeAttributes(wrapperAttrs),
       [
         "a",
         mergeAttributes(elementAttrs),

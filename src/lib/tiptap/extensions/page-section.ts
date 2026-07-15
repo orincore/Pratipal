@@ -8,6 +8,13 @@ export interface PageSectionAttrs {
   fullWidth: boolean;
   borderBottom: boolean;
   label: string;
+  backgroundImage: string;
+  backgroundGradient: string;
+  minHeight: number;
+  borderRadius: number;
+  animationEffect: string;
+  animationDuration: number;
+  animationDelay: number;
 }
 
 declare module "@tiptap/core" {
@@ -27,6 +34,13 @@ export const DEFAULT_SECTION_ATTRS: PageSectionAttrs = {
   fullWidth: true,
   borderBottom: false,
   label: "Section",
+  backgroundImage: "",
+  backgroundGradient: "",
+  minHeight: 0,
+  borderRadius: 0,
+  animationEffect: "none",
+  animationDuration: 800,
+  animationDelay: 0,
 };
 
 export const PageSection = Node.create({
@@ -47,6 +61,13 @@ export const PageSection = Node.create({
       fullWidth: { default: DEFAULT_SECTION_ATTRS.fullWidth },
       borderBottom: { default: DEFAULT_SECTION_ATTRS.borderBottom },
       label: { default: DEFAULT_SECTION_ATTRS.label },
+      backgroundImage: { default: DEFAULT_SECTION_ATTRS.backgroundImage },
+      backgroundGradient: { default: DEFAULT_SECTION_ATTRS.backgroundGradient },
+      minHeight: { default: DEFAULT_SECTION_ATTRS.minHeight },
+      borderRadius: { default: DEFAULT_SECTION_ATTRS.borderRadius },
+      animationEffect: { default: DEFAULT_SECTION_ATTRS.animationEffect },
+      animationDuration: { default: DEFAULT_SECTION_ATTRS.animationDuration },
+      animationDelay: { default: DEFAULT_SECTION_ATTRS.animationDelay },
     };
   },
 
@@ -95,25 +116,46 @@ export const PageSection = Node.create({
       ...(node.attrs as Partial<PageSectionAttrs>),
     };
 
-    const style = [
-      a.backgroundColor !== "transparent"
-        ? `background-color:${a.backgroundColor}`
-        : "",
+    const styleParts = [
       `color:${a.textColor}`,
       `padding:${a.paddingY}px ${a.paddingX}px`,
       a.fullWidth ? "width:100%" : "",
       a.borderBottom ? "border-bottom:1px solid rgba(0,0,0,0.1)" : "",
-    ]
-      .filter(Boolean)
-      .join(";");
+    ];
+
+    if (a.backgroundGradient) {
+      styleParts.push(`background:${a.backgroundGradient}`);
+    } else if (a.backgroundImage) {
+      styleParts.push(`background-image:url('${a.backgroundImage}')`, "background-size:cover", "background-position:center", "background-repeat:no-repeat");
+    } else if (a.backgroundColor !== "transparent") {
+      styleParts.push(`background-color:${a.backgroundColor}`);
+    }
+
+    if (a.minHeight > 0) {
+      styleParts.push(`min-height:${a.minHeight}px`, "display:flex", "flex-direction:column", "justify-content:center");
+    }
+    if (a.borderRadius > 0) {
+      styleParts.push(`border-radius:${a.borderRadius}px`);
+    }
+
+    let style = styleParts.filter(Boolean).join(";");
+
+    const htmlAttrs: Record<string, any> = {
+      "data-page-section": "",
+      "data-label": a.label,
+    };
+
+    if (a.animationEffect && a.animationEffect !== "none") {
+      htmlAttrs["data-animation"] = a.animationEffect;
+      style = style + `;animation-duration:${a.animationDuration}ms;animation-delay:${a.animationDelay}ms`;
+      htmlAttrs["class"] = `ve-animate ve-animate-${a.animationEffect}`;
+    }
+
+    htmlAttrs["style"] = style;
 
     return [
       "section",
-      mergeAttributes({
-        "data-page-section": "",
-        "data-label": a.label,
-        style,
-      }),
+      mergeAttributes(htmlAttrs),
       0,
     ];
   },

@@ -10,6 +10,8 @@ import { Footer } from "@/components/storefront/footer";
 import { CustomerAuthProvider } from "@/lib/customer-auth-context";
 import { formatPrice } from "@/lib/utils";
 import { CheckCircle2, Package, ShieldCheck, Zap } from "lucide-react";
+import connectDB from "@/lib/mongodb";
+import ShopSettings from "@/models/ShopSettings";
 
 function resolveBaseUrl() {
   if (typeof window !== "undefined") return "";
@@ -82,6 +84,10 @@ export default async function ProductPage({ params }: ProductParams) {
     const { slug } = await params;
     const product = await fetchProduct(slug);
     if (!product) notFound();
+
+    await connectDB();
+    const settingsDoc = await ShopSettings.findOne().sort({ updated_at: -1 }).lean();
+    const settings = settingsDoc ? JSON.parse(JSON.stringify(settingsDoc)) : undefined;
 
     const images = product.images?.length
       ? product.images
@@ -292,6 +298,7 @@ export default async function ProductPage({ params }: ProductParams) {
                       <ProductCard
                         key={item.id}
                         index={i}
+                        settings={settings}
                         product={{
                           id: item.id,
                           name: item.name,
