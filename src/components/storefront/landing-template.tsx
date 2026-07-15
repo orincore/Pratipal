@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight, Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles, Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe, Camera, Smile, Coffee, Rocket, Award, MessageSquare, Lock } from "lucide-react";
+import { DynamicPageRenderer } from "@/components/storefront/dynamic-page-renderer";
 
 // Icon resolver for why-section cards
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -395,6 +396,7 @@ function VideoTestimonialsSlider({ items, primaryColor }: {
 // ---------------------------------------------------------------------------
 interface LandingTemplateProps {
   data?: Partial<LandingTemplateData>;
+  pageContent?: any;
   landingPageId?: string;
   pageSlug?: string;
 }
@@ -848,12 +850,12 @@ function InvitationDialog({
   );
 }
 
-export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTemplateProps) {
+export function LandingTemplate({ data, pageContent, landingPageId, pageSlug }: LandingTemplateProps) {
   const t = normalizeTemplateData(data);
   const c = t.colors;
   // Returns override bg color for a section, or falls back to the provided default
   const sbg = (key: string, fallback: string) => (t.sectionBg?.[key]) || fallback;
-  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'];
+  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'richContent', 'invitation', 'bonus', 'faq', 'footer'];
   const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
   const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
   const mediaSettings = t.mediaSettings || {};
@@ -946,7 +948,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
     if (heroSlides.length === 0) {
       return renderMedia(t.hero.heroImage, mediaKey("hero", "heroImage"), {
         wrapperClassName: "absolute inset-0 w-full h-full",
-        className: "w-full h-full object-cover",
+        className: "w-full h-full object-cover object-top",
         alt: "Hero",
       });
     }
@@ -967,7 +969,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
             >
               {renderMedia(slide.url, mediaKey("hero", "heroMedia", index, "url"), {
                 wrapperClassName: "absolute inset-0 w-full h-full",
-                className: "w-full h-full object-cover",
+                className: "w-full h-full object-cover object-top",
                 alt: slide.label || `Hero slide ${index + 1}`,
                 isActive: isSlideActive,
               })}
@@ -1735,6 +1737,19 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
           );
         });
 
+      case 'richContent':
+        return pageContent && pageContent.doc && (
+          <div key="richContent" className="landing-rich-content">
+            <DynamicPageRenderer
+              content={pageContent}
+              theme={{ primary: c.primary, secondary: c.secondary, accent: c.accent, background: c.bodyBg }}
+              title=""
+              pageSlug={pageSlug}
+              landingPageId={landingPageId}
+            />
+          </div>
+        );
+
       case 'faq':
         return t.faq?.enabled && t.faq.items.length > 0 && (
           <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('faq', c.bodyBg) }}>
@@ -1811,7 +1826,7 @@ export function LandingTemplate({ data, landingPageId, pageSlug }: LandingTempla
 
   return (
     <div
-      className="min-h-screen font-sans"
+      className="min-h-screen font-sans w-full max-w-full overflow-x-hidden"
       style={{ backgroundColor: c.bodyBg, ...(t.fontFamily ? { fontFamily: t.fontFamily } : {}) }}
     >
       {/* Inject marquee animation + fonts. A chosen template font overrides the

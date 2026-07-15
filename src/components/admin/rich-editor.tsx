@@ -49,6 +49,9 @@ import {
   type LandingContent,
   type LandingContentSettings,
 } from "@/lib/tiptap/content";
+import { LandingTemplate } from "@/components/storefront/landing-template";
+import { TemplateEditor } from "./template-editor";
+import type { LandingTemplateData } from "@/lib/template-types";
 import {
   Bold,
   Italic,
@@ -93,6 +96,7 @@ import {
   Replace,
   ArrowDownToLine,
   Copy,
+  LayoutTemplate,
   RemoveFormatting,
   WrapText,
   FormInput,
@@ -124,6 +128,10 @@ interface RichEditorProps {
     accent: string;
     background: string;
   };
+  templateData?: any;
+  setTemplateData?: any;
+  landingPageId?: string;
+  pageSlug?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -626,7 +634,15 @@ const BLOCK_PANEL_LABELS: Record<string, string> = {
 // Main component
 // ---------------------------------------------------------------------------
 
-export function RichEditor({ content, onChange, themeColors }: RichEditorProps) {
+export function RichEditor({
+  content,
+  onChange,
+  themeColors,
+  templateData,
+  setTemplateData,
+  landingPageId,
+  pageSlug,
+}: RichEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const suppressNextUpdate = useRef(false);
 
@@ -678,8 +694,10 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
   // node's type — far less boilerplate than per-block state.
   const [activeBlock, setActiveBlock] = useState<{ type: string; attrs: any } | null>(null);
 
-  // Left panel active tab
-  const [activeTab, setActiveTab] = useState<"widgets" | "style">("widgets");
+  // Left panel active tab (or Template tab for unified layouts)
+  const [activeTab, setActiveTab] = useState<"widgets" | "style" | "template">(
+    templateData ? "template" : "widgets"
+  );
 
   // Propagate settings changes upward
   const emitChange = useCallback(
@@ -1583,14 +1601,33 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
       />
 
       {/* ===== TOOLS PANEL (Elementor-style) — fixed to the right side ===== */}
-      <div className="order-2 w-[300px] min-w-[300px] bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
+      <div className={`order-2 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden ${
+        templateData ? "w-[320px] min-w-[320px]" : "w-[300px] min-w-[300px]"
+      }`}>
         {/* Panel Header with Tabs */}
         <div className="border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white">
           <div className="flex">
+            {templateData && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("template")}
+                className={`flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors relative ${
+                  activeTab === "template"
+                    ? "text-violet-600"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <LayoutTemplate className="h-3.5 w-3.5 inline mr-1.5" />
+                Template
+                {activeTab === "template" && (
+                  <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-violet-600 rounded-full" />
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setActiveTab("widgets")}
-              className={`flex-1 py-3 text-[12px] font-semibold uppercase tracking-wider transition-colors relative ${
+              className={`flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors relative ${
                 activeTab === "widgets"
                   ? "text-violet-600"
                   : "text-gray-400 hover:text-gray-600"
@@ -1605,7 +1642,7 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
             <button
               type="button"
               onClick={() => setActiveTab("style")}
-              className={`flex-1 py-3 text-[12px] font-semibold uppercase tracking-wider transition-colors relative ${
+              className={`flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors relative ${
                 activeTab === "style"
                   ? "text-violet-600"
                   : "text-gray-400 hover:text-gray-600"
@@ -1622,7 +1659,11 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
 
         {/* Panel Body - Scrollable */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          {activeTab === "widgets" ? (
+          {activeTab === "template" && templateData ? (
+            <div className="p-3">
+              <TemplateEditor data={templateData} onChange={setTemplateData} landingPageId={landingPageId} />
+            </div>
+          ) : activeTab === "widgets" ? (
             <>
               {/* ===== INSERT WIDGETS GRID ===== */}
               <PanelSection title="Insert Elements" icon={<LayoutGrid className="h-4 w-4" />} defaultOpen>
@@ -3021,23 +3062,38 @@ export function RichEditor({ content, onChange, themeColors }: RichEditorProps) 
           </BubbleMenu>
         )}
 
-        <div className="min-h-full p-6">
-          <div
-            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mx-auto transition-all duration-200"
-            style={{
-              maxWidth: `${settings.maxWidth}px`,
-            }}
-          >
+        <div className={templateData ? "min-h-full p-4 flex justify-center items-start" : "min-h-full p-6"}>
+          {templateData ? (
+            <div 
+              className="w-full max-w-[1280px] bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mx-auto"
+              style={{ zoom: 0.68 }}
+            >
+              <LandingTemplate
+                data={templateData}
+                pageContent={content}
+                landingPageId={landingPageId}
+                pageSlug={pageSlug}
+                editorInstance={editor}
+              />
+            </div>
+          ) : (
             <div
+              className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mx-auto transition-all duration-200"
               style={{
-                backgroundColor: settings.backgroundColor,
-                padding: `${settings.paddingY}px ${settings.paddingX}px`,
-                transition: "all 0.2s ease",
+                maxWidth: `${settings.maxWidth}px`,
               }}
             >
-              <EditorContent editor={editor} />
+              <div
+                style={{
+                  backgroundColor: settings.backgroundColor,
+                  padding: `${settings.paddingY}px ${settings.paddingX}px`,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <EditorContent editor={editor} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

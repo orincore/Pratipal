@@ -40,11 +40,7 @@ import { toast } from "sonner";
 import { useDashboardLayout } from "@/components/admin/dashboard-layout-context";
 import { cn } from "@/lib/utils";
 
-const TEMPLATE_PREVIEW_ZOOM = 0.55;
-const TEMPLATE_PREVIEW_WIDTH = 1300;
-const TEMPLATE_PREVIEW_SCALED_WIDTH = TEMPLATE_PREVIEW_WIDTH * TEMPLATE_PREVIEW_ZOOM;
 
-type EditorMode = "template" | "richtext";
 
 interface PageData {
   id: string;
@@ -76,68 +72,8 @@ export default function LandingPageEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
-  const [editorMode, setEditorMode] = useState<EditorMode>("template");
   const [templateData, setTemplateData] = useState<LandingTemplateData>(DEFAULT_TEMPLATE_DATA);
-  const [templatePanelCollapsed, setTemplatePanelCollapsed] = useState(false);
-  const [previewFocused, setPreviewFocused] = useState(false);
-  const [viewportMode, setViewportMode] = useState<"desktop" | "mobile">("desktop");
 
-  const scaledPreviewWidth = Math.min(TEMPLATE_PREVIEW_SCALED_WIDTH, 900);
-  
-  const previewOuterStyle: React.CSSProperties = previewFocused
-    ? { 
-        width: "100%", 
-        maxWidth: viewportMode === "mobile" ? "375px" : "1400px", 
-        margin: "0 auto" 
-      }
-    : viewportMode === "mobile"
-    ? { 
-        width: "375px",
-        maxWidth: "100%"
-      }
-    : { 
-        width: scaledPreviewWidth, 
-        maxWidth: "100%" 
-      };
-      
-  const previewInnerStyle: React.CSSProperties = viewportMode === "mobile"
-    ? { 
-        width: "375px",
-        transform: "none"
-      }
-    : previewFocused
-    ? { 
-        transform: "none", 
-        width: "100%" 
-      }
-    : {
-        transform: `scale(${TEMPLATE_PREVIEW_ZOOM})`,
-        transformOrigin: "top left",
-        width: TEMPLATE_PREVIEW_WIDTH
-      };
-
-  useEffect(() => {
-    setSidebarCollapsed(previewFocused);
-    return () => setSidebarCollapsed(false);
-  }, [previewFocused, setSidebarCollapsed]);
-
-  const toggleTemplatePanel = useCallback(() => {
-    setTemplatePanelCollapsed((prev) => {
-      const next = !prev;
-      if (!next && previewFocused) {
-        setPreviewFocused(false);
-      }
-      return next;
-    });
-  }, [previewFocused]);
-
-  const togglePreviewFocus = useCallback(() => {
-    setPreviewFocused((prev) => {
-      const next = !prev;
-      setTemplatePanelCollapsed(next);
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     async function load() {
@@ -151,13 +87,9 @@ export default function LandingPageEditorPage() {
           throw new Error("Page not found");
         }
         const normalized = normalizeLandingContent(data.page.content);
-        // Load template data if it exists in content
         const savedTemplateData = (data.page.content as any)?.templateData;
         if (savedTemplateData) {
           setTemplateData({ ...DEFAULT_TEMPLATE_DATA, ...savedTemplateData });
-          setEditorMode("template");
-        } else {
-          setEditorMode("richtext");
         }
         setPage({
           ...data.page,
@@ -175,8 +107,17 @@ export default function LandingPageEditorPage() {
   }, [pageId, router]);
 
   const handleContentChange = useCallback((content: LandingContent) => {
-    setPage((prev) => (prev ? { ...prev, content } : null));
-  }, []);
+    setPage((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        content: {
+          ...content,
+          templateData,
+        },
+      };
+    });
+  }, [templateData]);
 
   const handleThemeChange = useCallback(
     (key: string, value: string) => {
@@ -194,9 +135,10 @@ export default function LandingPageEditorPage() {
     const savePayload = {
       title: page.title,
       slug: page.slug,
-      content: editorMode === "template"
-        ? { ...page.content, templateData }
-        : page.content,
+      content: {
+        ...page.content,
+        templateData,
+      },
       theme: page.theme,
       seo_title: page.seo_title,
       seo_description: page.seo_description,
@@ -295,32 +237,6 @@ export default function LandingPageEditorPage() {
           <span className="text-[11px] text-gray-400 font-mono hidden sm:inline whitespace-nowrap">/{page.slug}</span>
         </div>
 
-        {/* Center: Mode Toggle */}
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
-          <button
-            type="button"
-            onClick={() => setEditorMode("template")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-              editorMode === "template"
-                ? "bg-white text-violet-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <LayoutTemplate className="h-3.5 w-3.5" /> Template
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditorMode("richtext")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-              editorMode === "richtext"
-                ? "bg-white text-violet-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <Code2 className="h-3.5 w-3.5" /> Rich Editor
-          </button>
-        </div>
-
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
           <Badge
@@ -350,22 +266,7 @@ export default function LandingPageEditorPage() {
             Settings
           </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs text-gray-600"
-            onClick={togglePreviewFocus}
-          >
-            {previewFocused ? (
-              <>
-                <Minimize2 className="h-3.5 w-3.5 mr-1" /> Exit Preview
-              </>
-            ) : (
-              <>
-                <Maximize2 className="h-3.5 w-3.5 mr-1" /> Preview
-              </>
-            )}
-          </Button>
+
 
           {page?.slug && (
             <Button variant="ghost" size="sm" className="h-8 text-xs text-gray-600" asChild>
@@ -400,108 +301,17 @@ export default function LandingPageEditorPage() {
 
       {/* ===== Main Editor Area ===== */}
       <div className="flex-1 overflow-hidden relative flex flex-col">
-        {templatePanelCollapsed && editorMode === "template" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden lg:flex items-center gap-1 text-xs absolute top-4 left-4 z-30"
-            onClick={toggleTemplatePanel}
-          >
-            <PanelRightOpen className="h-3.5 w-3.5" /> Show Editor
-          </Button>
-        )}
-        {editorMode === "template" ? (
-          /* ===== TEMPLATE MODE: Left editor panel + Right live preview ===== */
-          <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
-            {/* Left: Template Editor Form */}
-            <div
-              className={cn(
-                "w-full lg:w-[380px] lg:min-w-[380px] xl:w-[420px] xl:min-w-[420px] bg-white border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col h-64 lg:h-full overflow-hidden",
-                templatePanelCollapsed ? "hidden lg:hidden" : ""
-              )}
-            >
-              <div className="border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white px-4 py-3 flex-shrink-0 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                    <LayoutTemplate className="h-4 w-4 text-violet-500" />
-                    Template Content
-                  </h3>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Drag sections to reorder • Edit content below</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={toggleTemplatePanel}>
-                  {templatePanelCollapsed ? (
-                    <PanelRightOpen className="h-4 w-4" />
-                  ) : (
-                    <PanelRightClose className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-3">
-                <TemplateEditor data={templateData} onChange={setTemplateData} landingPageId={pageId} />
-              </div>
-            </div>
-            {/* Right: Live Preview */}
-            <div className={cn(
-              "flex-1 overflow-y-auto transition-colors",
-              previewFocused ? "bg-white" : "bg-gray-100"
-            )}>
-              <div className={cn(
-                "min-h-full flex justify-center items-start",
-                previewFocused ? "p-0" : "py-6 px-4"
-              )}>
-                {viewportMode === "mobile" && !previewFocused ? (
-                  /* Mobile Frame */
-                  <div className="relative" style={{ width: "399px" }}>
-                    {/* Phone Frame */}
-                    <div className="bg-gray-900 rounded-[42px] shadow-2xl p-3 relative">
-                      {/* Notch */}
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-gray-900 rounded-b-3xl z-10"></div>
-                      
-                      {/* Screen - Fixed width container for mobile rendering */}
-                      <div className="bg-white rounded-[32px] overflow-hidden relative" style={{ width: "375px", height: "667px" }}>
-                        <div className="w-full h-full overflow-y-auto overflow-x-hidden" style={{ width: "375px" }}>
-                          <div style={{ width: "375px", minHeight: "667px" }}>
-                            <LandingTemplate data={templateData} />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Home Indicator */}
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-700 rounded-full"></div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Desktop Preview */
-                  <div
-                    className={cn(
-                      "overflow-hidden transition-all",
-                      previewFocused && "rounded-none shadow-none border-0"
-                    )}
-                    style={previewOuterStyle}
-                  >
-                    <div style={previewInnerStyle}>
-                      <div className={cn(
-                        "bg-white shadow-sm border border-gray-200 rounded-[32px]",
-                        previewFocused && "rounded-none border-0 shadow-none"
-                      )}>
-                        <LandingTemplate data={templateData} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* ===== RICH TEXT MODE: Existing editor ===== */
-          <div className="flex-1 flex overflow-hidden">
-            <RichEditor
-              content={page.content}
-              onChange={handleContentChange}
-              themeColors={page.theme}
-            />
-          </div>
-        )}
+        <div className="flex-1 flex overflow-hidden">
+          <RichEditor
+            content={page.content}
+            onChange={handleContentChange}
+            themeColors={page.theme}
+            templateData={templateData}
+            setTemplateData={setTemplateData}
+            landingPageId={page.id}
+            pageSlug={page.slug}
+          />
+        </div>
 
         {/* ===== Settings Drawer (Right side overlay) ===== */}
         {showSettingsDrawer && (

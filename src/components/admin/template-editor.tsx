@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  Code2,
   Plus,
   Trash2,
   Upload,
@@ -629,7 +630,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
   }, [landingPageId, testEmailTo, data.invitation.thankYouButtons]);
   
   const canonicalSections = useMemo(
-    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'invitation', 'bonus', 'faq', 'footer'],
+    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'richContent', 'invitation', 'bonus', 'faq', 'footer'],
     []
   );
   const sectionOrder = useMemo(() => {
@@ -718,6 +719,24 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
   }, [draggedSection, sectionOrder, data, onChange]);
 
   const sectionComponents: Record<string, JSX.Element> = {
+    richContent: (
+      <Section
+        key="richContent"
+        title="Rich Editor Content Block"
+        icon={<Code2 className="h-4 w-4" />}
+        draggable
+        onDragStart={handleDragStart('richContent')}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop('richContent')}
+      >
+        <div className="space-y-2">
+          <SectionBgField sectionKey="richContent" value={data.sectionBg?.['richContent'] || ''} onChange={updateSectionBg} />
+          <p className="text-xs text-gray-500 leading-relaxed font-body">
+            This is the content block you compose in the <strong>Rich Editor</strong> tab. Drag this section card to reposition it relative to other page components.
+          </p>
+        </div>
+      </Section>
+    ),
     colors: (
       <Section key="colors" title="Theme Colors" icon={<Palette className="h-4 w-4" />} defaultOpen>
         <ColorField label="Primary" value={data.colors.primary} onChange={(v) => updateColors("primary", v)} />

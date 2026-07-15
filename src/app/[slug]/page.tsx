@@ -112,6 +112,7 @@ export default async function DynamicLandingPage({ params }: Props) {
         {schemaScript}
         <LandingTemplate
           data={content.templateData}
+          pageContent={content}
           landingPageId={page!.id}
           pageSlug={page!.slug || slug}
         />
