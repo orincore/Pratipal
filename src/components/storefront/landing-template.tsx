@@ -399,6 +399,7 @@ interface LandingTemplateProps {
   pageContent?: any;
   landingPageId?: string;
   pageSlug?: string;
+  editorInstance?: any;
 }
 
 // Native <video> with a custom play/pause overlay. Defined at module level so
@@ -850,7 +851,7 @@ function InvitationDialog({
   );
 }
 
-export function LandingTemplate({ data, pageContent, landingPageId, pageSlug }: LandingTemplateProps) {
+export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, editorInstance }: LandingTemplateProps) {
   const t = normalizeTemplateData(data);
   const c = t.colors;
   // Returns override bg color for a section, or falls back to the provided default
