@@ -331,8 +331,13 @@ export default function ShopLayoutPage() {
                               padding: `${settings.buttonPaddingY}px ${settings.buttonPaddingX}px`,
                               backgroundColor:
                                 settings.buttonVariant === "solid" ? settings.buttonBgColor : "transparent",
+                              // Outline buttons have a transparent background, so
+                              // buttonTextColor (meant to contrast against a solid
+                              // buttonBgColor fill) can end up invisible against
+                              // whatever's behind them — use the border/accent
+                              // color for the text instead, same as the storefront.
                               color:
-                                settings.buttonVariant === "solid" ? settings.buttonTextColor : settings.buttonTextColor,
+                                settings.buttonVariant === "solid" ? settings.buttonTextColor : settings.buttonBorderColor,
                               border: `2px solid ${settings.buttonBorderColor}`,
                               // Simple css transition simulation
                               transition: "all 0.2s ease-in-out",

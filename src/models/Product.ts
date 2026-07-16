@@ -26,6 +26,9 @@ export interface IProduct extends Document {
   care_instructions?: string;
   meta_title?: string;
   meta_description?: string;
+  is_ebook: boolean;
+  ebook_file_url?: string;
+  ebook_link?: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -60,6 +63,13 @@ const ProductSchema = new Schema<IProduct>(
     care_instructions: { type: String },
     meta_title: { type: String },
     meta_description: { type: String },
+    // E-book products: fulfilled by emailing a download link instead of
+    // shipping. ebook_file_url wins over ebook_link when both are set (see
+    // resolveEbookDownloadUrl in create-order) — a directly uploaded PDF is
+    // the more deliberate choice of the two.
+    is_ebook: { type: Boolean, default: false },
+    ebook_file_url: { type: String },
+    ebook_link: { type: String },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
@@ -80,4 +90,9 @@ ProductSchema.index({ category_id: 1 });
 ProductSchema.index({ is_active: 1 });
 ProductSchema.index({ homepage_section: 1 });
 
-export default mongoose.models.Product || mongoose.model<IProduct>("Product", ProductSchema);
+// Always re-register to pick up schema changes (is_ebook etc.) after hot reloads
+const ProductModel = (mongoose.models.Product as mongoose.Model<IProduct> | undefined)?.schema?.path("is_ebook")
+  ? (mongoose.models.Product as mongoose.Model<IProduct>)
+  : (() => { try { return mongoose.model<IProduct>("Product", ProductSchema); } catch { delete mongoose.models.Product; return mongoose.model<IProduct>("Product", ProductSchema); } })();
+
+export default ProductModel;

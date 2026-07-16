@@ -10,6 +10,14 @@ export interface IOrderItem extends Document {
   quantity: number;
   price: number;
   subtotal: number;
+  // Snapshotted from the product at order-creation time (see
+  // /api/razorpay/create-order) rather than looked up live, so a later
+  // change to the product's ebook file/link never breaks an already-placed
+  // order's download.
+  is_ebook: boolean;
+  ebook_download_url?: string;
+  ebook_delivery_status: "pending" | "sent" | "delivered" | "failed";
+  ebook_delivered_at?: Date;
   created_at: Date;
 }
 
@@ -24,6 +32,10 @@ const OrderItemSchema = new Schema<IOrderItem>(
     quantity: { type: Number, required: true },
     price: { type: Number, required: true },
     subtotal: { type: Number, required: true },
+    is_ebook: { type: Boolean, default: false },
+    ebook_download_url: { type: String },
+    ebook_delivery_status: { type: String, enum: ["pending", "sent", "delivered", "failed"], default: "pending" },
+    ebook_delivered_at: { type: Date },
     created_at: { type: Date, default: Date.now },
   },
   {
@@ -40,4 +52,9 @@ const OrderItemSchema = new Schema<IOrderItem>(
 
 OrderItemSchema.index({ order_id: 1 });
 
-export default mongoose.models.OrderItem || mongoose.model<IOrderItem>("OrderItem", OrderItemSchema);
+// Always re-register to pick up schema changes (ebook fields etc.) after hot reloads
+const OrderItemModel = (mongoose.models.OrderItem as mongoose.Model<IOrderItem> | undefined)?.schema?.path("is_ebook")
+  ? (mongoose.models.OrderItem as mongoose.Model<IOrderItem>)
+  : (() => { try { return mongoose.model<IOrderItem>("OrderItem", OrderItemSchema); } catch { delete mongoose.models.OrderItem; return mongoose.model<IOrderItem>("OrderItem", OrderItemSchema); } })();
+
+export default OrderItemModel;

@@ -155,6 +155,10 @@ export interface OrderItem {
   quantity: number;
   price: number;
   subtotal: number;
+  is_ebook?: boolean;
+  ebook_download_url?: string;
+  ebook_delivery_status?: "pending" | "sent" | "delivered" | "failed";
+  ebook_delivered_at?: string;
   created_at: string;
 }
 

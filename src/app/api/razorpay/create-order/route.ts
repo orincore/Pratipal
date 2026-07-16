@@ -53,14 +53,22 @@ export async function POST(req: NextRequest) {
     
     for (const item of orderData.items) {
       const product = await Product.findById(item.product_id)
-        .select("name sku price sale_price")
+        .select("name sku price sale_price is_ebook ebook_file_url ebook_link")
         .lean();
 
       if (product) {
         const price = product.sale_price || product.price;
         const itemSubtotal = price * item.quantity;
         calculatedSubtotal += itemSubtotal;
-        
+
+        // Snapshot the ebook download target at order time (not looked up
+        // live later) so an admin later replacing/removing the product's
+        // file never breaks a download link already emailed to a buyer.
+        // An uploaded file wins over an external link if a product somehow
+        // has both.
+        const isEbook = !!product.is_ebook;
+        const ebookDownloadUrl = isEbook ? (product.ebook_file_url || product.ebook_link || undefined) : undefined;
+
         orderItems.push({
           order_id: null, // Will be set after order creation
           product_id: item.product_id,
@@ -70,6 +78,8 @@ export async function POST(req: NextRequest) {
           quantity: item.quantity,
           price,
           subtotal: itemSubtotal,
+          is_ebook: isEbook,
+          ebook_download_url: ebookDownloadUrl,
         });
       }
     }

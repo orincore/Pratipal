@@ -66,7 +66,23 @@ export default function LandingPageEditorPage() {
   const params = useParams();
   const router = useRouter();
   const pageId = params.id as string;
-  const { setSidebarCollapsed } = useDashboardLayout();
+  const { setSidebarCollapsed, setFullBleed } = useDashboardLayout();
+
+  // The editor canvas + tools panel need the full viewport, so for as long
+  // as this page is mounted: the dashboard's own nav sidebar collapses, and
+  // <main>'s padding drops out entirely (that padding was pushing this
+  // page's h-[calc(100vh-3.5rem)] container taller than the visible area
+  // below the header, which is what made the whole page scroll instead of
+  // just the editor's own internal panels). Both revert once you navigate
+  // away.
+  useEffect(() => {
+    setSidebarCollapsed(true);
+    setFullBleed(true);
+    return () => {
+      setSidebarCollapsed(false);
+      setFullBleed(false);
+    };
+  }, [setSidebarCollapsed, setFullBleed]);
 
   const [page, setPage] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);

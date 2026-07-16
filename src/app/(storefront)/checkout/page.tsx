@@ -11,9 +11,11 @@ import {
   MapPin,
   PlusCircle,
   Home,
+  LogIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,7 +57,34 @@ function CheckoutPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const buyNowProductId = searchParams.get("buyNow");
-  const { customer, loading: authLoading } = useCustomerAuth();
+  const { customer, loading: authLoading, register, login } = useCustomerAuth();
+  const [guestPassword, setGuestPassword] = useState("");
+  const [guestPasswordConfirm, setGuestPasswordConfirm] = useState("");
+  // Toggles the "Create Your Account" fields over to an inline sign-in
+  // form for guests who already have an account — login() sets `customer`
+  // via context on success, so the page just re-renders into the signed-in
+  // view in place; no navigation, no reload, cart/shipping state untouched.
+  const [showInlineSignIn, setShowInlineSignIn] = useState(false);
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
+
+  async function handleInlineSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!signInEmail || !signInPassword) {
+      toast.error("Please enter your email and password");
+      return;
+    }
+    setSigningIn(true);
+    try {
+      await login(signInEmail, signInPassword);
+      toast.success("Signed in — continuing your checkout.");
+    } catch (err: any) {
+      toast.error(err.message || "Sign in failed");
+    } finally {
+      setSigningIn(false);
+    }
+  }
   const clearCartStore = useCartStore((state) => state.clearCart);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -392,6 +421,20 @@ function CheckoutPageInner() {
       return false;
     }
 
+    // Guests get an account created from these same details as part of
+    // placing the order (see handlePlaceOrder), so a password is required
+    // for them same as it would be on a normal sign-up form.
+    if (!customer) {
+      if (guestPassword.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        return false;
+      }
+      if (guestPassword !== guestPasswordConfirm) {
+        toast.error("Passwords don't match");
+        return false;
+      }
+    }
+
     return true;
   }
 
@@ -409,12 +452,6 @@ function CheckoutPageInner() {
 
     if (customer && addresses.length > 0 && !selectedAddressId) {
       toast.error("Please select a delivery address");
-      return;
-    }
-
-    if (!customer) {
-      toast.error("Please login to continue");
-      router.push(`/login?redirect=/checkout`);
       return;
     }
 
@@ -462,8 +499,9 @@ function CheckoutPageInner() {
         key: data.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: data.amount,
         currency: data.currency,
-        name: "Your Store Name",
+        name: "Pratipal",
         description: "Order Payment",
+        image: "https://pratipal.in/assets/footer_logo.png",
         order_id: data.razorpay_order_id,
         handler: async function (response: any) {
           await verifyPayment(response, data.order_id);
@@ -474,7 +512,10 @@ function CheckoutPageInner() {
           contact: shippingAddress.phone,
         },
         theme: {
-          color: "#0F8A5F",
+          // Matches the site's ayurvedic green brand accent (Tailwind
+          // emerald-600 — the same green used for CTAs, trust badges, and
+          // the shop's default button color throughout the storefront).
+          color: "#059669",
         },
         modal: {
           ondismiss: function () {
@@ -508,13 +549,41 @@ function CheckoutPageInner() {
       if (!res.ok) throw new Error("Payment verification failed");
 
       toast.success("Payment successful!");
-      
+
+      // Guests: the order is placed and paid — now create (and sign into)
+      // an account from the same contact details + password entered above,
+      // instead of ever sending them to a separate sign-up screen. This
+      // runs after payment succeeds, not before, so an abandoned payment
+      // never leaves behind an unused account.
+      if (!customer) {
+        try {
+          await register({
+            email: shippingAddress.email,
+            password: guestPassword,
+            first_name: shippingAddress.first_name,
+            last_name: shippingAddress.last_name,
+            phone: shippingAddress.phone,
+          });
+          toast.success("You're signed in — this order is now saved to your account.");
+        } catch (err: any) {
+          const message: string = err.message || "";
+          // The order is already placed and paid at this point regardless —
+          // account creation failing (most likely a pre-existing account
+          // with this email) shouldn't block the confirmation page.
+          if (/already registered/i.test(message)) {
+            toast.error("An account already exists for this email — sign in to see this order under My Orders.");
+          } else {
+            console.error("Post-order account creation failed:", err);
+          }
+        }
+      }
+
       // Clear cart only if this was a normal cart checkout
       if (!buyNowProductId) {
         clearCartStore();
         fetch('/api/cart/clear', { method: 'POST' }).catch(console.warn);
       }
-      
+
       router.push(`/order-confirmation?orderId=${orderId}`);
     } catch (err: any) {
       toast.error(err.message || "Payment verification failed");
@@ -532,46 +601,6 @@ function CheckoutPageInner() {
     );
   }
 
-  if (!customer) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-sm w-full text-center space-y-5">
-          <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
-            <Shield className="h-7 w-7 text-emerald-600" />
-          </div>
-          <div className="space-y-1.5">
-            <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Sign in to continue
-            </h2>
-            <p className="text-sm text-gray-500">
-              You need to be signed in to access checkout.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <button
-              onClick={() => router.push(`/login?redirect=/checkout${buyNowProductId ? `?buyNow=${buyNowProductId}` : ""}`)}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => router.push(`/register?redirect=/checkout${buyNowProductId ? `?buyNow=${buyNowProductId}` : ""}`)}
-              className="w-full border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition-colors"
-            >
-              Create Account
-            </button>
-            <button
-              onClick={() => router.back()}
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors pt-1"
-            >
-              Go back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -584,7 +613,7 @@ function CheckoutPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 overflow-y-auto">
+    <div className="min-h-screen bg-gray-50 pt-24 pb-8 sm:pt-28 overflow-y-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="mb-8">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
@@ -595,16 +624,99 @@ function CheckoutPageInner() {
           <p className="text-muted-foreground">Complete your purchase</p>
         </div>
 
+        {!customer && (
+          <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-gray-700">
+              Already have an account?{" "}
+              <span className="font-semibold">Sign in to skip re-entering your details.</span>
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowInlineSignIn((v) => !v)}
+            >
+              {showInlineSignIn ? "Never mind" : "Sign in instead"}
+            </Button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Truck className="h-5 w-5" />
-                  Shipping Address
+                  {!customer && showInlineSignIn ? (
+                    <>
+                      <LogIn className="h-5 w-5" />
+                      Sign In
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="h-5 w-5" />
+                      Shipping Address
+                    </>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {!customer && showInlineSignIn ? (
+                  // Signing in is the only thing to do here — the address
+                  // form comes back (pre-filled with the account's saved
+                  // addresses) the moment login() resolves and `customer`
+                  // is set.
+                  <section className="space-y-4">
+                    <div>
+                      <p className="font-semibold">Sign In</p>
+                      <p className="text-sm text-muted-foreground">
+                        Sign in to pull in your saved addresses automatically — you'll stay right here on this page.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleInlineSignIn} className="space-y-4">
+                      <div>
+                        <Label htmlFor="signin_email">
+                          Email <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="signin_email"
+                          type="email"
+                          value={signInEmail}
+                          onChange={(e) => setSignInEmail(e.target.value)}
+                          autoFocus
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="signin_password">
+                          Password <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="signin_password"
+                          type="password"
+                          value={signInPassword}
+                          onChange={(e) => setSignInPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button type="submit" className="flex-1" disabled={signingIn}>
+                          {signingIn ? "Signing in..." : "Sign In"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="flex-1"
+                          onClick={() => setShowInlineSignIn(false)}
+                          disabled={signingIn}
+                        >
+                          New here? Continue as guest
+                        </Button>
+                      </div>
+                    </form>
+                  </section>
+                ) : (
+                  <>
                 <section className="space-y-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
@@ -721,13 +833,10 @@ function CheckoutPageInner() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <Label htmlFor="new_phone">Phone</Label>
-                              <Input
+                              <PhoneInput
                                 id="new_phone"
                                 value={addressForm.phone}
-                                onChange={(e) =>
-                                  handleAddressFormChange("phone", e.target.value)
-                                }
-                                placeholder="+91 98765 43210"
+                                onChange={(v) => handleAddressFormChange("phone", v)}
                               />
                             </div>
                             <div>
@@ -848,9 +957,9 @@ function CheckoutPageInner() {
                     </>
                   ) : (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                      <p className="font-semibold">Sign in to access saved addresses</p>
+                      <p className="font-semibold">Checking out as a guest</p>
                       <p className="text-xs mt-1">
-                        You can still enter your shipping details manually below.
+                        Enter your shipping details below — we'll set up your account automatically once the order is placed, so you can track it afterward.
                       </p>
                     </div>
                   )}
@@ -906,12 +1015,10 @@ function CheckoutPageInner() {
                       <Label htmlFor="phone">
                         Phone <span className="text-red-500">*</span>
                       </Label>
-                      <Input
+                      <PhoneInput
                         id="phone"
-                        type="tel"
                         value={shippingAddress.phone}
-                        onChange={(e) => handleShippingChange("phone", e.target.value)}
-                        placeholder="+91 98765 43210"
+                        onChange={(v) => handleShippingChange("phone", v)}
                         required
                       />
                     </div>
@@ -991,6 +1098,49 @@ function CheckoutPageInner() {
                     </Select>
                   </div>
                 </section>
+
+                {!customer && (
+                  <section className="space-y-4 border-t pt-4">
+                    <div>
+                      <p className="font-semibold">Create Your Account</p>
+                      <p className="text-sm text-muted-foreground">
+                        Set a password to finish creating your account — it's built from the details above, and you'll be signed in automatically once the order is placed.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="guest_password">
+                          Password <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="guest_password"
+                          type="password"
+                          value={guestPassword}
+                          onChange={(e) => setGuestPassword(e.target.value)}
+                          placeholder="At least 6 characters"
+                          minLength={6}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="guest_password_confirm">
+                          Confirm Password <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="guest_password_confirm"
+                          type="password"
+                          value={guestPasswordConfirm}
+                          onChange={(e) => setGuestPasswordConfirm(e.target.value)}
+                          minLength={6}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </section>
+                )}
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -1109,7 +1259,11 @@ function CheckoutPageInner() {
                   onClick={handlePlaceOrder}
                   disabled={processing}
                 >
-                  {processing ? "Processing..." : "Proceed to Payment"}
+                  {processing
+                    ? "Processing..."
+                    : customer
+                    ? "Proceed to Payment"
+                    : "Create Account & Pay"}
                 </Button>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-4">

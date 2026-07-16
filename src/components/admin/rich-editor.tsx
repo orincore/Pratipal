@@ -2,10 +2,11 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Youtube from "@tiptap/extension-youtube";
+import { YoutubeEmbed } from "@/lib/tiptap/extensions/youtube-embed";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import Color from "@tiptap/extension-color";
@@ -95,6 +96,7 @@ import {
   Trash2,
   Replace,
   ArrowDownToLine,
+  ArrowLeft,
   Copy,
   LayoutTemplate,
   RemoveFormatting,
@@ -645,6 +647,16 @@ export function RichEditor({
 }: RichEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const suppressNextUpdate = useRef(false);
+  // Snapshot of the doc JSON we last emitted upward via onChange. The parent
+  // echoes it straight back as the `content` prop (a new object each time),
+  // which would otherwise make the "sync external content" effect below
+  // think a fresh external doc arrived and call setContent — wiping the live
+  // selection out from under whatever the user is mid-editing. Comparing
+  // against this snapshot instead of a freshly-computed editor.getJSON()
+  // lets us tell "our own echo" apart from a genuinely external content swap
+  // (e.g. switching pages) even when React's state updates lag the rapid
+  // transactions a slider drag or fast typing produces.
+  const lastEmittedDocJson = useRef<string | null>(null);
 
   // Layout / page-level settings
   const [settings, setSettings] = useState<LandingContentSettings>(() => ({
@@ -670,6 +682,7 @@ export function RichEditor({
   const [imgShadow, setImgShadow] = useState("none");
   const [imgOpacity, setImgOpacity] = useState(100);
   const [imgObjectFit, setImgObjectFit] = useState("cover");
+  const [imgObjectPosition, setImgObjectPosition] = useState("center");
   const [imgMarginTop, setImgMarginTop] = useState(24);
   const [imgMarginBottom, setImgMarginBottom] = useState(24);
   const [imgHoverEffect, setImgHoverEffect] = useState("none");
@@ -689,10 +702,29 @@ export function RichEditor({
   const [showFormPanel, setShowFormPanel] = useState(false);
   const [formAttrs, setFormAttrs] = useState<LeadFormAttrs>({ ...DEFAULT_LEAD_FORM_ATTRS });
 
+  // YouTube video panel
+  const [showVideoPanel, setShowVideoPanel] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoWidth, setVideoWidth] = useState("100%");
+  const [videoAlign, setVideoAlign] = useState<"left" | "center" | "right">("center");
+  const [videoAutoplay, setVideoAutoplay] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(false);
+
   // Content blocks (feature grid, stats, FAQ, testimonials, marquee, gallery).
   // These share one consolidated "active block" panel keyed off the selected
   // node's type — far less boilerplate than per-block state.
   const [activeBlock, setActiveBlock] = useState<{ type: string; attrs: any } | null>(null);
+
+  // Whether the Elements tab is showing a selected element's properties
+  // (replacing the Insert Elements grid) instead of the grid itself. This is
+  // deliberately its own bit of state rather than something re-derived from
+  // the live selection on every transaction: attribute edits (typing, color
+  // pickers, slider drags) dispatch ProseMirror transactions that can
+  // transiently report no matching node mid-update, and re-deriving from
+  // that would slam the properties view shut while the user is still
+  // editing. It only opens on a genuine new element selection and only
+  // closes via the explicit Back button (see closeElementProperties).
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   // Left panel active tab (or Template tab for unified layouts)
   const [activeTab, setActiveTab] = useState<"widgets" | "style" | "template">(
@@ -702,6 +734,7 @@ export function RichEditor({
   // Propagate settings changes upward
   const emitChange = useCallback(
     (doc: any, s: LandingContentSettings) => {
+      lastEmittedDocJson.current = JSON.stringify(doc);
       onChange({ doc, settings: s });
     },
     [onChange]
@@ -753,7 +786,6 @@ export function RichEditor({
       setBtnAttrs({ ...DEFAULT_BUTTON_ATTRS, ...($from.parent.attrs as Partial<ButtonAttrs>) });
       isButton = true;
     }
-    setShowBtnPanel(isButton);
 
     // --- Image (atom node → NodeSelection on click) ---
     const isImage = nodeSel?.type?.name === "image";
@@ -766,26 +798,30 @@ export function RichEditor({
       setImgShadow(nodeSel!.attrs.shadow || "none");
       setImgOpacity(nodeSel!.attrs.opacity !== undefined ? Number(nodeSel!.attrs.opacity) : 100);
       setImgObjectFit(nodeSel!.attrs.objectFit || "cover");
+      setImgObjectPosition(nodeSel!.attrs.objectPosition || "center");
       setImgMarginTop(nodeSel!.attrs.marginTop !== undefined ? Number(nodeSel!.attrs.marginTop) : 24);
       setImgMarginBottom(nodeSel!.attrs.marginBottom !== undefined ? Number(nodeSel!.attrs.marginBottom) : 24);
       setImgHoverEffect(nodeSel!.attrs.hoverEffect || "none");
     }
-    setShowImgPanel(isImage);
 
     // --- Lead form (atom node → NodeSelection on click) ---
     const isLeadForm = nodeSel?.type?.name === "leadForm";
     if (isLeadForm) {
       setFormAttrs({ ...DEFAULT_LEAD_FORM_ATTRS, ...(nodeSel!.attrs as Partial<LeadFormAttrs>) });
     }
-    setShowFormPanel(isLeadForm);
+
+    // --- YouTube video (atom-like node → NodeSelection on click) ---
+    const isVideo = nodeSel?.type?.name === "youtube";
+    if (isVideo) {
+      setVideoUrl((nodeSel!.attrs.src as string) || "");
+      setVideoWidth((nodeSel!.attrs.containerWidth as string) || "100%");
+      setVideoAlign((nodeSel!.attrs.align as any) || "center");
+      setVideoAutoplay(!!nodeSel!.attrs.autoplay);
+      setVideoMuted(!!nodeSel!.attrs.muted);
+    }
 
     // --- Content blocks (atom nodes → NodeSelection on click) ---
     const isContentBlock = !!nodeSel && CONTENT_BLOCK_TYPES.includes(nodeSel.type.name);
-    if (isContentBlock) {
-      setActiveBlock({ type: nodeSel!.type.name, attrs: { ...nodeSel!.attrs } });
-    } else {
-      setActiveBlock(null);
-    }
 
     // --- Section / two-column: walk ancestors, or the node itself ---
     let foundTwoCol = false;
@@ -811,16 +847,16 @@ export function RichEditor({
         foundSection = true;
       }
     }
-    setShowTwoColPanel(foundTwoCol);
-    setShowSectionPanel(foundSection);
 
-    // --- Determine selected kind, label, and auto-reveal the Style panel ---
+    // --- Determine selected kind ---
     const kind = isButton
       ? "button"
       : isImage
       ? "image"
       : isLeadForm
       ? "leadform"
+      : isVideo
+      ? "video"
       : isContentBlock
       ? nodeSel!.type.name
       : foundTwoCol
@@ -829,10 +865,20 @@ export function RichEditor({
       ? "section"
       : null;
 
+    // A transaction from one of OUR OWN attribute-update commands (typing in
+    // a field, dragging a color/slider) can transiently resolve to no
+    // matching node mid-update. Only touch "which panel is showing" state
+    // when we found a genuine match this call — never clear it just because
+    // this one call came up empty, or the properties panel would slam shut
+    // on every keystroke. It only closes via the explicit Back button
+    // (closeElementProperties).
+    if (!kind) return;
+
     const labels: Record<string, string> = {
       button: "Button",
       image: "Image",
       leadform: "Form",
+      video: "Video",
       twocol: "Two-Column",
       section: "Section",
       featureGrid: "Feature Grid",
@@ -842,13 +888,27 @@ export function RichEditor({
       marqueeStrip: "Marquee",
       imageGallery: "Gallery",
     };
-    setSelectedLabel(kind ? labels[kind] : null);
 
-    // The element-specific property panels live in the "Elements" (widgets)
-    // tab. Switch to it on a *new* selection so the properties are visible,
-    // then scroll them into view.
-    if (kind && kind !== lastElementKindRef.current) {
-      setActiveTab("widgets");
+    // These are mutually exclusive per selected kind, and only ever get
+    // (re)written here — i.e. together, on a real match — never cleared
+    // individually, so switching between element types can't leave two
+    // panels simultaneously visible or briefly none at all.
+    setShowBtnPanel(kind === "button");
+    setShowImgPanel(kind === "image");
+    setShowFormPanel(kind === "leadform");
+    setShowVideoPanel(kind === "video");
+    setShowTwoColPanel(kind === "twocol");
+    setShowSectionPanel(kind === "section");
+    setActiveBlock(isContentBlock ? { type: nodeSel!.type.name, attrs: { ...nodeSel!.attrs } } : null);
+    setSelectedLabel(labels[kind]);
+
+    // The element-specific property panels live in the "Elements" tab, in
+    // place of the Insert Elements grid. Reveal it on a *new* selection and
+    // scroll to the top; re-selecting the same element (e.g. every keystroke
+    // while editing its fields) leaves the scroll position alone.
+    setActiveTab("widgets");
+    setPropertiesOpen(true);
+    if (kind !== lastElementKindRef.current) {
       requestAnimationFrame(() => {
         document
           .querySelector("[data-element-properties]")
@@ -856,6 +916,24 @@ export function RichEditor({
       });
     }
     lastElementKindRef.current = kind;
+  }, []);
+
+  // Returns to the Insert Elements grid, closing whichever property panel
+  // was open. This is the only place panel-visibility state gets cleared —
+  // syncSelection above deliberately never clears it on its own so that
+  // editing a property (which transiently unsettles the live selection)
+  // can't close the panel out from under the user.
+  const closeElementProperties = useCallback(() => {
+    setPropertiesOpen(false);
+    setShowBtnPanel(false);
+    setShowImgPanel(false);
+    setShowFormPanel(false);
+    setShowVideoPanel(false);
+    setShowTwoColPanel(false);
+    setShowSectionPanel(false);
+    setActiveBlock(null);
+    setSelectedLabel(null);
+    lastElementKindRef.current = null;
   }, []);
 
   // ---- TipTap editor ----
@@ -869,10 +947,12 @@ export function RichEditor({
         openOnClick: false,
         HTMLAttributes: { class: "text-blue-600 underline" },
       }),
-      Youtube.configure({
-        HTMLAttributes: { class: "w-full aspect-video rounded-lg" },
+      YoutubeEmbed.configure({
         width: 640,
         height: 360,
+        // Clicking a video in the canvas should select it (opening the
+        // Video Properties panel), not play it — see youtube-embed.ts.
+        interactive: false,
       }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
@@ -932,8 +1012,13 @@ export function RichEditor({
   // Sync external content changes
   useEffect(() => {
     if (!editor || !content?.doc) return;
-    const currentJson = JSON.stringify(editor.getJSON());
     const nextJson = JSON.stringify(content.doc);
+    // This is just our own change echoed back through the parent — the
+    // editor's live state (and selection) is already correct, so leave it
+    // alone. Only a doc that differs from what we last emitted is a genuine
+    // external change (initial load, switching pages, etc.) worth applying.
+    if (nextJson === lastEmittedDocJson.current) return;
+    const currentJson = JSON.stringify(editor.getJSON());
     if (currentJson !== nextJson) {
       suppressNextUpdate.current = true;
       editor.commands.setContent(content.doc);
@@ -949,7 +1034,7 @@ export function RichEditor({
       "div[data-two-col]",
       "div[data-button]",
       "div[data-lead-form]",
-      "img",
+      "div[data-image-frame]",
       "div[data-youtube-video]",
       "blockquote",
       "pre",
@@ -968,7 +1053,7 @@ export function RichEditor({
         editorEl.querySelectorAll(sel).forEach((el) => {
           // Skip if inside a column child (images inside two-col media)
           if (
-            sel === "img" &&
+            sel === "div[data-image-frame]" &&
             el.closest("div[data-col-media]")
           )
             return;
@@ -987,9 +1072,12 @@ export function RichEditor({
           btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`;
           Object.assign(btn.style, {
             position: "absolute",
-            top: "-10px",
-            right: "-10px",
-            zIndex: "50",
+            // Inset (not poking outside the card) so it never gets clipped
+            // by a wrapper with overflow:hidden — image and video frames
+            // both clip their content to crop/round it.
+            top: "8px",
+            right: "8px",
+            zIndex: "60",
             width: "26px",
             height: "26px",
             display: "flex",
@@ -1136,8 +1224,7 @@ export function RichEditor({
 
   const addYoutubeVideo = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt("Enter YouTube video URL:");
-    if (url) editor.commands.setYoutubeVideo({ src: url });
+    editor.commands.insertYoutubePlaceholder();
   }, [editor]);
 
   const handleSetLink = useCallback(() => {
@@ -1185,6 +1272,58 @@ export function RichEditor({
     [editor]
   );
 
+  // Re-applies a NodeSelection at `pos` if (and only if) a node of `typeName`
+  // is still there and the selection isn't already correctly on it.
+  const reassertNodeSelection = useCallback(
+    (typeName: string, pos: number) => {
+      if (!editor || editor.isDestroyed) return;
+      const current = editor.state.selection as any;
+      if (current.node && current.node.type.name === typeName && current.from === pos) return;
+      const node = editor.state.doc.nodeAt(pos);
+      if (!node || node.type.name !== typeName) return;
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos))
+      );
+    },
+    [editor]
+  );
+
+  // Image / lead form / content blocks are atom nodes selected via
+  // NodeSelection (no cursor ever sits "inside" them, unlike button/section).
+  // TipTap's generic updateAttributes command rewrites the node's markup via
+  // setNodeMarkup; since attrs differ, ProseMirror's default (non-custom)
+  // node view treats it as a different node and swaps the DOM element rather
+  // than patching it in place. That DOM swap can itself trigger a native
+  // browser `selectionchange` (the old element the selection pointed at is
+  // gone) — ProseMirror's DOM observer reacts to that asynchronously and can
+  // stomp our just-set NodeSelection with a reset one *after* this function
+  // already returns. So on top of restoring the selection synchronously in
+  // the same transaction, re-check on the next two animation frames (after
+  // any such async DOM-observer correction has had a chance to run) and put
+  // it back again if something knocked it loose — so the element visibly
+  // stays selected through every edit.
+  const updateAtomNodeAttrs = useCallback(
+    (typeName: string, attrs: Record<string, any>) => {
+      if (!editor) return;
+      const sel = editor.state.selection as any;
+      if (sel.node && sel.node.type.name === typeName) {
+        const pos = sel.from;
+        const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+          ...sel.node.attrs,
+          ...attrs,
+        });
+        tr.setSelection(NodeSelection.create(tr.doc, pos));
+        editor.view.dispatch(tr);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => reassertNodeSelection(typeName, pos));
+        });
+      } else {
+        editor.commands.updateAttributes(typeName, attrs);
+      }
+    },
+    [editor, reassertNodeSelection]
+  );
+
   const updateImageAttr = useCallback(
     (key: string, value: any) => {
       if (!editor) return;
@@ -1196,12 +1335,47 @@ export function RichEditor({
       if (key === "shadow") setImgShadow(value);
       if (key === "opacity") setImgOpacity(Number(value));
       if (key === "objectFit") setImgObjectFit(value);
+      if (key === "objectPosition") setImgObjectPosition(value);
       if (key === "marginTop") setImgMarginTop(Number(value));
       if (key === "marginBottom") setImgMarginBottom(Number(value));
       if (key === "hoverEffect") setImgHoverEffect(value);
-      editor.commands.updateAttributes("image", { [key]: value });
+
+      // A fixed aspect ratio only crops correctly if the image actually
+      // fills that box: force object-fit to "cover" (never "contain", which
+      // would letterbox with empty space, or "fill", which would distort)
+      // and clear any previously-set fixed height so the ratio — not a
+      // stale height — drives the box size.
+      const extraAttrs: Record<string, any> = {};
+      if (key === "aspectRatio" && value !== "auto") {
+        if (imgObjectFit !== "cover") {
+          setImgObjectFit("cover");
+          extraAttrs.objectFit = "cover";
+        }
+        if (imgHeight !== "auto") {
+          setImgHeight("auto");
+          extraAttrs.height = "auto";
+        }
+      }
+
+      // Object Fit / Crop Position only have anything to affect once the
+      // image has a fixed box to crop within — with Aspect Ratio still
+      // "auto" and Height still "auto" the image just renders at its
+      // natural size, so toggling Cover/Contain/Fill or the crop-position
+      // grid would silently do nothing. Default to a square frame the first
+      // time either control is touched in that state, so the change is
+      // immediately visible; the user can still pick a different ratio.
+      if (
+        (key === "objectFit" || key === "objectPosition") &&
+        imgAspectRatio === "auto" &&
+        imgHeight === "auto"
+      ) {
+        setImgAspectRatio("1/1");
+        extraAttrs.aspectRatio = "1/1";
+      }
+
+      updateAtomNodeAttrs("image", { [key]: value, ...extraAttrs });
     },
-    [editor]
+    [editor, updateAtomNodeAttrs, imgObjectFit, imgHeight, imgAspectRatio]
   );
 
 
@@ -1297,9 +1471,9 @@ export function RichEditor({
     (key: keyof LeadFormAttrs, value: any) => {
       if (!editor) return;
       setFormAttrs((prev) => ({ ...prev, [key]: value }));
-      editor.commands.updateLeadForm({ [key]: value });
+      updateAtomNodeAttrs("leadForm", { [key]: value });
     },
-    [editor]
+    [editor, updateAtomNodeAttrs]
   );
 
   const deleteLeadForm = useCallback(() => {
@@ -1307,6 +1481,49 @@ export function RichEditor({
     editor.chain().focus().deleteSelection().run();
     setShowFormPanel(false);
     toast.success("Form removed");
+  }, [editor]);
+
+  const updateVideoUrl = useCallback(
+    (url: string) => {
+      if (!editor) return;
+      setVideoUrl(url);
+      updateAtomNodeAttrs("youtube", { src: url });
+    },
+    [editor, updateAtomNodeAttrs]
+  );
+
+  const updateVideoAttr = useCallback(
+    (key: "containerWidth" | "align" | "autoplay" | "muted", value: any) => {
+      if (!editor) return;
+
+      // Browsers block unmuted autoplay outright, so the two settings can't
+      // be independent: Autoplay on forces Mute on (and keeps it locked on
+      // — the panel disables the Mute switch in that state, but guard here
+      // too in case this is ever called another way). Muting on its own,
+      // without autoplay, works normally either way.
+      if (key === "muted" && !value && videoAutoplay) return;
+
+      if (key === "containerWidth") setVideoWidth(value);
+      if (key === "align") setVideoAlign(value);
+      if (key === "autoplay") setVideoAutoplay(value);
+      if (key === "muted") setVideoMuted(value);
+
+      const extraAttrs: Record<string, any> = {};
+      if (key === "autoplay" && value && !videoMuted) {
+        setVideoMuted(true);
+        extraAttrs.muted = true;
+      }
+
+      updateAtomNodeAttrs("youtube", { [key]: value, ...extraAttrs });
+    },
+    [editor, updateAtomNodeAttrs, videoMuted, videoAutoplay]
+  );
+
+  const deleteVideo = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().deleteSelection().run();
+    setShowVideoPanel(false);
+    toast.success("Video removed");
   }, [editor]);
 
   // ---- Content block insert + update helpers ----
@@ -1335,10 +1552,10 @@ export function RichEditor({
   const updateBlockAttr = useCallback(
     (key: string, value: any) => {
       if (!editor || !activeBlock) return;
-      editor.commands.updateAttributes(activeBlock.type, { [key]: value });
+      updateAtomNodeAttrs(activeBlock.type, { [key]: value });
       setActiveBlock((prev) => (prev ? { ...prev, attrs: { ...prev.attrs, [key]: value } } : prev));
     },
-    [editor, activeBlock]
+    [editor, activeBlock, updateAtomNodeAttrs]
   );
 
   // Update the items[] array on the selected content block (add / remove / edit).
@@ -1448,9 +1665,11 @@ export function RichEditor({
       const sel = editor.state.selection as any;
       const isNodeSelection = !!sel.node;
       if (e.key === "Escape") {
-        // Collapse any node selection back to a caret and blur element panels
+        // Collapse any node selection back to a caret and go back to the
+        // Elements grid (mirrors clicking the Back button).
         const pos = editor.state.selection.to;
         editor.chain().setTextSelection(pos).run();
+        closeElementProperties();
       } else if ((e.key === "Delete" || e.key === "Backspace") && isNodeSelection) {
         e.preventDefault();
         deleteSelectedNode();
@@ -1458,7 +1677,7 @@ export function RichEditor({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editor, deleteSelectedNode]);
+  }, [editor, deleteSelectedNode, closeElementProperties]);
 
   // ---- Delete image at current selection ----
   const deleteImage = useCallback(() => {
@@ -1496,14 +1715,14 @@ export function RichEditor({
           throw new Error(err.error || "Upload failed");
         }
         const data = await res.json();
-        editor.commands.updateAttributes("image", { src: data.url });
+        updateAtomNodeAttrs("image", { src: data.url });
         toast.success(`Image replaced${data.storage === 'r2' ? ' (uploaded to R2)' : ' (uploaded locally)'}!`, { id: "replace-upload" });
       } catch (err: any) {
         toast.error(err.message || "Upload failed", { id: "replace-upload" });
       }
       e.target.value = "";
     },
-    [editor]
+    [editor, updateAtomNodeAttrs]
   );
 
   // ---- Convert two-column to single column ----
@@ -1574,7 +1793,7 @@ export function RichEditor({
   const charCount = editor.getText().length;
 
   // Check if any element-specific panel is active
-  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel || !!activeBlock;
+  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel || showVideoPanel || !!activeBlock;
 
   return (
     <div className="flex h-full w-full min-w-0">
@@ -1600,8 +1819,8 @@ export function RichEditor({
         className="hidden"
       />
 
-      {/* ===== TOOLS PANEL (Elementor-style) — fixed to the right side ===== */}
-      <div className={`order-2 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden ${
+      {/* ===== TOOLS PANEL (Elementor-style) — fixed to the left side ===== */}
+      <div className={`order-1 bg-white border-r border-gray-200 flex flex-col h-full overflow-hidden ${
         templateData ? "w-[320px] min-w-[320px]" : "w-[300px] min-w-[300px]"
       }`}>
         {/* Panel Header with Tabs */}
@@ -1665,6 +1884,8 @@ export function RichEditor({
             </div>
           ) : activeTab === "widgets" ? (
             <>
+              {propertiesOpen && hasElementPanel ? null : (
+              <>
               {/* ===== INSERT WIDGETS GRID ===== */}
               <PanelSection title="Insert Elements" icon={<LayoutGrid className="h-4 w-4" />} defaultOpen>
                 <div className="grid grid-cols-3 gap-2">
@@ -2128,7 +2349,28 @@ export function RichEditor({
                   </button>
                 </div>
               </PanelSection>
+              </>
+              )}
 
+              {propertiesOpen && hasElementPanel && (
+              <>
+              {/* ===== BACK TO ELEMENTS ===== */}
+              <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-gray-100 bg-white px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={closeElementProperties}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-violet-600 transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Elements
+                </button>
+                {selectedLabel && (
+                  <>
+                    <span className="text-gray-300">/</span>
+                    <span className="text-[11px] font-semibold text-violet-600">{selectedLabel}</span>
+                  </>
+                )}
+              </div>
 
               {/* ===== ELEMENT-SPECIFIC PANELS ===== */}
               {hasElementPanel && <div data-element-properties />}
@@ -2459,6 +2701,39 @@ export function RichEditor({
                         onChange={(v) => updateImageAttr("objectFit", v)}
                       />
                     </div>
+                    {imgObjectFit !== "fill" && (
+                      <div>
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">
+                          Crop Position
+                        </Label>
+                        <div className="grid grid-cols-3 gap-1 w-[92px]">
+                          {[
+                            "left top", "top", "right top",
+                            "left", "center", "right",
+                            "left bottom", "bottom", "right bottom",
+                          ].map((pos) => (
+                            <button
+                              key={pos}
+                              type="button"
+                              onClick={() => updateImageAttr("objectPosition", pos)}
+                              title={pos}
+                              className={`h-7 w-7 rounded-md border flex items-center justify-center transition-all ${
+                                imgObjectPosition === pos
+                                  ? "bg-violet-600 border-violet-600"
+                                  : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                              }`}
+                            >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  imgObjectPosition === pos ? "bg-white" : "bg-gray-400"
+                                }`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1">Which part of the image stays visible when cropped.</p>
+                      </div>
+                    )}
                     <div>
                       <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Margins (px)</Label>
                       <div className="flex gap-2 mt-1">
@@ -2770,6 +3045,87 @@ export function RichEditor({
                 </PanelSection>
               )}
 
+              {showVideoPanel && (
+                <PanelSection title="Video Properties" icon={<YoutubeIcon className="h-4 w-4" />} defaultOpen badge="Active">
+                  <div className="space-y-3">
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={deleteVideo}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                      </button>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">YouTube URL</Label>
+                      <Input
+                        value={videoUrl}
+                        onChange={(e) => updateVideoUrl(e.target.value)}
+                        className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                        placeholder="https://www.youtube.com/watch?v=..."
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">Paste a YouTube link — the video updates as soon as it&apos;s valid.</p>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Width</Label>
+                      <div className="flex gap-1">
+                        {["25%", "50%", "75%", "100%"].map((w) => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => updateVideoAttr("containerWidth", w)}
+                            className={`flex-1 h-8 text-[11px] font-medium rounded-lg border transition-all ${
+                              videoWidth === w
+                                ? "bg-violet-600 text-white border-violet-600 shadow-sm"
+                                : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                            }`}
+                          >
+                            {w}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Custom Width</Label>
+                      <Input
+                        value={videoWidth}
+                        onChange={(e) => updateVideoAttr("containerWidth", e.target.value)}
+                        className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                        placeholder="e.g. 480px or 50%"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">Alignment</Label>
+                      <SegmentedControl
+                        options={[
+                          { label: "Left", value: "left" },
+                          { label: "Center", value: "center" },
+                          { label: "Right", value: "right" },
+                        ]}
+                        value={videoAlign}
+                        onChange={(v) => updateVideoAttr("align", v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] text-gray-600">Autoplay</Label>
+                      <Switch checked={videoAutoplay} onCheckedChange={(v) => updateVideoAttr("autoplay", v)} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className={`text-[11px] ${videoAutoplay ? "text-gray-400" : "text-gray-600"}`}>Mute</Label>
+                      <Switch
+                        checked={videoAutoplay || videoMuted}
+                        disabled={videoAutoplay}
+                        onCheckedChange={(v) => updateVideoAttr("muted", v)}
+                      />
+                    </div>
+                    {videoAutoplay && (
+                      <p className="text-[10px] text-gray-400">Autoplay requires the video to be muted — browsers block unmuted autoplay, so Mute is locked on while Autoplay is on.</p>
+                    )}
+                  </div>
+                </PanelSection>
+              )}
+
               {activeBlock && (
                 <PanelSection
                   title={`${BLOCK_PANEL_LABELS[activeBlock.type] ?? "Block"} Properties`}
@@ -2869,6 +3225,8 @@ export function RichEditor({
                   </div>
                 </PanelSection>
               )}
+              </>
+              )}
             </>
           ) : (
             /* ===== STYLE TAB ===== */
@@ -2963,9 +3321,9 @@ export function RichEditor({
       </div>
 
       {/* ===== MAIN CANVAS (Editor Content) — left of the tools panel ===== */}
-      <div className="order-1 flex-1 min-w-0 bg-gray-100 overflow-y-auto overflow-x-hidden relative">
+      <div className="order-2 flex-1 min-w-0 bg-gray-100 overflow-y-auto overflow-x-hidden relative">
         {/* Floating Action Bar */}
-        {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel) && (
+        {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel || showVideoPanel) && (
           <div className="sticky top-3 z-30 flex justify-center pointer-events-none">
             <div className="pointer-events-auto inline-flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg px-2 py-1.5">
               {selectedLabel && (

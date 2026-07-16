@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EditorContent } from "@tiptap/react";
 import type { LandingTemplateData } from "@/lib/template-types";
 import { DEFAULT_MEDIA_SETTINGS, normalizeTemplateData } from "@/lib/template-types";
 import { Button } from "@/components/ui/button";
@@ -1739,6 +1740,18 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
         });
 
       case 'richContent':
+        // In the admin editor an `editorInstance` (live TipTap editor) is
+        // passed down — render the real editable surface there so clicking
+        // existing elements selects them and pops up their property panels.
+        // Public storefront pages never pass `editorInstance`, so they keep
+        // getting the static, non-interactive DynamicPageRenderer HTML.
+        if (editorInstance) {
+          return (
+            <div key="richContent" className="landing-rich-content">
+              <EditorContent editor={editorInstance} />
+            </div>
+          );
+        }
         return pageContent && pageContent.doc && (
           <div key="richContent" className="landing-rich-content">
             <DynamicPageRenderer

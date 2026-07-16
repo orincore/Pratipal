@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Mail, Phone, MapPin, Clock, CheckCircle, AlertCircle,
@@ -232,9 +233,8 @@ export default function ContactPage() {
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-5">
                       <Field label="Phone">
-                        <Input id="phone" name="phone" type="tel" value={formData.phone}
-                          onChange={handleChange} placeholder="+91 98765 43210"
-                          className="h-10 sm:h-11 rounded-lg border-0 bg-gray-50 text-[#1b244a] placeholder:text-[#232d5f]/30 focus-visible:ring-1 focus-visible:ring-[#d97745] text-sm"
+                        <PhoneInput id="phone" value={formData.phone}
+                          onChange={(v) => setFormData((prev) => ({ ...prev, phone: v }))}
                           style={{ fontFamily: "'Poppins', sans-serif" }} />
                       </Field>
                       <Field label="Subject" required>

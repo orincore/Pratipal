@@ -5,7 +5,7 @@ import type { JSONContent } from "@tiptap/core";
 import { generateHTML } from "@tiptap/html";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Youtube from "@tiptap/extension-youtube";
+import { YoutubeEmbed } from "@/lib/tiptap/extensions/youtube-embed";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import Color from "@tiptap/extension-color";
@@ -62,10 +62,7 @@ const extensions = [
       class: "underline cursor-pointer",
     },
   }),
-  Youtube.configure({
-    HTMLAttributes: {
-      class: "w-full aspect-video rounded-lg",
-    },
+  YoutubeEmbed.configure({
     width: 640,
     height: 360,
   }),
@@ -225,7 +222,7 @@ export function DynamicPageRenderer({
             body: JSON.stringify({
               firstName: data.firstName,
               email: data.email,
-              whatsappNumber: data.whatsapp,
+              whatsappNumber: `${data.countryCode || "+91"}${data.whatsapp}`,
               location: data.location || "",
               landingPageSlug: pageSlug || "",
               landingPageId: landingPageId || "",

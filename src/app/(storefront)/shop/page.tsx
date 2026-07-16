@@ -32,6 +32,7 @@ interface NormProduct {
   name: string;
   slug: string;
   image: string;
+  images?: string[];
   price: number;
   originalPrice?: number;
   shortDescription?: string;
@@ -52,11 +53,16 @@ function normalise(p: ShopProduct): NormProduct {
       : p.original_price && p.original_price > p.price
       ? p.original_price
       : undefined;
+  const featured = p.featured_image || p.images?.[0] || FALLBACK_IMAGE;
+  // Featured image first, then the rest of the gallery — this order is what
+  // gets cycled through on hover in the shop grid.
+  const gallery = [featured, ...(p.images || []).filter((img) => img && img !== featured)];
   return {
     id: p.id,
     name: p.name,
     slug: p.slug || p.id,
-    image: p.featured_image || p.images?.[0] || FALLBACK_IMAGE,
+    image: featured,
+    images: gallery,
     price,
     originalPrice,
     shortDescription: p.short_description || p.description,
@@ -173,8 +179,9 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* ── Sticky toolbar ── */}
-      <div className="sticky top-[60px] z-30 bg-white/90 backdrop-blur-md border-b border-black/5 shadow-sm">
+      {/* ── Toolbar (in-flow, not sticky) — scrolls away with the page like
+          any other section instead of pinning under the header. ── */}
+      <div className="bg-white/90 backdrop-blur-md border-b border-black/5 shadow-sm">
         <div className="container max-w-6xl px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col sm:flex-row gap-2 sm:gap-2.5 items-stretch sm:items-center">
 
           {/* Row 1 on mobile: Search + Sort side by side */}

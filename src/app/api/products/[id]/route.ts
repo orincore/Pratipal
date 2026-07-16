@@ -88,6 +88,9 @@ export async function PUT(
         care_instructions: body.care_instructions,
         meta_title: body.meta_title,
         meta_description: body.meta_description,
+        is_ebook: body.is_ebook,
+        ebook_file_url: body.ebook_file_url,
+        ebook_link: body.ebook_link,
       },
       { new: true }
     ).lean();
@@ -147,6 +150,9 @@ export async function PATCH(
     if (body.care_instructions !== undefined) updateData.care_instructions = body.care_instructions;
     if (body.meta_title !== undefined) updateData.meta_title = body.meta_title;
     if (body.meta_description !== undefined) updateData.meta_description = body.meta_description;
+    if (body.is_ebook !== undefined) updateData.is_ebook = body.is_ebook;
+    if (body.ebook_file_url !== undefined) updateData.ebook_file_url = body.ebook_file_url;
+    if (body.ebook_link !== undefined) updateData.ebook_link = body.ebook_link;
 
     const product = await Product.findByIdAndUpdate(
       id,

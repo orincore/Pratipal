@@ -281,7 +281,7 @@
 .tiptap div[data-two-col],
 .tiptap section[data-page-section],
 .tiptap div[data-button],
-.tiptap img,
+.tiptap div[data-image-frame],
 .tiptap div[data-youtube-video],
 .tiptap blockquote,
 .tiptap pre {
@@ -292,7 +292,7 @@
 .tiptap div[data-two-col]:hover,
 .tiptap section[data-page-section]:hover,
 .tiptap div[data-button]:hover,
-.tiptap img:hover,
+.tiptap div[data-image-frame]:hover,
 .tiptap div[data-youtube-video]:hover,
 .tiptap blockquote:hover,
 .tiptap pre:hover {
@@ -307,19 +307,23 @@
   border-radius: 0.75rem;
 }
 
-/* Image card styling */
-.tiptap img {
+/* Image card styling — div[data-image-frame] is the sized/clipped crop box
+   (see ResizableImage renderHTML); the <img> inside always fills it and is
+   styled entirely via its own inline style (object-fit/object-position). */
+.tiptap div[data-image-frame] {
   max-width: 100%;
-  height: auto;
-  border-radius: 0.75rem;
-  margin: 1rem 0;
   cursor: pointer;
   border: 2px solid transparent;
 }
-.tiptap img:hover {
+.tiptap div[data-image-frame] img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.tiptap div[data-image-frame]:hover {
   border-color: #c4b5fd;
 }
-.tiptap img.ProseMirror-selectednode {
+.tiptap div[data-image-frame].ProseMirror-selectednode {
   border-color: #8b5cf6;
   box-shadow: 0 4px 20px rgba(139, 92, 246, 0.15);
 }
@@ -377,7 +381,7 @@
   flex-direction: column;
   justify-content: center;
 }
-.tiptap div[data-col-media] img,
+.tiptap div[data-col-media] div[data-image-frame],
 .tiptap div[data-col-media] iframe {
   width: 100%;
   height: auto;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShoppingBag, Zap } from "lucide-react";
@@ -17,6 +17,7 @@ export interface ProductCardItem {
   name: string;
   slug: string;
   image: string;
+  images?: string[];
   price: number;
   originalPrice?: number;
   shortDescription?: string;
@@ -37,6 +38,33 @@ export function ProductCard({
   const [adding, setAdding] = useState(false);
   const { triggerFly } = useCartAnimation();
   const addBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Gallery images beyond the featured one, deduped — cycled through on
+  // hover so shoppers can preview a product without opening it.
+  const galleryImages = (product.images?.length ? product.images : [product.image]).filter(
+    (src, i, arr) => src && arr.indexOf(src) === i
+  );
+  const [hoverIndex, setHoverIndex] = useState(0);
+  const hoverIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startHoverCycle = () => {
+    if (galleryImages.length < 2 || hoverIntervalRef.current) return;
+    hoverIntervalRef.current = setInterval(() => {
+      setHoverIndex((i) => (i + 1) % galleryImages.length);
+    }, 1800);
+  };
+  const stopHoverCycle = () => {
+    if (hoverIntervalRef.current) {
+      clearInterval(hoverIntervalRef.current);
+      hoverIntervalRef.current = null;
+    }
+    setHoverIndex(0);
+  };
+  useEffect(() => {
+    return () => {
+      if (hoverIntervalRef.current) clearInterval(hoverIntervalRef.current);
+    };
+  }, []);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -87,17 +115,33 @@ export function ProductCard({
     borderRadius: `${settings.buttonBorderRadius}px`,
     padding: `${settings.buttonPaddingY}px ${settings.buttonPaddingX}px`,
     backgroundColor: settings.buttonVariant === "solid" ? settings.buttonBgColor : "transparent",
-    color: settings.buttonTextColor,
+    // buttonTextColor is meant to contrast against a *solid* buttonBgColor
+    // fill (e.g. white on green). In the "outline" variant the background
+    // is transparent — showing the card's own background through — so that
+    // same white-on-white default (buttonVariant defaults to "outline",
+    // buttonTextColor defaults to white) made the text invisible. Outline
+    // buttons use the accent/border color for their text instead, the
+    // standard convention for that style.
+    color: settings.buttonVariant === "solid" ? settings.buttonTextColor : settings.buttonBorderColor,
     borderColor: settings.buttonBorderColor,
     ["--btn-hover-bg" as any]: settings.buttonHoverBg,
     ["--btn-hover-text" as any]: settings.buttonHoverTextColor,
   };
+
+  const objectFitClass =
+    settings.imageObjectFit === "cover"
+      ? "object-cover"
+      : settings.imageObjectFit === "contain"
+      ? "object-contain"
+      : "object-fill";
 
   return (
     <div
       className={`group flex flex-col h-full ve-product-card border transition-all duration-300 cursor-pointer ${shadowClass}`}
       style={cardStyle}
       onClick={() => router.push(`/product/${product.slug}`)}
+      onMouseEnter={startHoverCycle}
+      onMouseLeave={stopHoverCycle}
     >
       {/* Image */}
       <div
@@ -113,21 +157,49 @@ export function ProductCard({
             : "aspect-auto"
         }`}
       >
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          className={`object-center transition-all duration-700 ${
-            settings.imageObjectFit === "cover"
-              ? "object-cover"
-              : settings.imageObjectFit === "contain"
-              ? "object-contain"
-              : "object-fill"
-          } ${settings.imageHoverScale ? "group-hover:scale-105" : ""}`}
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          placeholder="blur"
-          blurDataURL={BLUR}
-        />
+        {galleryImages.length > 1 ? (
+          // Stacked + crossfaded so cycling swaps opacity only — no
+          // reload/flash, since every image is already mounted.
+          galleryImages.map((src, i) => (
+            <Image
+              key={src}
+              src={src}
+              alt={`${product.name}${i > 0 ? ` — image ${i + 1}` : ""}`}
+              fill
+              className={`object-center transition-opacity duration-500 ${objectFitClass} ${
+                settings.imageHoverScale ? "group-hover:scale-105" : ""
+              } ${i === hoverIndex ? "opacity-100" : "opacity-0"}`}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              placeholder={i === 0 ? "blur" : undefined}
+              blurDataURL={i === 0 ? BLUR : undefined}
+              priority={i === 0}
+            />
+          ))
+        ) : (
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            className={`object-center transition-all duration-700 ${objectFitClass} ${
+              settings.imageHoverScale ? "group-hover:scale-105" : ""
+            }`}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            placeholder="blur"
+            blurDataURL={BLUR}
+          />
+        )}
+        {galleryImages.length > 1 && (
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
+            {galleryImages.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  i === hoverIndex ? "w-3 bg-white" : "w-1 bg-white/50"
+                }`}
+              />
+            ))}
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
         {settings.showCategory && product.category && (
           <span

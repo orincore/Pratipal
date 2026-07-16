@@ -103,6 +103,13 @@ export const ResizableImage = Image.extend({
           "data-hover-effect": attributes.hoverEffect,
         }),
       },
+      objectPosition: {
+        default: "center",
+        parseHTML: (element) => element.getAttribute("data-object-position") || "center",
+        renderHTML: (attributes) => ({
+          "data-object-position": attributes.objectPosition,
+        }),
+      },
     };
   },
 
@@ -117,6 +124,7 @@ export const ResizableImage = Image.extend({
       shadow = "none",
       opacity = 100,
       objectFit = "cover",
+      objectPosition = "center",
       marginTop = 24,
       marginBottom = 24,
       hoverEffect = "none",
@@ -129,6 +137,7 @@ export const ResizableImage = Image.extend({
       shadow?: string;
       opacity?: number;
       objectFit?: string;
+      objectPosition?: string;
       marginTop?: number;
       marginBottom?: number;
       hoverEffect?: string;
@@ -142,26 +151,40 @@ export const ResizableImage = Image.extend({
       xl: "0 24px 48px rgba(0, 0, 0, 0.2)",
     };
 
-    const styleParts = [
+    // The frame is the box that's actually sized (width/height/aspect-ratio)
+    // and positioned/margined/shadowed — its overflow:hidden guarantees the
+    // visual crop regardless of how any given browser resolves aspect-ratio
+    // on a bare <img>. The <img> inside always fills the frame completely;
+    // object-fit + object-position control which part of the source image
+    // stays visible within it.
+    const frameStyleParts = [
       `width:${width}`,
       `height:${height}`,
       aspectRatio !== "auto" ? `aspect-ratio:${aspectRatio}` : "",
       "display:block",
+      "overflow:hidden",
       `border-radius:${borderRadius}px`,
       `box-shadow:${shadowStyles[shadow] || "none"}`,
-      `opacity:${opacity / 100}`,
-      `object-fit:${objectFit}`,
       `margin-top:${marginTop}px`,
       `margin-bottom:${marginBottom}px`,
     ];
 
     if (align === "left") {
-      styleParts.push("margin-right:auto", "margin-left:0");
+      frameStyleParts.push("margin-right:auto", "margin-left:0");
     } else if (align === "right") {
-      styleParts.push("margin-left:auto", "margin-right:0");
+      frameStyleParts.push("margin-left:auto", "margin-right:0");
     } else {
-      styleParts.push("margin-left:auto", "margin-right:auto");
+      frameStyleParts.push("margin-left:auto", "margin-right:auto");
     }
+
+    const imgStyleParts = [
+      "display:block",
+      "width:100%",
+      "height:100%",
+      `object-fit:${objectFit}`,
+      `object-position:${objectPosition}`,
+      `opacity:${opacity / 100}`,
+    ];
 
     const classes = [
       HTMLAttributes.class,
@@ -170,11 +193,15 @@ export const ResizableImage = Image.extend({
     ].filter(Boolean).join(" ");
 
     return [
-      "img",
-      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
-        style: styleParts.join(";"),
-        class: classes,
-      }),
+      "div",
+      { "data-image-frame": "", style: frameStyleParts.join(";") },
+      [
+        "img",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
+          style: imgStyleParts.join(";"),
+          class: classes,
+        }),
+      ],
     ];
   },
 });

@@ -129,10 +129,28 @@ export default async function ProductPage({ params }: ProductParams) {
 
             {/* Main product section */}
             <section className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
-              <div className="grid gap-5 sm:gap-10 lg:grid-cols-[480px_1fr]">
-                <ProductMediaGallery images={images} name={product.name} />
+              <div className="grid gap-5 sm:gap-10 lg:grid-cols-[480px_1fr] items-stretch">
+                <div className="flex flex-col gap-4 sm:gap-6 h-full">
+                  <ProductMediaGallery images={images} name={product.name} />
 
-                <div className="space-y-4 sm:space-y-6">
+                  {specs.length > 0 && (
+                    <div className="mt-auto bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-2.5 sm:p-3 space-y-1.5">
+                      <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                        Product Specs
+                      </p>
+                      <dl className="space-y-1">
+                        {specs.map((spec) => (
+                          <div key={spec.label} className="flex justify-between gap-2 border-b border-gray-50 pb-1 last:border-b-0 last:pb-0">
+                            <dt className="text-[10px] sm:text-[11px] text-gray-400">{spec.label}</dt>
+                            <dd className="text-[10px] sm:text-[11px] font-medium text-gray-800">{spec.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-4 sm:gap-6 h-full">
                   {/* Category + Name */}
                   <div className="space-y-1.5 sm:space-y-2">
                     {product.category?.name && (
@@ -147,7 +165,7 @@ export default async function ProductPage({ params }: ProductParams) {
                       {product.name}
                     </h1>
                     {product.short_description && (
-                      <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
+                      <p className="text-sm sm:text-base text-gray-500 leading-relaxed whitespace-pre-line">
                         {product.short_description}
                       </p>
                     )}
@@ -189,7 +207,7 @@ export default async function ProductPage({ params }: ProductParams) {
                   />
 
                   {/* Trust badges */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1 sm:pt-2">
+                  <div className="mt-auto grid grid-cols-3 gap-2 sm:gap-3 pt-1 sm:pt-2">
                     {trustBadges.map(({ icon: Icon, label }) => (
                       <div
                         key={label}
@@ -230,41 +248,20 @@ export default async function ProductPage({ params }: ProductParams) {
               </section>
             )}
 
-            {/* Specs + Care instructions */}
-            {(specs.length > 0 || product.care_instructions) && (
+            {/* Care instructions — Product Specs now sits under the product
+                image in the main grid above. */}
+            {product.care_instructions && (
               <section className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-8">
-                <div className="grid gap-3 sm:gap-6 sm:grid-cols-2">
-                  {specs.length > 0 && (
-                    <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 p-4 sm:p-6 space-y-3">
-                      <h2
-                        className="text-base sm:text-lg text-[#1b244a]"
-                        style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
-                      >
-                        Product Specs
-                      </h2>
-                      <dl className="space-y-2 text-sm">
-                        {specs.map((spec) => (
-                          <div key={spec.label} className="flex justify-between border-b border-gray-50 pb-1.5">
-                            <dt className="text-gray-400">{spec.label}</dt>
-                            <dd className="font-medium text-gray-800">{spec.value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </div>
-                  )}
-                  {product.care_instructions && (
-                    <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 p-4 sm:p-6 space-y-3">
-                      <h2
-                        className="text-base sm:text-lg text-[#1b244a]"
-                        style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
-                      >
-                        Care Instructions
-                      </h2>
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        {product.care_instructions}
-                      </p>
-                    </div>
-                  )}
+                <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 p-4 sm:p-6 space-y-3">
+                  <h2
+                    className="text-base sm:text-lg text-[#1b244a]"
+                    style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600 }}
+                  >
+                    Care Instructions
+                  </h2>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {product.care_instructions}
+                  </p>
                 </div>
               </section>
             )}

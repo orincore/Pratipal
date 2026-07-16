@@ -54,7 +54,6 @@ const sidebarItems = [
   { label: "Gallery", href: "/admin/gallery", icon: Images },
   { label: "Contacts", href: "/admin/contacts", icon: MessageSquare },
   { label: "Email Marketing", href: MAIL_SYSTEM_URL, icon: Mail, external: true },
-  { label: "Shop Layout", href: "/admin/settings/shop-layout", icon: Store },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
@@ -66,6 +65,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [fullBleed, setFullBleed] = useState(false);
   const { user, loading, logout } = useAuth();
 
   if (loading) {
@@ -84,7 +84,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <DashboardLayoutProvider value={{ sidebarCollapsed, setSidebarCollapsed }}>
+    <DashboardLayoutProvider value={{ sidebarCollapsed, setSidebarCollapsed, fullBleed, setFullBleed }}>
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-white px-4 lg:px-6">
         <Button
@@ -201,7 +201,12 @@ export default function DashboardLayout({
           </nav>
         </aside>
 
-        <main className="flex-1 p-4 lg:p-6 min-h-[calc(100vh-3.5rem)]">
+        <main
+          className={cn(
+            "flex-1 min-h-[calc(100vh-3.5rem)]",
+            fullBleed ? "overflow-hidden" : "p-4 lg:p-6"
+          )}
+        >
           {children}
         </main>
       </div>

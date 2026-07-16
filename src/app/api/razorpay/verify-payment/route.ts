@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import getDB from "@/lib/db";
-import { sendMail, orderConfirmationHtml } from "@/lib/mailer";
+import { sendMail, orderConfirmationHtml, ebookDeliveryHtml } from "@/lib/mailer";
 import { BRAND, renderEmailLayout, emailInfoCard } from "@/lib/email-template";
 
 export async function POST(req: NextRequest) {
@@ -39,6 +39,40 @@ export async function POST(req: NextRequest) {
             await Product.findByIdAndUpdate(item.product_id, {
               $inc: { stock_quantity: -item.quantity }
             });
+          }
+        }
+      }
+
+      // Deliver any e-books in this order by email now that payment is
+      // confirmed. Awaited (unlike the order-confirmation email below,
+      // which is fire-and-forget) because the delivery status recorded on
+      // each OrderItem needs to reflect whether the send actually
+      // succeeded — a serverless function isn't guaranteed to keep running
+      // after the response goes out, so this can't be left to finish in
+      // the background.
+      if (order && orderItems && orderItems.length > 0) {
+        const ebookItems = orderItems.filter((i: any) => i.is_ebook && i.ebook_download_url);
+        for (const item of ebookItems) {
+          try {
+            await sendMail({
+              to: order.customer_email,
+              subject: `Your E-Book is Ready — ${item.product_name}`,
+              html: ebookDeliveryHtml({
+                customerName: order.customer_name,
+                productName: item.product_name,
+                orderNumber: order.order_number,
+                downloadUrl: item.ebook_download_url as string,
+              }),
+            });
+            await OrderItem.findByIdAndUpdate(item._id, {
+              ebook_delivery_status: "delivered",
+              ebook_delivered_at: new Date(),
+            });
+          } catch (mailErr: any) {
+            console.error(`Ebook delivery email failed for order item ${item._id}:`, mailErr?.message || mailErr);
+            await OrderItem.findByIdAndUpdate(item._id, {
+              ebook_delivery_status: "failed",
+            }).catch(() => {});
           }
         }
       }

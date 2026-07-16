@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import {
   Loader2, Package, Clock, CheckCircle2, ArrowLeft,
-  ShoppingBag, BookOpen, Stethoscope, MessageCircle, ChevronDown, ChevronUp, Truck, MapPin,
+  ShoppingBag, BookOpen, Stethoscope, MessageCircle, ChevronDown, ChevronUp, Truck, MapPin, Download,
 } from "lucide-react";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
 import type { Order, OrderItem, TrackingStatus } from "@/lib/ecommerce-types";
@@ -364,12 +364,24 @@ function OrderCard({ order, onOrderUpdated }: { order: OrdersResponse; onOrderUp
           {items.length > 0 && (
             <div className="space-y-2">
               {items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-xs truncate">{item.product_name}</p>
-                    <p className="text-[10px] text-muted-foreground">{item.variant_name || item.product_sku || "Standard"} · qty {item.quantity}</p>
+                <div key={item.id} className="bg-gray-50 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium text-xs truncate">{item.product_name}</p>
+                      <p className="text-[10px] text-muted-foreground">{item.variant_name || item.product_sku || "Standard"} · qty {item.quantity}</p>
+                    </div>
+                    <p className="text-xs font-semibold ml-2 flex-shrink-0">{formatPrice(item.price * item.quantity)}</p>
                   </div>
-                  <p className="text-xs font-semibold ml-2 flex-shrink-0">{formatPrice(item.price * item.quantity)}</p>
+                  {item.is_ebook && item.ebook_download_url && order.payment_status === "paid" && (
+                    <a
+                      href={item.ebook_download_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 hover:bg-emerald-100 transition-colors"
+                    >
+                      <Download className="h-3 w-3" /> Download Now
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
@@ -567,6 +579,16 @@ function OrderCardDesktop({ order, onOrderUpdated }: { order: OrdersResponse; on
                 </div>
                 <p className="text-xs text-muted-foreground">{item.variant_name || item.product_sku || "Standard"}</p>
                 <p className="text-sm font-semibold text-brand-primary mt-1">{formatPrice(item.price * item.quantity)}</p>
+                {item.is_ebook && item.ebook_download_url && order.payment_status === "paid" && (
+                  <a
+                    href={item.ebook_download_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 hover:bg-emerald-100 transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Download Now
+                  </a>
+                )}
               </div>
             ))}
           </div>

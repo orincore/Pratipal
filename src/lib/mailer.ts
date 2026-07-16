@@ -162,6 +162,36 @@ export function orderConfirmationHtml(data: OrderEmailData) {
   });
 }
 
+export interface EbookDeliveryEmailData {
+  customerName: string;
+  productName: string;
+  orderNumber: string;
+  downloadUrl: string;
+}
+
+export function ebookDeliveryHtml(data: EbookDeliveryEmailData) {
+  const bodyHtml = `
+    ${emailInfoCard([
+      { icon: "fileText", label: "E-Book", value: data.productName },
+      { icon: "bag", label: "Order", value: data.orderNumber },
+    ])}
+    ${emailNote(
+      "This link is yours to keep — save the file somewhere safe after downloading. If it ever stops working, just reply to this email and we'll resend it.",
+      "neutral",
+      "link"
+    )}`;
+
+  return renderEmailLayout({
+    preheader: `Your e-book "${data.productName}" is ready to download.`,
+    badgeIcon: "fileText",
+    heading: "Your E-Book is Ready!",
+    subheading: `Hi ${data.customerName}, thanks for your purchase — your download is ready below.`,
+    bodyHtml,
+    cta: { label: "Download Now", url: data.downloadUrl, icon: "fileText" },
+    footerNote: `Trouble downloading? Reach us at <a href="mailto:connect@pratipal.in" style="color:${BRAND.navy};">connect@pratipal.in</a>`,
+  });
+}
+
 const TRACKING_LABELS: Record<string, { label: string; icon: IconName; tone: "success" | "danger" | "warning" | "neutral" }> = {
   order_received:    { label: "Order Received",      icon: "fileText", tone: "neutral" },
   processing:        { label: "Processing",           icon: "refresh",  tone: "warning" },

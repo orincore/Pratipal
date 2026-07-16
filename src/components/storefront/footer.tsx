@@ -68,22 +68,27 @@ export function Footer() {
             </div>
 
             {/* Contact */}
-            <div>
-              <h4 className="text-sm uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Contact</h4>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/90">connect@pratipal.in</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/90">+91 76050 72424</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                  <span className="text-xs text-[#232d5f]/90">Kolkata, India</span>
-                </li>
-              </ul>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm uppercase tracking-[0.2em] text-[#232d5f] font-semibold mb-3" style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>Contact</h4>
+                <ul className="space-y-2">
+                  <li className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
+                    <span className="text-xs text-[#232d5f]/90">connect@pratipal.in</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
+                    <span className="text-xs text-[#232d5f]/90">+91 76050 72424</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
+                    <span className="text-xs text-[#232d5f]/90">Kolkata, India</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="relative h-24 w-24 sm:h-28 sm:w-28 flex-shrink-0" title="ISO Certified">
+                <Image src="/assets/iso.png" alt="ISO Certified" fill sizes="112px" className="object-contain" />
+              </div>
             </div>
           </div>
         </div>

@@ -476,14 +476,14 @@ export default function LandingPageInvitationsPage() {
 
       {showCreate && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-md w-full overflow-hidden text-left">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col text-left">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
               <h3 className="font-bold text-slate-800 text-base">New Registration Window</h3>
               <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-slate-100 text-slate-400 rounded-lg">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={handleCreateWindow} className="p-6 space-y-4">
+            <form onSubmit={handleCreateWindow} className="p-6 space-y-4 overflow-y-auto min-h-0">
               <div>
                 <Label className="text-xs font-semibold text-slate-500">Window Name *</Label>
                 <Input
@@ -709,14 +709,14 @@ export default function LandingPageInvitationsPage() {
 
       {editingWindow && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-md w-full overflow-hidden text-left">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col text-left">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
               <h3 className="font-bold text-slate-800 text-base">Join Link — {editingWindow.name}</h3>
               <button onClick={() => setEditingWindow(null)} className="p-1 hover:bg-slate-100 text-slate-400 rounded-lg">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={handleSaveJoinLink} className="p-6 space-y-4">
+            <form onSubmit={handleSaveJoinLink} className="p-6 space-y-4 overflow-y-auto min-h-0">
               <div>
                 <Label className="text-xs font-semibold text-slate-500">Platform</Label>
                 <Select value={editJoinPlatform} onValueChange={setEditJoinPlatform}>

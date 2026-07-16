@@ -40,6 +40,24 @@ const COLOR_PALETTE = [
   "#8b5cf6", "#ec4899", "#111827", "#047857", "#0369a1", "#5b21b6"
 ];
 
+// Some products' descriptions were saved as plain text with literal "\n"
+// line breaks (e.g. imported/seeded data) rather than the HTML this editor
+// itself produces. TipTap's `content` is parsed *as HTML*, and HTML parsing
+// collapses raw "\n" characters into ordinary whitespace — so a plain-text
+// value with no tags renders as one run-together paragraph, the line
+// breaks silently lost. Detect that case and turn each line into its own
+// <p> first, same conversion already used for storefront rendering of
+// legacy plain-text descriptions.
+function toEditorHtml(value: string): string {
+  if (!value) return "";
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (looksLikeHtml) return value;
+  return value
+    .split("\n")
+    .map((line) => `<p>${line || "<br>"}</p>`)
+    .join("");
+}
+
 export function ProductDescriptionEditor({
   content,
   onChange,
@@ -66,7 +84,7 @@ export function ProductDescriptionEditor({
         placeholder,
       }),
     ],
-    content: content || "",
+    content: toEditorHtml(content),
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -78,10 +96,17 @@ export function ProductDescriptionEditor({
     immediatelyRender: false,
   });
 
-  // Sync content from outside (e.g. when product finishes loading)
+  // Sync content from outside (e.g. when product finishes loading). Compare
+  // against the converted HTML, not the raw prop — otherwise a plain-text
+  // value would never equal editor.getHTML() (which is always real HTML)
+  // and this would re-run setContent with the raw, un-converted text on
+  // every render, undoing the plain-text-to-<p> conversion right after it
+  // was applied.
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content || "");
+    if (!editor) return;
+    const nextHtml = toEditorHtml(content);
+    if (nextHtml !== editor.getHTML()) {
+      editor.commands.setContent(nextHtml);
     }
   }, [content, editor]);
 

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -237,9 +238,8 @@ export default function AccountPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="phone" className="text-xs font-medium text-slate-600">Phone</Label>
-                <Input id="phone" type="tel" value={profileForm.phone}
-                  onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))}
-                  placeholder="+91 98765 43210" className="rounded-xl border-black/10 bg-white/80" />
+                <PhoneInput id="phone" value={profileForm.phone}
+                  onChange={(v) => setProfileForm((p) => ({ ...p, phone: v }))} />
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowProfileForm(false)}
@@ -319,7 +319,7 @@ export default function AccountPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-slate-600">Phone</Label>
-                    <Input value={addressForm.phone || ""} onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+91 98765 43210" className="rounded-xl border-black/10" />
+                    <PhoneInput value={addressForm.phone || ""} onChange={(v) => setAddressForm((p) => ({ ...p, phone: v }))} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-slate-600">Company (optional)</Label>

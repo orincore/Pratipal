@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Upload, X, Plus, Image as ImageIcon, Video } from "lucide-react";
+import { ArrowLeft, Upload, X, Plus, Image as ImageIcon, Video, BookOpen, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,8 @@ export default function CreateProductPage() {
   const [initializingProduct, setInitializingProduct] = useState(Boolean(editingProductId));
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const [uploadingEbook, setUploadingEbook] = useState(false);
+  const ebookFileInputRef = useRef<HTMLInputElement>(null);
 
   // Cropper Queue States
   const [cropQueue, setCropQueue] = useState<File[]>([]);
@@ -87,6 +89,9 @@ export default function CreateProductPage() {
     meta_title: "",
     meta_description: "",
     homepage_section: "featured",
+    is_ebook: false,
+    ebook_file_url: "",
+    ebook_link: "",
   });
 
   useEffect(() => {
@@ -170,6 +175,9 @@ export default function CreateProductPage() {
       meta_title: product.meta_title || "",
       meta_description: product.meta_description || "",
       homepage_section: product.homepage_section || "featured",
+      is_ebook: product.is_ebook ?? false,
+      ebook_file_url: product.ebook_file_url || "",
+      ebook_link: product.ebook_link || "",
     };
   }
 
@@ -400,6 +408,58 @@ export default function CreateProductPage() {
     setMediaFiles((prev) => prev.filter((m) => m.id !== id));
   }
 
+  // E-book PDFs upload straight to R2 via a presigned URL — never through
+  // this Next.js API route's body, which Vercel caps at ~4.5MB and would
+  // reject most real ebook files long before they got anywhere.
+  async function handleEbookUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    if (file.type !== "application/pdf") {
+      toast.error("Please select a PDF file");
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("File size must be less than 100MB");
+      return;
+    }
+
+    setUploadingEbook(true);
+    const toastId = "ebook-upload";
+    try {
+      toast.loading("Uploading PDF...", { id: toastId });
+
+      const presignRes = await fetch("/api/upload/ebook/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, fileType: file.type, fileSize: file.size }),
+      });
+      if (!presignRes.ok) {
+        const err = await presignRes.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Upload failed");
+      }
+      const { uploadUrl, url } = await presignRes.json();
+
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("Upload failed");
+
+      handleChange("ebook_file_url", url);
+      // A newly uploaded file replaces any external link — only one source
+      // of truth for the download at a time.
+      handleChange("ebook_link", "");
+      toast.success("PDF uploaded to R2!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed", { id: toastId });
+    } finally {
+      setUploadingEbook(false);
+    }
+  }
+
   function setAsFeatured(url: string) {
     handleChange("featured_image", url);
     toast.success("Set as featured image");
@@ -448,6 +508,9 @@ export default function CreateProductPage() {
         meta_description: formData.meta_description,
         homepage_section:
           formData.homepage_section === "none" ? null : formData.homepage_section,
+        is_ebook: formData.is_ebook,
+        ebook_file_url: formData.is_ebook ? formData.ebook_file_url || undefined : undefined,
+        ebook_link: formData.is_ebook ? formData.ebook_link || undefined : undefined,
       };
 
       const targetUrl = isEditing ? `/api/products/${editingProductId}` : "/api/products";
@@ -573,7 +636,8 @@ export default function CreateProductPage() {
                     value={formData.short_description}
                     onChange={(e) => handleChange("short_description", e.target.value)}
                     placeholder="Brief product description (1-2 sentences)"
-                    rows={2}
+                    rows={4}
+                    className="whitespace-pre-wrap"
                   />
                 </div>
 
@@ -976,6 +1040,95 @@ export default function CreateProductPage() {
                       Active (Visible on store)
                     </Label>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="is_ebook"
+                      checked={formData.is_ebook}
+                      onChange={(e) => handleChange("is_ebook", e.target.checked)}
+                      className="rounded"
+                    />
+                    <Label htmlFor="is_ebook" className="cursor-pointer flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5" /> This is an E-Book
+                    </Label>
+                  </div>
+
+                  {formData.is_ebook && (
+                    <div className="space-y-3 pl-6 border-l-2 border-slate-100 ml-1">
+                      <div>
+                        <Label className="text-xs">PDF File</Label>
+                        <input
+                          ref={ebookFileInputRef}
+                          type="file"
+                          accept="application/pdf"
+                          onChange={handleEbookUpload}
+                          className="hidden"
+                        />
+                        {formData.ebook_file_url ? (
+                          <div className="flex items-center gap-2 mt-1 p-2 rounded-lg border bg-slate-50">
+                            <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+                            <a
+                              href={formData.ebook_file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 underline truncate flex-1"
+                            >
+                              {decodeURIComponent(formData.ebook_file_url.split("/").pop() || "uploaded-file.pdf")}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleChange("ebook_file_url", "")}
+                              className="h-6 w-6 flex-shrink-0 flex items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              title="Remove file"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-1 w-full"
+                            onClick={() => ebookFileInputRef.current?.click()}
+                            disabled={uploadingEbook || !!formData.ebook_link}
+                          >
+                            {uploadingEbook ? (
+                              <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Uploading to R2...</>
+                            ) : (
+                              <><Upload className="h-3.5 w-3.5 mr-1.5" /> Upload PDF (max 100MB)</>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
+                        <div className="flex-1 h-px bg-slate-200" /> or <div className="flex-1 h-px bg-slate-200" />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="ebook_link" className="text-xs">External Download Link</Label>
+                        <Input
+                          id="ebook_link"
+                          value={formData.ebook_link}
+                          onChange={(e) => handleChange("ebook_link", e.target.value)}
+                          placeholder="https://..."
+                          disabled={!!formData.ebook_file_url}
+                        />
+                      </div>
+
+                      {!formData.ebook_file_url && !formData.ebook_link ? (
+                        <p className="text-[11px] text-amber-600">
+                          Upload a PDF or add a link — buyers won&apos;t receive a working download until one is set.
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">
+                          Sent by email as a download link automatically once an order for this product is paid.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

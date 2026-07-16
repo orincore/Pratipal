@@ -115,7 +115,38 @@ export const LeadForm = Node.create({
     }
     children.push(["input", { name: "firstName", "data-field": "firstName", type: "text", placeholder: "Your name", required: "required", style: inputStyle }]);
     children.push(["input", { name: "email", "data-field": "email", type: "email", placeholder: "Email address", required: "required", style: inputStyle }]);
-    children.push(["input", { name: "whatsapp", "data-field": "whatsapp", type: "tel", placeholder: "Mobile number", required: "required", style: inputStyle }]);
+    children.push([
+      "div",
+      { style: "display:flex;gap:8px;margin-bottom:12px" },
+      [
+        "select",
+        {
+          name: "countryCode",
+          "data-field": "countryCode",
+          style: `flex:0 0 88px;height:44px;padding:0 6px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;outline:none;background:#fff;color:#111827`,
+        },
+        ["option", { value: "+91" }, "🇮🇳 +91"],
+        ["option", { value: "+1" }, "🇺🇸 +1"],
+        ["option", { value: "+44" }, "🇬🇧 +44"],
+        ["option", { value: "+61" }, "🇦🇺 +61"],
+        ["option", { value: "+971" }, "🇦🇪 +971"],
+        ["option", { value: "+65" }, "🇸🇬 +65"],
+        ["option", { value: "+60" }, "🇲🇾 +60"],
+        ["option", { value: "+64" }, "🇳🇿 +64"],
+        ["option", { value: "+27" }, "🇿🇦 +27"],
+        ["option", { value: "+49" }, "🇩🇪 +49"],
+        ["option", { value: "+33" }, "🇫🇷 +33"],
+        ["option", { value: "+81" }, "🇯🇵 +81"],
+        ["option", { value: "+86" }, "🇨🇳 +86"],
+        ["option", { value: "+55" }, "🇧🇷 +55"],
+        ["option", { value: "+52" }, "🇲🇽 +52"],
+        ["option", { value: "+92" }, "🇵🇰 +92"],
+        ["option", { value: "+880" }, "🇧🇩 +880"],
+        ["option", { value: "+94" }, "🇱🇰 +94"],
+        ["option", { value: "+977" }, "🇳🇵 +977"],
+      ],
+      ["input", { name: "whatsapp", "data-field": "whatsapp", type: "tel", placeholder: "Mobile number", required: "required", style: `flex:1;${inputStyle};margin-bottom:0` }],
+    ]);
     if (a.showLocation) {
       children.push(["input", { name: "location", "data-field": "location", type: "text", placeholder: "Location (City, Country)", style: inputStyle }]);
     }

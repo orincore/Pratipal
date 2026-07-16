@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
@@ -168,8 +169,7 @@ function EnrollModal({ course, onClose }: { course: Course; onClose: () => void 
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Phone / WhatsApp</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" required
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent bg-gray-50" />
+              <PhoneInput value={phone} onChange={setPhone} required />
             </div>
 
             {error && (

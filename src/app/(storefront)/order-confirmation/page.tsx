@@ -129,6 +129,16 @@ function OrderConfirmationContent() {
                       <p className="text-sm text-muted-foreground">{item.variant_name}</p>
                     )}
                     <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                    {item.is_ebook && item.ebook_download_url && order.payment_status === "paid" && (
+                      <a
+                        href={item.ebook_download_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 hover:bg-emerald-100 transition-colors"
+                      >
+                        Download Now
+                      </a>
+                    )}
                   </div>
                   <p className="font-semibold">₹{item.subtotal.toFixed(2)}</p>
                 </div>

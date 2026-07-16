@@ -363,6 +363,19 @@ export default function EcommerceOrdersPage() {
                         <div className="font-medium">{item.product_name}</div>
                         {item.variant_name && <div className="text-sm text-muted-foreground">{item.variant_name}</div>}
                         <div className="text-sm text-muted-foreground">Qty: {item.quantity}</div>
+                        {item.is_ebook && (
+                          <div
+                            className={`inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                              item.ebook_delivery_status === "delivered"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : item.ebook_delivery_status === "failed"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            E-Book: {item.ebook_delivery_status === "delivered" ? "Delivered" : item.ebook_delivery_status === "failed" ? "Delivery Failed" : "Pending"}
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="font-medium">₹{item.subtotal.toFixed(2)}</div>

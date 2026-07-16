@@ -110,6 +110,9 @@ export async function POST(req: NextRequest) {
       care_instructions: body.care_instructions,
       meta_title: body.meta_title,
       meta_description: body.meta_description,
+      is_ebook: body.is_ebook || false,
+      ebook_file_url: body.ebook_file_url,
+      ebook_link: body.ebook_link,
     });
 
     console.log("Product created successfully:", product.id);
