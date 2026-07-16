@@ -16,38 +16,36 @@ function StarRow({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }
   );
 }
 
-interface TPReview {
-  id: string;
-  title: string;
-  text: string;
+interface Review {
+  _id: string;
+  name: string;
+  location: string;
+  role: string;
   rating: number;
-  date: string;
-  consumer: { name: string; countryCode: string; imageUrl: string | null; hasImage: boolean };
+  text: string;
+  source: string;
   verified: boolean;
-}
-interface TPData {
-  businessName: string;
-  trustScore: number;
-  totalReviews: number;
-  reviews: TPReview[];
+  featured: boolean;
+  date: string;
 }
 
 export function TrustpilotSection() {
-  const [data, setData] = useState<TPData | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/trustpilot")
+    fetch("/api/reviews")
       .then((r) => r.json())
-      .then((d) => { if (!d.error) setData(d); })
+      .then((d) => setReviews(d.reviews ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const reviews = data?.reviews ?? [];
-  const score = data?.trustScore ?? null;
-  const total = data?.totalReviews ?? null;
+  const total = reviews.length;
+  const score = total ? reviews.reduce((s, r) => s + r.rating, 0) / total : null;
   const scoreLabel = !score ? "" : score >= 4.5 ? "Excellent" : score >= 3.5 ? "Great" : "Good";
+
+  if (!loading && total === 0) return null;
 
   return (
     <section className="py-10 bg-white">
@@ -81,7 +79,7 @@ export function TrustpilotSection() {
                   <path d="M12 2l3.09 9.26H24l-7.27 5.27 2.77 8.52L12 19.77l-7.5 5.28 2.77-8.52L0 11.26h8.91z" />
                 </svg>
                 <span className="text-sm font-bold text-gray-800">Trustpilot</span>
-                <span className="text-xs text-gray-400">· {total !== null ? `${total} reviews` : "reviews"}</span>
+                <span className="text-xs text-gray-400">· {total ? `${total} reviews` : "reviews"}</span>
               </div>
             </div>
           </a>
@@ -98,7 +96,7 @@ export function TrustpilotSection() {
           <div className="flex gap-4 overflow-x-auto pb-3 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:-mx-6 sm:px-6 max-w-6xl lg:mx-auto lg:px-0">
             {reviews.map((r) => (
               <div
-                key={r.id}
+                key={r._id}
                 className="snap-start flex-shrink-0 w-[280px] sm:w-[310px] bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:border-[#00b67a]/30 transition-all duration-300 flex flex-col"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -107,31 +105,23 @@ export function TrustpilotSection() {
                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="#00b67a">
                       <path d="M12 2l3.09 9.26H24l-7.27 5.27 2.77 8.52L12 19.77l-7.5 5.28 2.77-8.52L0 11.26h8.91z" />
                     </svg>
-                    <span className="text-[10px] font-semibold text-gray-500">Trustpilot</span>
+                    <span className="text-[10px] font-semibold text-gray-500 capitalize">{r.source || "Trustpilot"}</span>
                   </div>
                 </div>
-                {r.title && (
-                  <p className="text-sm font-semibold text-slate-800 mb-1 line-clamp-1">{r.title}</p>
+                {r.role && (
+                  <p className="text-sm font-semibold text-slate-800 mb-1 line-clamp-1">{r.role}</p>
                 )}
                 <blockquote className="text-sm text-slate-600 leading-relaxed flex-1 mb-4 line-clamp-4">
                   {r.text}
                 </blockquote>
                 <div className="flex items-center gap-2.5 pt-3 border-t border-gray-100">
-                  {r.consumer.hasImage && r.consumer.imageUrl ? (
-                    <img
-                      src={r.consumer.imageUrl}
-                      alt={r.consumer.name}
-                      className="h-8 w-8 rounded-full object-cover flex-shrink-0 bg-gray-100"
-                    />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                      {r.consumer.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                    {r.name.charAt(0).toUpperCase()}
+                  </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-800 leading-tight truncate">{r.consumer.name}</div>
+                    <div className="text-sm font-semibold text-slate-800 leading-tight truncate">{r.name}</div>
                     <div className="text-xs text-slate-400">
-                      {r.consumer.countryCode && `${r.consumer.countryCode} · `}
+                      {r.location && `${r.location} · `}
                       {r.date ? new Date(r.date).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : ""}
                     </div>
                   </div>
@@ -160,7 +150,7 @@ export function TrustpilotSection() {
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
               <path d="M12 2l3.09 9.26H24l-7.27 5.27 2.77 8.52L12 19.77l-7.5 5.28 2.77-8.52L0 11.26h8.91z" />
             </svg>
-            See all {total !== null ? `${total} ` : ""}reviews on Trustpilot
+            See all {total ? `${total} ` : ""}reviews on Trustpilot
           </a>
         </div>
       </div>

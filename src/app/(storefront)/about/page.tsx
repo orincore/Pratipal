@@ -460,13 +460,12 @@ export default function AboutPage() {
             ].map((item, index) => (
               <div key={index} className="bg-white border border-stone-200 rounded-lg overflow-hidden hover:border-stone-300 hover:shadow-lg transition-all duration-200 shadow-sm letter-paper folded-corner">
                 <div className="aspect-video relative bg-stone-100">
-                  <img 
-                    src={item.image} 
+                  <img
+                    src={item.image}
                     alt={item.title}
-                    className="w-full h-full object-cover opacity-80"
+                    className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-white/90 to-transparent"></div>
-                  <div className="absolute bottom-4 left-4 text-2xl font-bold text-stone-400 handwritten-style">{item.num}</div>
+                  <div className="absolute bottom-4 left-4 text-2xl font-bold text-white drop-shadow">{item.num}</div>
                 </div>
                 <div className="p-6">
                   <h3 className="text-lg font-semibold text-stone-900 mb-3 handwritten-style">{item.title}</h3>

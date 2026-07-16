@@ -242,7 +242,7 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
       {/* Hero */}
-      <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600 text-white py-12 relative overflow-hidden">
+      <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600 text-white pt-24 sm:pt-28 pb-12 relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-xl" />
           <div className="absolute top-40 right-20 w-48 h-48 bg-emerald-400/20 rounded-full blur-2xl" />
