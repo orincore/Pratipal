@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { signToken, getSessionCookieOptions } from "@/lib/auth";
 import getDB from "@/lib/db";
 import { sendMail, loginNotificationHtml } from "@/lib/mailer";
+import { BRAND } from "@/lib/email-template";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     const name = [customerDoc.first_name, customerDoc.last_name].filter(Boolean).join(" ") || "Customer";
     sendMail({
       to: customerDoc.email,
-      subject: "New login to your Pratipal account",
+      subject: `New login to your ${BRAND.name} account`,
       html: loginNotificationHtml({
         name,
         email: customerDoc.email,

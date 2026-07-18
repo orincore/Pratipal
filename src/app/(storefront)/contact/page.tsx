@@ -9,6 +9,9 @@ import {
   Mail, Phone, MapPin, Clock, CheckCircle, AlertCircle,
   Send, Loader2, ArrowRight,
 } from "lucide-react";
+import { siteConfig } from "@/config/site.config";
+
+const WHATSAPP_URL = `https://wa.me/${siteConfig.contact.whatsapp}`;
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -77,7 +80,7 @@ export default function ContactPage() {
         <div className="absolute inset-0">
           <Image
             src="https://images.unsplash.com/photo-1600334129128-685c5582fd35?w=1920&h=900&fit=crop"
-            alt="Contact Pratipal"
+            alt={`Contact ${siteConfig.name}`}
             fill
             className="object-cover object-center"
             priority
@@ -127,7 +130,7 @@ export default function ContactPage() {
                   Send a Message <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </a>
                 <a
-                  href="https://wa.me/917605072424"
+                  href={WHATSAPP_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 hover:opacity-90"
@@ -148,10 +151,10 @@ export default function ContactPage() {
           {/* Mobile: 2×2 grid, no dividers. Desktop: 4-col with dividers */}
           <div className="grid grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-white/10">
             {[
-              { icon: Mail,          label: "Email",    value: "hello@pratipal.in",   note: "24-hour response" },
-              { icon: Phone,         label: "Phone",    value: "+91 98765 43210",     note: "Mon–Sat, 9am–6pm" },
-              { icon: WhatsAppIcon,  label: "WhatsApp", value: "+91 76050 72424",     note: "Quick replies" },
-              { icon: MapPin,        label: "Location", value: "Mumbai, MH",          note: "India" },
+              { icon: Mail,          label: "Email",    value: siteConfig.contact.supportEmail,   note: "24-hour response" },
+              { icon: Phone,         label: "Phone",    value: siteConfig.contact.phone,           note: "Mon–Sat, 9am–6pm" },
+              { icon: WhatsAppIcon,  label: "WhatsApp", value: siteConfig.contact.phone,           note: "Quick replies" },
+              { icon: MapPin,        label: "Location", value: [siteConfig.contact.address.city, siteConfig.contact.address.region].filter(Boolean).join(", ") || siteConfig.contact.address.country, note: siteConfig.contact.address.country },
             ].map(({ icon: Icon, label, value, note }, i) => (
               <div
                 key={label}
@@ -277,7 +280,7 @@ export default function ContactPage() {
               <div className="lg:hidden grid grid-cols-2 gap-3">
                 {[
                   { icon: Clock,        label: "Hours",    value: "Mon–Fri 9am–6pm · Sat 10am–4pm" },
-                  { icon: WhatsAppIcon, label: "WhatsApp", value: "+91 76050 72424", href: "https://wa.me/917605072424" },
+                  { icon: WhatsAppIcon, label: "WhatsApp", value: siteConfig.contact.phone, href: WHATSAPP_URL },
                 ].map(({ icon: Icon, label, value, href }) => {
                   const El = href ? "a" : "div";
                   return (
@@ -327,11 +330,7 @@ export default function ContactPage() {
                     <p className="text-[10px] uppercase tracking-[0.2em] font-semibold" style={{ color: "#232d5f" }}>Business Hours</p>
                   </div>
                   <div className="space-y-1">
-                    {[
-                      { day: "Monday – Friday", hours: "9:00 AM – 6:00 PM" },
-                      { day: "Saturday",        hours: "10:00 AM – 4:00 PM" },
-                      { day: "Sunday",          hours: "Closed" },
-                    ].map(({ day, hours }) => (
+                    {siteConfig.contact.businessHours.map(({ day, hours }) => (
                       <div key={day} className="flex items-center justify-between py-2.5 border-b" style={{ borderColor: "rgba(35,45,95,0.07)" }}>
                         <span className="text-sm" style={{ color: "rgba(35,45,95,0.65)" }}>{day}</span>
                         <span className="text-sm font-semibold" style={{ color: hours === "Closed" ? "#ef4444" : "#232d5f" }}>
@@ -363,7 +362,7 @@ export default function ContactPage() {
                 </div>
 
                 <a
-                  href="https://wa.me/917605072424"
+                  href={WHATSAPP_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-4 rounded-xl p-4 transition-all duration-200 hover:opacity-90 group"

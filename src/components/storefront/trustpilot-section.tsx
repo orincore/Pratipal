@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
+import { siteConfig } from "@/config/site.config";
+
+const TRUSTPILOT_URL = siteConfig.analytics.trustpilotDomain
+  ? `https://www.trustpilot.com/review/${siteConfig.analytics.trustpilotDomain}`
+  : null;
 
 function StarRow({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
   const h = size === "md" ? "h-5 w-5" : "h-4 w-4";
@@ -62,27 +67,29 @@ export function TrustpilotSection() {
             </h2>
           </div>
 
-          <a
-            href="https://www.trustpilot.com/review/pratipal.in"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-shrink-0 flex items-center gap-4 bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm hover:shadow-md hover:border-[#00b67a]/40 transition"
-          >
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900 leading-none">{score !== null ? score.toFixed(1) : "—"}</div>
-              <div className="text-xs font-semibold text-gray-500 mt-0.5">{scoreLabel || "Trustpilot"}</div>
-            </div>
-            <div>
-              <StarRow rating={Math.round(score ?? 0)} size="md" />
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 flex-shrink-0" fill="#00b67a">
-                  <path d="M12 2l3.09 9.26H24l-7.27 5.27 2.77 8.52L12 19.77l-7.5 5.28 2.77-8.52L0 11.26h8.91z" />
-                </svg>
-                <span className="text-sm font-bold text-gray-800">Trustpilot</span>
-                <span className="text-xs text-gray-400">· {total ? `${total} reviews` : "reviews"}</span>
+          {TRUSTPILOT_URL && (
+            <a
+              href={TRUSTPILOT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 flex items-center gap-4 bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm hover:shadow-md hover:border-[#00b67a]/40 transition"
+            >
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900 leading-none">{score !== null ? score.toFixed(1) : "—"}</div>
+                <div className="text-xs font-semibold text-gray-500 mt-0.5">{scoreLabel || "Trustpilot"}</div>
               </div>
-            </div>
-          </a>
+              <div>
+                <StarRow rating={Math.round(score ?? 0)} size="md" />
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 flex-shrink-0" fill="#00b67a">
+                    <path d="M12 2l3.09 9.26H24l-7.27 5.27 2.77 8.52L12 19.77l-7.5 5.28 2.77-8.52L0 11.26h8.91z" />
+                  </svg>
+                  <span className="text-sm font-bold text-gray-800">Trustpilot</span>
+                  <span className="text-xs text-gray-400">· {total ? `${total} reviews` : "reviews"}</span>
+                </div>
+              </div>
+            </a>
+          )}
         </div>
 
         {/* Cards */}
@@ -140,19 +147,21 @@ export function TrustpilotSection() {
         )}
 
         {/* See all */}
-        <div className="text-center mt-6">
-          <a
-            href="https://www.trustpilot.com/review/pratipal.in"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-[#00b67a] text-[#00b67a] text-sm font-semibold hover:bg-[#00b67a] hover:text-white transition-all duration-200"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-              <path d="M12 2l3.09 9.26H24l-7.27 5.27 2.77 8.52L12 19.77l-7.5 5.28 2.77-8.52L0 11.26h8.91z" />
-            </svg>
-            See all {total ? `${total} ` : ""}reviews on Trustpilot
-          </a>
-        </div>
+        {TRUSTPILOT_URL && (
+          <div className="text-center mt-6">
+            <a
+              href={TRUSTPILOT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-[#00b67a] text-[#00b67a] text-sm font-semibold hover:bg-[#00b67a] hover:text-white transition-all duration-200"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <path d="M12 2l3.09 9.26H24l-7.27 5.27 2.77 8.52L12 19.77l-7.5 5.28 2.77-8.52L0 11.26h8.91z" />
+              </svg>
+              See all {total ? `${total} ` : ""}reviews on Trustpilot
+            </a>
+          </div>
+        )}
       </div>
     </section>
   );

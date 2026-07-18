@@ -9,6 +9,8 @@ import {
   Users, Zap, Leaf, Crown, X, AlertCircle,
 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { siteConfig } from "@/config/site.config";
+import { SITE_URL } from "@/lib/seo";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { ShareButtons } from "@/components/storefront/share-buttons";
@@ -152,7 +154,7 @@ function BookingModal({ service, onClose }: { service: ServiceItem; onClose: () 
           key: razorpay_key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
           amount,
           currency: "INR",
-          name: "Pratipal",
+          name: siteConfig.razorpayDisplayName,
           description: `${service.title} — ${selectedFreq.label}`,
           order_id: razorpay_order_id,
           prefill: { name: name.trim(), email: email.trim(), contact: phone.trim() },
@@ -578,10 +580,10 @@ export function BookingPageClient() {
             <h2 className="text-2xl sm:text-4xl font-serif font-bold text-gray-900">Book Your Session</h2>
             <p className="text-slate-500 max-w-md mx-auto text-xs sm:text-base">Reach out via WhatsApp or email. We respond within 24 hours.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a href="https://wa.me/917605072424" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 hover:shadow-lg">
+              <a href={`https://wa.me/${siteConfig.contact.whatsapp}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 hover:shadow-lg">
                 <MessageCircle className="h-4 w-4" />WhatsApp Us
               </a>
-              <a href="mailto:hello@pratipal.in" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300">
+              <a href={`mailto:${siteConfig.contact.supportEmail}`} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300">
                 <Mail className="h-4 w-4" />Email Us
               </a>
             </div>
@@ -596,7 +598,7 @@ export function BookingPageClient() {
           <div className="mt-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
             <p className="font-semibold text-gray-700 mb-3 text-sm text-center">Share Our Booking Page</p>
             <div className="flex justify-center">
-              <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://pratipal.in'}/booking`} />
+              <ShareButtons url={`${SITE_URL}/booking`} />
             </div>
           </div>
         </div>

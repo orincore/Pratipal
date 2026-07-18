@@ -33,8 +33,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/supabase/auth-context";
-import LogoMark from "@/app/assets/logo.png";
 import { DashboardLayoutProvider } from "@/components/admin/dashboard-layout-context";
+import { siteConfig } from "@/config/site.config";
 
 const MAIL_SYSTEM_URL = process.env.NEXT_PUBLIC_MAIL_SYSTEM_URL || "http://localhost:3001";
 
@@ -111,8 +111,8 @@ export default function DashboardLayout({
         <div className="flex items-center gap-3">
           <div className="relative h-9 w-9">
             <Image
-              src={LogoMark}
-              alt="Pratipal logo"
+              src={siteConfig.logo.header}
+              alt={`${siteConfig.name} logo`}
               fill
               sizes="36px"
               className="object-contain"
@@ -120,7 +120,7 @@ export default function DashboardLayout({
           </div>
           <div>
             <p className="text-sm font-semibold leading-tight text-brand-primary">
-              Pratipal
+              {siteConfig.name}
             </p>
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Admin Panel
@@ -196,7 +196,7 @@ export default function DashboardLayout({
             })}
             <Separator className="my-3" />
             <p className="px-3 text-xs text-muted-foreground">
-              Pratipal Store Admin
+              {siteConfig.name} Store Admin
             </p>
           </nav>
         </aside>

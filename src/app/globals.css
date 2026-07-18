@@ -194,6 +194,68 @@
 .tiptap {
   outline: none;
 }
+/* Heading/paragraph top margins exist to separate a block from whatever
+   came BEFORE it — meaningless (and just dead space) on the very first
+   child, which has nothing above it inside the block to separate from.
+   !important because .tiptap h1-h4 (same specificity) are declared later
+   in this file and would otherwise win the cascade by source order. */
+.tiptap > *:first-child {
+  margin-top: 0 !important;
+}
+/* A trailing empty paragraph is now always the user's own (the TrailingNode
+   extension that force-appended one after every widget is disabled — see
+   the StarterKit config in rich-editor.tsx). Just keep its footprint small
+   so an empty last line doesn't read as a big dead gap. */
+.tiptap > p:last-child:has(> br.ProseMirror-trailingBreak:only-child) {
+  margin-bottom: 0;
+  min-height: 0.6em;
+}
+/* Flexbox / Grid layout containers (see lib/tiptap/extensions/flex-grid.ts).
+   In the editor, the container gets a faint outline and each cell a clearly
+   visible dashed border, a light tint and a minimum height so empty cells
+   read as real, grabbable drop targets — even while empty and even under the
+   canvas's zoom. All of this is editor-only chrome scoped to `.tiptap`; the
+   public render (same renderHTML, no `.tiptap` ancestor) stays borderless and
+   transparent. */
+.tiptap [data-flexbox],
+.tiptap [data-grid] {
+  outline: 1px dashed rgba(124, 58, 237, 0.4);
+  outline-offset: 3px;
+  border-radius: 8px;
+  min-height: 64px;
+}
+.tiptap [data-flex-item],
+.tiptap [data-grid-item] {
+  box-sizing: border-box;
+  border: 1.5px dashed rgba(124, 58, 237, 0.55);
+  border-radius: 6px;
+  min-height: 60px;
+  padding: 10px;
+  background-color: rgba(124, 58, 237, 0.05);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.tiptap [data-flex-item]:hover,
+.tiptap [data-grid-item]:hover {
+  border-color: rgba(124, 58, 237, 0.9);
+  background-color: rgba(124, 58, 237, 0.1);
+}
+/* Mobile stacking for flex/grid containers that opted in (class set by
+   renderHTML from the stackOnMobile attr) — inline styles can't carry a
+   media query, so it lives here. Applies to editor previews and the public
+   page alike. */
+@media (max-width: 640px) {
+  .ve-stack-mobile[data-flexbox] {
+    flex-direction: column !important;
+  }
+  .ve-stack-mobile[data-grid] {
+    grid-template-columns: 1fr !important;
+  }
+  .ve-stack-mobile[data-grid] > [data-grid-item] {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+}
+
 .tiptap p.is-editor-empty:first-child::before {
   color: #adb5bd;
   content: attr(data-placeholder);
@@ -289,22 +351,43 @@
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-.tiptap div[data-two-col]:hover,
-.tiptap section[data-page-section]:hover,
-.tiptap div[data-button]:hover,
-.tiptap div[data-image-frame]:hover,
-.tiptap div[data-youtube-video]:hover,
-.tiptap blockquote:hover,
-.tiptap pre:hover {
+/* :not(.ProseMirror-selectednode) — hover is a weaker, separate cue from
+   selection and must not also render once an element is selected (the
+   cursor is almost always still over an element right after it's clicked),
+   or the hover ring and the selection outline below stack into two borders
+   around the same element. */
+.tiptap div[data-two-col]:hover:not(.ProseMirror-selectednode),
+.tiptap section[data-page-section]:hover:not(.ProseMirror-selectednode),
+.tiptap div[data-button]:hover:not(.ProseMirror-selectednode),
+.tiptap div[data-image-frame]:hover:not(.ProseMirror-selectednode),
+.tiptap div[data-youtube-video]:hover:not(.ProseMirror-selectednode),
+.tiptap blockquote:hover:not(.ProseMirror-selectednode),
+.tiptap pre:hover:not(.ProseMirror-selectednode) {
   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25);
   border-radius: 0.75rem;
 }
 
-/* Selected state (ProseMirror selection) */
+/* Selected state (ProseMirror selection) — the single, consistent selection
+   treatment for every block type. Each per-type card below has its own
+   permanent/hover border for identification while unselected; once selected
+   those are neutralized here so only this one outline shows instead of
+   stacking on top of it. */
 .tiptap .ProseMirror-selectednode {
   outline: 2px solid #8b5cf6 !important;
   outline-offset: 2px;
   border-radius: 0.75rem;
+  box-shadow: none !important;
+}
+.tiptap div[data-two-col].ProseMirror-selectednode,
+.tiptap section[data-page-section].ProseMirror-selectednode,
+.tiptap div[data-button].ProseMirror-selectednode,
+.tiptap div[data-image-frame].ProseMirror-selectednode,
+.tiptap div[data-youtube-video].ProseMirror-selectednode,
+.tiptap pre.ProseMirror-selectednode {
+  border-color: transparent !important;
+}
+.tiptap blockquote.ProseMirror-selectednode {
+  border-left-color: transparent !important;
 }
 
 /* Image card styling — div[data-image-frame] is the sized/clipped crop box
@@ -322,10 +405,6 @@
 }
 .tiptap div[data-image-frame]:hover {
   border-color: #c4b5fd;
-}
-.tiptap div[data-image-frame].ProseMirror-selectednode {
-  border-color: #8b5cf6;
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.15);
 }
 
 /* Two-column layout in editor */

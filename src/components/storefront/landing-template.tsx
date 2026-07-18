@@ -1,10 +1,20 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { EditorContent } from "@tiptap/react";
-import type { LandingTemplateData } from "@/lib/template-types";
-import { DEFAULT_MEDIA_SETTINGS, normalizeTemplateData } from "@/lib/template-types";
+import type { LandingTemplateData, RichBlockEntry } from "@/lib/template-types";
+import {
+  DEFAULT_MEDIA_SETTINGS,
+  normalizeTemplateData,
+  resolveSectionOrder,
+  getSectionVisibility,
+  SECTION_LABELS,
+  getSectionLabel,
+  isRichBlockKey,
+  richBlockId,
+} from "@/lib/template-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight, Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles, Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe, Camera, Smile, Coffee, Rocket, Award, MessageSquare, Lock } from "lucide-react";
+import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight, Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles, Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe, Camera, Smile, Coffee, Rocket, Award, MessageSquare, Lock, GripVertical, ArrowUp, ArrowDown, Eye, EyeOff, Settings2, Plus, Copy, Trash2 } from "lucide-react";
 import { DynamicPageRenderer } from "@/components/storefront/dynamic-page-renderer";
 
 // Icon resolver for why-section cards
@@ -395,12 +405,587 @@ function VideoTestimonialsSlider({ items, primaryColor }: {
 // ---------------------------------------------------------------------------
 // Main Template Component
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Editor bridge — only passed by the admin canvas. When present, every
+// section gets an Elementor-style overlay: hover outline, floating toolbar
+// (drag / move / hide / duplicate / settings) and "+" insert points between
+// sections that accept both clicks and drag-drops from the blocks palette.
+// ---------------------------------------------------------------------------
+export const SECTION_DND_TYPE = "text/x-landing-section"; // move an existing section
+export const NEW_BLOCK_DND_TYPE = "text/x-landing-new-block"; // insert a fresh content block
+// Drag payload for an Elements-tab widget (Button, Heading, Video, ...)
+// dropped directly onto the canvas — either into the currently-focused rich
+// block (handled by rich-editor's own drop capture) or onto a template-level
+// gap between sections, which auto-creates a brand new rich block there.
+export const RICH_ELEMENT_DND_TYPE = "text/x-rich-element";
+
+export interface TemplateEditorBridge {
+  selectedSection: string | null;
+  onSelectSection: (key: string) => void;
+  onMoveSection: (key: string, dir: -1 | 1) => void;
+  // Move `key` so it lands in the gap `gapIndex` (0 = before first section).
+  onMoveSectionTo: (key: string, gapIndex: number) => void;
+  onToggleVisibility: (key: string) => void;
+  // Insert a block at a gap: an existing hidden section key, or "__newContentBlock".
+  onInsertBlock: (key: string, gapIndex: number) => void;
+  onDuplicateSection?: (key: string) => void;
+  // Palette shown by the "+" insert points.
+  insertableBlocks: { key: string; label: string }[];
+  // sectionOrder-style key of whichever rich block is currently live/
+  // editable: "richContent" (legacy singleton, the default) or
+  // "richContent:<uuid>" for a focused dynamic block.
+  focusedBlockId: string | null;
+  onFocusRichBlock: (key: string) => void;
+  // A widget was dropped at a template-level gap (not inside an existing
+  // rich block) — create a new rich block there seeded with that widget.
+  onInsertRichBlockWithElement: (elementType: string, gapIndex: number) => void;
+  // Full delete (not hide) — only dynamic rich blocks get this.
+  onRemoveRichBlock: (key: string) => void;
+}
+
 interface LandingTemplateProps {
   data?: Partial<LandingTemplateData>;
   pageContent?: any;
   landingPageId?: string;
   pageSlug?: string;
   editorInstance?: any;
+  editorBridge?: TemplateEditorBridge;
+}
+
+// The legacy page-level "Rich Content" slot predates per-widget rich blocks.
+// Its doc counts as empty when every top-level node is a contentless
+// textblock — no widgets, no text. An empty legacy slot renders nothing
+// anywhere (editor canvas, sidebar, public page): new pages compose rich
+// content exclusively from individual blocks, so a dropped element always
+// creates its own block instead of landing in one big catch-all editor.
+export function isLegacyRichContentEmpty(pageContent: any): boolean {
+  const nodes = pageContent?.doc?.content;
+  if (!Array.isArray(nodes) || nodes.length === 0) return true;
+  return nodes.every(
+    (n: any) =>
+      (n.type === "paragraph" || n.type === "heading") &&
+      !(Array.isArray(n.content) && n.content.length)
+  );
+}
+
+// Reads a section key out of a drag event, for all supported drag payloads.
+function readSectionDrag(e: React.DragEvent): { kind: "move" | "new" | "richElement"; key: string } | null {
+  if (e.dataTransfer.types.includes(SECTION_DND_TYPE)) {
+    return { kind: "move", key: e.dataTransfer.getData(SECTION_DND_TYPE) };
+  }
+  if (e.dataTransfer.types.includes(NEW_BLOCK_DND_TYPE)) {
+    return { kind: "new", key: e.dataTransfer.getData(NEW_BLOCK_DND_TYPE) };
+  }
+  if (e.dataTransfer.types.includes(RICH_ELEMENT_DND_TYPE)) {
+    return { kind: "richElement", key: e.dataTransfer.getData(RICH_ELEMENT_DND_TYPE) };
+  }
+  return null;
+}
+
+function isSectionDrag(e: React.DragEvent): boolean {
+  return (
+    e.dataTransfer.types.includes(SECTION_DND_TYPE) ||
+    e.dataTransfer.types.includes(NEW_BLOCK_DND_TYPE) ||
+    e.dataTransfer.types.includes(RICH_ELEMENT_DND_TYPE)
+  );
+}
+
+// The dropEffect a dragover handler reports must match the effectAllowed
+// the drag source declared at dragstart (SECTION_DND_TYPE: "move";
+// NEW_BLOCK_DND_TYPE / RICH_ELEMENT_DND_TYPE: "copy" — see their onDragStart
+// handlers). Some browsers use this compatibility to decide the cursor only,
+// but per spec a mismatched dropEffect can cause the browser to refuse to
+// ever fire 'drop' at all. Only .types is readable during dragover (getData
+// is drop/dragstart-only), which is all this needs.
+function dropEffectForDrag(e: React.DragEvent): "move" | "copy" {
+  return e.dataTransfer.types.includes(SECTION_DND_TYPE) ? "move" : "copy";
+}
+
+// Auto-scroll the canvas while dragging a section/block near the top or
+// bottom edge of its scrollable viewport. Without this, any insert target
+// below the fold — the common case on a page with a dozen-plus sections —
+// is simply unreachable: native drag suspends normal wheel/trackpad
+// scrolling, and the browser's own edge-autoscroll for HTML5 DnD is
+// inconsistent enough not to rely on. Mirrors the same pattern already used
+// for the sidebar's card list (see handleCardDragOver in template-editor).
+export function autoScrollCanvasDuringDrag(e: React.DragEvent) {
+  const container = (e.currentTarget as HTMLElement).closest(".overflow-y-auto");
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  const EDGE = 90;
+  if (e.clientY < rect.top + EDGE) container.scrollBy({ top: -22 });
+  else if (e.clientY > rect.bottom - EDGE) container.scrollBy({ top: 22 });
+}
+
+// Hover affordance shown over an unfocused rich block's static preview,
+// inviting the click that swaps the live editor onto it. Purely visual
+// (pointer-events-none) — the actual click handler lives on the ancestor.
+function RichBlockFocusOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 rounded-lg transition-all group-hover/richblock:ring-2 group-hover/richblock:ring-violet-400 group-hover/richblock:ring-inset">
+      <span className="absolute top-2 left-2 opacity-0 group-hover/richblock:opacity-100 transition-opacity bg-violet-600 text-white text-[11px] font-semibold px-2 py-1 rounded-md shadow-lg">
+        Click to edit
+      </span>
+    </div>
+  );
+}
+
+// Thin hoverable strip between sections: shows a "+" that opens a block
+// palette, and doubles as a drop target while dragging sections/blocks.
+function SectionInsertPoint({ index, bridge }: { index: number; bridge: TemplateEditorBridge }) {
+  const [open, setOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  return (
+    <div
+      className="relative h-0 z-30"
+      data-insert-point={index}
+      onDragOver={(e) => {
+        if (!isSectionDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = dropEffectForDrag(e);
+        setDragOver(true);
+        autoScrollCanvasDuringDrag(e);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        const payload = readSectionDrag(e);
+        setDragOver(false);
+        if (!payload) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (payload.kind === "move") bridge.onMoveSectionTo(payload.key, index);
+        else if (payload.kind === "new") bridge.onInsertBlock(payload.key, index);
+        else bridge.onInsertRichBlockWithElement(payload.key, index);
+      }}
+    >
+      {/* Hover/drop capture strip (taller than the visible line, but kept
+          narrow so it doesn't steal clicks from adjacent section content) */}
+      <div className="group/ip absolute left-0 right-0 -top-2 h-4">
+        <div
+          className={`pointer-events-none absolute left-0 right-0 top-1/2 -translate-y-1/2 transition-all ${
+            dragOver ? "h-1.5 bg-violet-500" : "h-0.5 bg-transparent group-hover/ip:bg-violet-400"
+          }`}
+        />
+        <button
+          type="button"
+          title="Insert block here"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
+          className={`absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-violet-600 text-white shadow-lg flex items-center justify-center transition-opacity hover:bg-violet-700 hover:scale-110 ${
+            open || dragOver
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none group-hover/ip:opacity-100 group-hover/ip:pointer-events-auto"
+          }`}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute left-1/2 -translate-x-1/2 top-6 z-50 w-64 max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-2xl p-2">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 py-1">
+                Insert block
+              </p>
+              {bridge.insertableBlocks.length === 0 && (
+                <p className="text-xs text-gray-400 px-2 py-2">
+                  All blocks are already on the page. Hide one to re-insert it elsewhere, or add a Content Block.
+                </p>
+              )}
+              {bridge.insertableBlocks.map((block) => (
+                <button
+                  key={block.key}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    bridge.onInsertBlock(block.key, index);
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs font-medium text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
+                  {block.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Wraps a rendered section in the editor canvas: hover outline, selection
+// ring, floating toolbar and drop-target behaviour. Hidden sections render a
+// slim dashed placeholder so they can still be selected, shown and reordered.
+function EditorSectionShell({
+  sectionKey,
+  index,
+  total,
+  order,
+  visible,
+  bridge,
+  children,
+}: {
+  sectionKey: string;
+  index: number;
+  total: number;
+  order: string[];
+  visible: boolean;
+  bridge: TemplateEditorBridge;
+  children: React.ReactNode;
+}) {
+  const [dropPos, setDropPos] = useState<"top" | "bottom" | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const selected = bridge.selectedSection === sectionKey;
+  const label = getSectionLabel(sectionKey, order);
+  const isDynamicRichBlock = isRichBlockKey(sectionKey);
+  const isRichContent = sectionKey === "richContent" || isDynamicRichBlock;
+  const canToggle = sectionKey !== "richContent";
+  const canDuplicate = !!bridge.onDuplicateSection && sectionKey === "contentBlocks";
+
+  // Close the section menu on Escape / resize. It deliberately does NOT close
+  // on scroll — the menu is position:fixed, so it stays put while the canvas
+  // scrolls beneath it, and users found scroll-to-close jarring. Click-outside
+  // (the backdrop) and Escape remain the ways to dismiss it.
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [ctxMenu]);
+
+  const runCtx = (fn: () => void) => {
+    fn();
+    setCtxMenu(null);
+  };
+
+  return (
+    <div
+      className="relative group/es"
+      data-section-shell={sectionKey}
+      onClickCapture={(e) => {
+        // richContent hosts the TipTap canvas — clicks there manage their own
+        // element selection, so only the toolbar selects that section.
+        if (isRichContent) return;
+        bridge.onSelectSection(sectionKey);
+      }}
+      onContextMenu={(e) => {
+        // Right-clicks landing on the TipTap surface get the rich text/element
+        // menu (wired up inside the editor) — leave those alone.
+        if ((e.target as HTMLElement).closest?.(".ProseMirror")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        // NB: intentionally do NOT select the section here. onSelectSection
+        // scrolls its sidebar card into view, and that programmatic scroll
+        // would fire the scroll-to-close listener below and dismiss the menu
+        // the instant it opened. The menu header names the section, and every
+        // action targets `sectionKey` directly, so pre-selection isn't needed.
+        setCtxMenu({ x: e.clientX, y: e.clientY });
+      }}
+      onDragOver={(e) => {
+        if (!isSectionDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = dropEffectForDrag(e);
+        const rect = e.currentTarget.getBoundingClientRect();
+        setDropPos(e.clientY < rect.top + rect.height / 2 ? "top" : "bottom");
+        autoScrollCanvasDuringDrag(e);
+      }}
+      onDragLeave={() => setDropPos(null)}
+      onDrop={(e) => {
+        const payload = readSectionDrag(e);
+        const pos = dropPos;
+        setDropPos(null);
+        if (!payload) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const gap = index + (pos === "bottom" ? 1 : 0);
+        if (payload.kind === "move") bridge.onMoveSectionTo(payload.key, gap);
+        else if (payload.kind === "new") bridge.onInsertBlock(payload.key, gap);
+        else bridge.onInsertRichBlockWithElement(payload.key, gap);
+      }}
+    >
+      {/* Hover / selection outline */}
+      <div
+        className={`pointer-events-none absolute inset-0 z-20 transition-shadow ${
+          selected
+            ? "shadow-[inset_0_0_0_2px_rgb(124,58,237)]"
+            : "group-hover/es:shadow-[inset_0_0_0_1px_rgb(196,181,253)]"
+        }`}
+      />
+
+      {/* Drop indicators */}
+      {dropPos === "top" && (
+        <div className="absolute -top-0.5 left-0 right-0 h-1.5 bg-violet-500 z-30 rounded-full" />
+      )}
+      {dropPos === "bottom" && (
+        <div className="absolute -bottom-0.5 left-0 right-0 h-1.5 bg-violet-500 z-30 rounded-full" />
+      )}
+
+      {/* Floating section toolbar, anchored top-RIGHT so it never sits over
+          headings/text at a section's top-center (hovering would materialize
+          it mid-click and steal the user's text selection). pointer-events
+          disabled while invisible so it can't swallow clicks either. Gated on
+          `children` (not `visible`) — some sections are `visible=true` but
+          still render nothing when empty (e.g. gallery/testimonials with no
+          items), which falls through to the placeholder below just like a
+          hidden section. Its "Show" button sits in that same top-right
+          corner, and reorder/toggle for a collapsed section is already
+          covered by the sidebar cards. */}
+      {!!children && (
+      <div
+        className={`absolute top-1.5 right-2 z-30 transition-opacity ${
+          selected
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none group-hover/es:opacity-100 group-hover/es:pointer-events-auto"
+        }`}
+      >
+        <div className="flex items-center gap-0.5 bg-violet-600 text-white rounded-lg shadow-xl px-1.5 py-1">
+          <button
+            type="button"
+            title="Drag to reorder"
+            draggable
+            onDragStart={(e) => {
+              e.stopPropagation();
+              e.dataTransfer.setData(SECTION_DND_TYPE, sectionKey);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            className="h-6 px-1 flex items-center gap-1 rounded-md cursor-grab active:cursor-grabbing hover:bg-white/15 select-none [-webkit-user-drag:element]"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+            <span className="text-[11px] font-semibold whitespace-nowrap">{label}</span>
+          </button>
+          <div className="w-px h-4 bg-white/25 mx-0.5" />
+          <button
+            type="button"
+            title="Move up"
+            disabled={index === 0}
+            onClick={(e) => {
+              e.stopPropagation();
+              bridge.onMoveSection(sectionKey, -1);
+            }}
+            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-white/15 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            title="Move down"
+            disabled={index === total - 1}
+            onClick={(e) => {
+              e.stopPropagation();
+              bridge.onMoveSection(sectionKey, 1);
+            }}
+            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-white/15 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </button>
+          {canToggle && (
+            <button
+              type="button"
+              title={visible ? "Hide section" : "Show section"}
+              onClick={(e) => {
+                e.stopPropagation();
+                bridge.onToggleVisibility(sectionKey);
+              }}
+              className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-white/15"
+            >
+              {visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </button>
+          )}
+          {bridge.onDuplicateSection && sectionKey === "contentBlocks" && (
+            <button
+              type="button"
+              title="Add another content block"
+              onClick={(e) => {
+                e.stopPropagation();
+                bridge.onDuplicateSection!(sectionKey);
+              }}
+              className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-white/15"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            title={isDynamicRichBlock ? "Edit this block" : "Edit section settings"}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Dynamic rich blocks have no sidebar settings card — there's
+              // nothing for onSelectSection to open. "Edit" means "make this
+              // the live block," same as clicking its canvas overlay.
+              if (isDynamicRichBlock) bridge.onFocusRichBlock(sectionKey);
+              else bridge.onSelectSection(sectionKey);
+            }}
+            className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-white/15"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+          </button>
+          {isDynamicRichBlock && (
+            <button
+              type="button"
+              title="Delete this block"
+              onClick={(e) => {
+                e.stopPropagation();
+                bridge.onRemoveRichBlock(sectionKey);
+              }}
+              className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-white/15"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+      )}
+
+      {children || (
+        // Hidden (or empty) section placeholder — keeps it reachable in the canvas.
+        <div className="mx-4 my-2 border-2 border-dashed border-gray-300 rounded-xl px-4 py-4 flex items-center justify-between bg-gray-50/70">
+          <span className="text-xs font-medium text-gray-400 flex items-center gap-2">
+            <EyeOff className="h-3.5 w-3.5" /> {label} (hidden)
+          </span>
+          {canToggle && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                bridge.onToggleVisibility(sectionKey);
+              }}
+              className="text-[11px] font-semibold text-violet-600 hover:text-violet-800"
+            >
+              Show
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Right-click section menu — portalled to <body> so the canvas'
+          `zoom` transform doesn't scale or clip it, and positioned with raw
+          viewport (client) coordinates. */}
+      {ctxMenu &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998]"
+              onMouseDown={() => setCtxMenu(null)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setCtxMenu(null);
+              }}
+            />
+            <div
+              role="menu"
+              className="fixed z-[9999] w-56 max-h-[70vh] overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-2xl"
+              style={{
+                left: Math.min(ctxMenu.x, (typeof window !== "undefined" ? window.innerWidth : 1280) - 236),
+                top: Math.max(8, Math.min(ctxMenu.y, (typeof window !== "undefined" ? window.innerHeight : 800) - 260)),
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="px-3 py-2 flex items-center gap-2 text-xs font-semibold text-violet-700">
+                <GripVertical className="h-3.5 w-3.5" />
+                {label}
+              </div>
+              <div className="my-1 h-px bg-gray-100" />
+
+              <SectionMenuItem
+                icon={<Settings2 />}
+                label={isDynamicRichBlock ? "Edit this block" : "Edit content"}
+                onClick={() =>
+                  runCtx(() => {
+                    if (isDynamicRichBlock) bridge.onFocusRichBlock(sectionKey);
+                    else bridge.onSelectSection(sectionKey);
+                  })
+                }
+              />
+              <SectionMenuItem
+                icon={<ArrowUp />}
+                label="Move up"
+                disabled={index === 0}
+                onClick={() => runCtx(() => bridge.onMoveSection(sectionKey, -1))}
+              />
+              <SectionMenuItem
+                icon={<ArrowDown />}
+                label="Move down"
+                disabled={index === total - 1}
+                onClick={() => runCtx(() => bridge.onMoveSection(sectionKey, 1))}
+              />
+              {canToggle && (
+                <SectionMenuItem
+                  icon={visible ? <EyeOff /> : <Eye />}
+                  label={visible ? "Hide section" : "Show section"}
+                  onClick={() => runCtx(() => bridge.onToggleVisibility(sectionKey))}
+                />
+              )}
+              {canDuplicate && (
+                <SectionMenuItem
+                  icon={<Copy />}
+                  label="Add another content block"
+                  onClick={() => runCtx(() => bridge.onDuplicateSection!(sectionKey))}
+                />
+              )}
+              {isDynamicRichBlock && (
+                <>
+                  <div className="my-1 h-px bg-gray-100" />
+                  <SectionMenuItem
+                    icon={<Trash2 />}
+                    label="Delete this block"
+                    danger
+                    onClick={() => runCtx(() => bridge.onRemoveRichBlock(sectionKey))}
+                  />
+                </>
+              )}
+            </div>
+          </>,
+          document.body
+        )}
+    </div>
+  );
+}
+
+// A single row in the right-click section menu.
+function SectionMenuItem({
+  icon,
+  label,
+  onClick,
+  disabled,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] text-left transition-colors ${
+        disabled
+          ? "opacity-40 cursor-not-allowed text-gray-400"
+          : danger
+          ? "text-red-600 hover:bg-red-50"
+          : "text-gray-700 hover:bg-gray-100"
+      } [&>span>svg]:h-3.5 [&>span>svg]:w-3.5`}
+    >
+      <span className="flex h-4 w-4 items-center justify-center flex-shrink-0">{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+    </button>
+  );
 }
 
 // Native <video> with a custom play/pause overlay. Defined at module level so
@@ -852,14 +1437,12 @@ function InvitationDialog({
   );
 }
 
-export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, editorInstance }: LandingTemplateProps) {
+export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, editorInstance, editorBridge }: LandingTemplateProps) {
   const t = normalizeTemplateData(data);
   const c = t.colors;
   // Returns override bg color for a section, or falls back to the provided default
   const sbg = (key: string, fallback: string) => (t.sectionBg?.[key]) || fallback;
-  const canonicalSections = ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'richContent', 'invitation', 'bonus', 'faq', 'footer'];
-  const baseOrder = t.sectionOrder && t.sectionOrder.length ? t.sectionOrder : canonicalSections;
-  const sectionOrder = [...baseOrder, ...canonicalSections.filter((key) => !baseOrder.includes(key))];
+  const sectionOrder = resolveSectionOrder(t.sectionOrder);
   const mediaSettings = t.mediaSettings || {};
   // The invitation form lives in its own component (InvitationDialog) below so
   // that typing in it does NOT re-render the whole landing page (which caused
@@ -1084,7 +1667,56 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
     );
   };
 
+  // Renders a dynamic free-floating rich block (`richContent:<id>`) —
+  // mirrors the literal `richContent` case below exactly, just sourced from
+  // its own `richBlocks` entry instead of the page-level `content` prop.
+  function renderRichBlock(sectionKey: string) {
+    const id = richBlockId(sectionKey);
+    const block = (t.richBlocks || []).find((b) => b.id === id);
+    if (!block || block.hidden) return null;
+    const isFocused = !!editorInstance && editorBridge?.focusedBlockId === sectionKey;
+
+    if (isFocused) {
+      const doc = editorInstance.state?.doc;
+      const isEmpty =
+        editorInstance.isEmpty ||
+        (doc && doc.childCount === 1 && doc.firstChild && doc.firstChild.content.size === 0);
+      return (
+        <div key={sectionKey} className="landing-rich-content relative">
+          {isEmpty && (
+            <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40">
+              
+            </div>
+          )}
+          <div style={isEmpty ? { minHeight: 140 } : undefined}>
+            <EditorContent editor={editorInstance} />
+          </div>
+        </div>
+      );
+    }
+
+    if (!block.content?.doc) return null;
+    return (
+      <div
+        key={sectionKey}
+        className={editorInstance ? "landing-rich-content relative group/richblock cursor-pointer" : "landing-rich-content"}
+        onClick={editorInstance ? () => editorBridge?.onFocusRichBlock(sectionKey) : undefined}
+      >
+        <DynamicPageRenderer
+          content={block.content}
+          theme={{ primary: c.primary, secondary: c.secondary, accent: c.accent, background: c.bodyBg }}
+          title=""
+          pageSlug={pageSlug}
+          landingPageId={landingPageId}
+          embedded
+        />
+        {editorInstance && <RichBlockFocusOverlay />}
+      </div>
+    );
+  }
+
   const renderSection = (sectionKey: string) => {
+    if (isRichBlockKey(sectionKey)) return renderRichBlock(sectionKey);
     switch (sectionKey) {
       case 'hero':
         return (
@@ -1739,30 +2371,56 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
           );
         });
 
-      case 'richContent':
+      case 'richContent': {
         // In the admin editor an `editorInstance` (live TipTap editor) is
         // passed down — render the real editable surface there so clicking
         // existing elements selects them and pops up their property panels.
         // Public storefront pages never pass `editorInstance`, so they keep
         // getting the static, non-interactive DynamicPageRenderer HTML.
-        if (editorInstance) {
+        // With multiple rich blocks, the live editor only ever shows the doc
+        // of whichever block is currently focused — `focusedBlockId` follows
+        // the `sectionOrder` key scheme, and "richContent" (this legacy
+        // singleton slot) is its default/unset value.
+        const isLegacyFocused = !editorBridge || editorBridge.focusedBlockId === 'richContent';
+        if (editorInstance && isLegacyFocused) {
+          // editor.isEmpty only covers a single empty *paragraph*; select-all +
+          // delete can leave a single empty heading instead — treat any lone
+          // contentless block as empty so the drop hint still appears.
+          const doc = editorInstance.state?.doc;
+          const isEmpty =
+            editorInstance.isEmpty ||
+            (doc && doc.childCount === 1 && doc.firstChild && doc.firstChild.content.size === 0);
           return (
-            <div key="richContent" className="landing-rich-content">
-              <EditorContent editor={editorInstance} />
+            <div key="richContent" className="landing-rich-content relative">
+              {isEmpty && (
+                <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40">
+                 
+                </div>
+              )}
+              <div style={isEmpty ? { minHeight: 140 } : undefined}>
+                <EditorContent editor={editorInstance} />
+              </div>
             </div>
           );
         }
         return pageContent && pageContent.doc && (
-          <div key="richContent" className="landing-rich-content">
+          <div
+            key="richContent"
+            className={editorInstance ? "landing-rich-content relative group/richblock cursor-pointer" : "landing-rich-content"}
+            onClick={editorInstance ? () => editorBridge?.onFocusRichBlock('richContent') : undefined}
+          >
             <DynamicPageRenderer
               content={pageContent}
               theme={{ primary: c.primary, secondary: c.secondary, accent: c.accent, background: c.bodyBg }}
               title=""
               pageSlug={pageSlug}
               landingPageId={landingPageId}
+              embedded
             />
+            {editorInstance && <RichBlockFocusOverlay />}
           </div>
         );
+      }
 
       case 'faq':
         return t.faq?.enabled && t.faq.items.length > 0 && (
@@ -1840,7 +2498,17 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
 
   return (
     <div
-      className="min-h-screen font-sans w-full max-w-full overflow-x-hidden"
+      // Per the CSS spec, if one axis is non-visible and the other is
+      // "visible" (explicitly OR by default), the visible one gets silently
+      // promoted to "auto" — so overflow-x-hidden alone turned this div
+      // (wrapping the ENTIRE page) into its own independently-scrollable
+      // region nested inside the canvas's own scroll container, making
+      // sections/blocks feel individually scrollable instead of one
+      // continuous page. The marquee ticker already clips itself locally
+      // (see the Marquee component below), so this wrapper doesn't need
+      // vertical overflow visible — overflow-hidden on both axes avoids the
+      // promotion entirely.
+      className="min-h-screen font-sans w-full max-w-full overflow-hidden"
       style={{ backgroundColor: c.bodyBg, ...(t.fontFamily ? { fontFamily: t.fontFamily } : {}) }}
     >
       {/* Inject marquee animation + fonts. A chosen template font overrides the
@@ -1855,11 +2523,56 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
         .font-body { font-family: ${t.fontFamily ? t.fontFamily : "'Inter', sans-serif"}; }
       `}} />
 
-      {sectionOrder.map((sectionKey) => (
-        <React.Fragment key={sectionKey}>
-          {renderSection(sectionKey)}
-        </React.Fragment>
-      ))}
+      {sectionOrder.map((sectionKey, index) => {
+        // Empty legacy Rich Content slot: skipped entirely (not even the
+        // editor's hidden-section placeholder shell) — see
+        // isLegacyRichContentEmpty. Returning null from the map keeps the
+        // surrounding gap indices aligned with the full section order.
+        if (sectionKey === "richContent" && isLegacyRichContentEmpty(pageContent)) {
+          return null;
+        }
+        const style = t.sectionStyles?.[sectionKey];
+        const rendered = renderSection(sectionKey);
+        // Spacing overrides wrap the section; the wrapper inherits the
+        // section's bg override (if any) so the extra space doesn't read as a
+        // gap of a different color.
+        const content =
+          rendered && style && (style.paddingTop || style.paddingBottom) ? (
+            <div
+              style={{
+                paddingTop: style.paddingTop || 0,
+                paddingBottom: style.paddingBottom || 0,
+                backgroundColor: t.sectionBg?.[sectionKey] || undefined,
+              }}
+            >
+              {rendered}
+            </div>
+          ) : (
+            rendered
+          );
+
+        if (!editorBridge) {
+          return <React.Fragment key={sectionKey}>{content}</React.Fragment>;
+        }
+        return (
+          <React.Fragment key={sectionKey}>
+            <SectionInsertPoint index={index} bridge={editorBridge} />
+            <EditorSectionShell
+              sectionKey={sectionKey}
+              index={index}
+              total={sectionOrder.length}
+              order={sectionOrder}
+              visible={getSectionVisibility(t, sectionKey)}
+              bridge={editorBridge}
+            >
+              {content}
+            </EditorSectionShell>
+          </React.Fragment>
+        );
+      })}
+      {editorBridge && (
+        <SectionInsertPoint index={sectionOrder.length} bridge={editorBridge} />
+      )}
 
       {floatingButtonProps && (
         <div className="fixed inset-x-0 bottom-4 flex justify-center md:hidden z-40 px-4 pointer-events-none">

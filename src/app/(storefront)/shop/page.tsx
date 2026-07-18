@@ -1,4 +1,5 @@
 "use client";
+import { siteConfig } from "@/config/site.config";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -153,7 +154,7 @@ export default function ShopPage() {
               className="text-xl sm:text-4xl font-bold text-white leading-tight"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
-              Shop Pratipal
+              Shop {siteConfig.name}
             </h1>
             <p className="text-xs text-white/50 mt-0.5 hidden sm:block">
               Handcrafted wellness essentials — aromatherapy, crystals &amp; ritual tools.

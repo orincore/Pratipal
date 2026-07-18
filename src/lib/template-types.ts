@@ -3,6 +3,8 @@
 // All landing pages share the same UI/UX layout. Only content is dynamic.
 // ---------------------------------------------------------------------------
 
+import type { LandingContent } from "@/lib/tiptap/content";
+
 export interface TemplateColors {
   primary: string;       // Main brand color (buttons, highlights, accents)
   secondary: string;     // Secondary color (gradients, hover states)
@@ -144,6 +146,16 @@ export interface ContentBlockSection {
   content: string; // Plain text or bullet points (one per line)
 }
 
+// A free-floating rich-content zone that can sit anywhere in `sectionOrder`
+// (key `richContent:<id>`), independent of the one legacy singleton
+// `richContent` slot. Each has its own TipTap doc and its own Style-tab
+// settings, so blocks don't have to share width/padding/background.
+export interface RichBlockEntry {
+  id: string;
+  content: LandingContent;
+  hidden?: boolean;
+}
+
 export interface ThankYouButton {
   label: string;
   url: string;
@@ -219,6 +231,153 @@ export interface MediaFieldOptions {
   mute: boolean;
 }
 
+// Per-section style overrides (Elementor-style spacing controls). Values are
+// pixels of extra outer spacing wrapped around the section.
+export interface SectionStyleOptions {
+  paddingTop?: number;
+  paddingBottom?: number;
+}
+
+// Every reorderable section key, in default order. Shared by the sidebar
+// editor, the canvas overlay, and the storefront renderer so they can never
+// drift apart.
+export const CANONICAL_SECTIONS = [
+  "hero",
+  "marquee",
+  "why",
+  "about",
+  "logos",
+  "gallery",
+  "stats",
+  "testimonials",
+  "videoTestimonials",
+  "program",
+  "contentBlocks",
+  "richContent",
+  "invitation",
+  "bonus",
+  "faq",
+  "footer",
+] as const;
+
+export const SECTION_LABELS: Record<string, string> = {
+  hero: "Hero",
+  marquee: "Marquee / Ticker",
+  why: "Why Section",
+  about: "About",
+  logos: "Logo Bar",
+  gallery: "Gallery",
+  stats: "Stats / CTA",
+  testimonials: "Testimonials",
+  videoTestimonials: "Video Testimonials",
+  program: "Program",
+  contentBlocks: "Content Blocks",
+  richContent: "Rich Content",
+  invitation: "Request Invitation",
+  bonus: "Bonus",
+  faq: "FAQ",
+  footer: "Footer",
+};
+
+// Dynamic, free-floating rich-content blocks use keys of the form
+// `richContent:<id>` — never registered in CANONICAL_SECTIONS (which is a
+// fixed compile-time list), so every place that keys off the canonical set
+// needs to recognize this pattern explicitly via these two helpers.
+export function isRichBlockKey(key: string): boolean {
+  return key.startsWith("richContent:");
+}
+
+export function richBlockId(key: string): string {
+  return key.slice("richContent:".length);
+}
+
+// Resolves a saved (possibly partial/stale) sectionOrder against the
+// canonical list: keeps saved order, appends any new sections at the end.
+// Dynamic richContent:<id> keys are preserved as-is but never auto-injected
+// (they only ever enter sectionOrder via an explicit insert).
+export function resolveSectionOrder(order?: string[]): string[] {
+  const isKnown = (k: string) => (CANONICAL_SECTIONS as readonly string[]).includes(k) || isRichBlockKey(k);
+  const base = order && order.length ? order.filter(isKnown) : [...CANONICAL_SECTIONS];
+  const missing = (CANONICAL_SECTIONS as readonly string[]).filter((k) => !base.includes(k));
+  return [...base, ...missing];
+}
+
+// Each section stores its visibility under a differently named flag
+// (visible / enabled / derived). These two helpers give the editor a single
+// uniform way to read and write it.
+export function getSectionVisibility(t: LandingTemplateData, key: string): boolean {
+  if (isRichBlockKey(key)) {
+    const block = (t.richBlocks || []).find((b) => b.id === richBlockId(key));
+    return block ? !block.hidden : true;
+  }
+  switch (key) {
+    case "hero": return t.hero.visible;
+    case "marquee": return t.marquee.enabled;
+    case "why": return t.why.visible;
+    case "about": return t.about.visible;
+    case "logos": return t.logos.enabled;
+    case "gallery": return t.gallery.visible;
+    case "stats": return t.stats.visible;
+    case "testimonials": return t.testimonials.visible;
+    case "videoTestimonials": return t.videoTestimonials.visible;
+    case "program": return t.program.visible;
+    case "contentBlocks": return (t.contentBlocks || []).some((b) => b.enabled);
+    case "richContent": return true;
+    case "invitation": return t.invitation.enabled;
+    case "bonus": return t.bonus.enabled;
+    case "faq": return t.faq?.enabled ?? true;
+    case "footer": return t.footer.enabled;
+    default: return true;
+  }
+}
+
+export function applySectionVisibility(t: LandingTemplateData, key: string, visible: boolean): LandingTemplateData {
+  if (isRichBlockKey(key)) {
+    const id = richBlockId(key);
+    return {
+      ...t,
+      richBlocks: (t.richBlocks || []).map((b) => (b.id === id ? { ...b, hidden: !visible } : b)),
+    };
+  }
+  switch (key) {
+    case "hero": return { ...t, hero: { ...t.hero, visible } };
+    case "marquee": return { ...t, marquee: { ...t.marquee, enabled: visible } };
+    case "why": return { ...t, why: { ...t.why, visible } };
+    case "about": return { ...t, about: { ...t.about, visible } };
+    case "logos": return { ...t, logos: { ...t.logos, enabled: visible } };
+    case "gallery": return { ...t, gallery: { ...t.gallery, visible } };
+    case "stats": return { ...t, stats: { ...t.stats, visible } };
+    case "testimonials": return { ...t, testimonials: { ...t.testimonials, visible } };
+    case "videoTestimonials": return { ...t, videoTestimonials: { ...t.videoTestimonials, visible } };
+    case "program": return { ...t, program: { ...t.program, visible } };
+    case "contentBlocks": return { ...t, contentBlocks: (t.contentBlocks || []).map((b) => ({ ...b, enabled: visible })) };
+    case "richContent": return t;
+    case "invitation": return { ...t, invitation: { ...t.invitation, enabled: visible } };
+    case "bonus": return { ...t, bonus: { ...t.bonus, enabled: visible } };
+    case "faq": return { ...t, faq: { ...(t.faq || DEFAULT_TEMPLATE_DATA.faq!), enabled: visible } };
+    case "footer": return { ...t, footer: { ...t.footer, enabled: visible } };
+    default: return t;
+  }
+}
+
+// Centralizes the "Rich Content" fallback label for dynamic blocks (which
+// can't have a static SECTION_LABELS entry since their key includes a uuid).
+// Numbers them when more than one dynamic block exists on the page, based on
+// its position in sectionOrder, so multiple blocks stay distinguishable.
+export function getSectionLabel(key: string, order?: string[]): string {
+  if (isRichBlockKey(key)) {
+    if (order) {
+      const richKeys = order.filter(isRichBlockKey);
+      if (richKeys.length > 1) {
+        const n = richKeys.indexOf(key) + 1;
+        if (n > 0) return `Rich Content #${n}`;
+      }
+    }
+    return "Rich Content";
+  }
+  return SECTION_LABELS[key] || key;
+}
+
 export const DEFAULT_MEDIA_SETTINGS: MediaFieldOptions = {
   autoplay: true,
   mute: true,
@@ -243,8 +402,13 @@ export interface LandingTemplateData {
   footer: FooterSection;
   floatingButton: FloatingButtonSettings;
   sectionOrder?: string[];
+  // Free-floating rich-content zones, referenced from sectionOrder via
+  // `richContent:<id>`. Separate from the one legacy singleton `richContent`
+  // slot (whose content lives in the page-level `content` field, unchanged).
+  richBlocks?: RichBlockEntry[];
   mediaSettings?: Record<string, MediaFieldOptions>;
   sectionBg?: Record<string, string>; // per-section background color overrides
+  sectionStyles?: Record<string, SectionStyleOptions>; // per-section spacing overrides
   fontFamily?: string; // global font-family stack for the whole template
 }
 
@@ -501,8 +665,10 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     footer: { ...DEFAULT_TEMPLATE_DATA.footer, ...data.footer },
     floatingButton: { ...DEFAULT_TEMPLATE_DATA.floatingButton, ...data.floatingButton },
     sectionOrder: data.sectionOrder || DEFAULT_TEMPLATE_DATA.sectionOrder,
+    richBlocks: data.richBlocks || [],
     mediaSettings: data.mediaSettings || DEFAULT_TEMPLATE_DATA.mediaSettings,
     sectionBg: data.sectionBg || {},
+    sectionStyles: data.sectionStyles || {},
     fontFamily: data.fontFamily || "",
   };
 }

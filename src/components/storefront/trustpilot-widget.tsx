@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { siteConfig } from "@/config/site.config";
 
 interface TrustpilotWidgetProps {
   businessUnitId: string;
@@ -47,7 +48,7 @@ export function TrustpilotWidget({
     >
       {/* Fallback link shown before script loads */}
       <a
-        href={`https://www.trustpilot.com/review/pratipal.in`}
+        href={`https://www.trustpilot.com/review/${siteConfig.analytics.trustpilotDomain ?? siteConfig.domain.replace(/^https?:\/\//, "")}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm text-emerald-600 underline"

@@ -22,6 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { siteConfig } from "@/config/site.config";
 
 interface Course {
   id: string;
@@ -75,7 +76,7 @@ export default function AdminCoursesPage() {
     instructor: {
       name: "Dr Aparnaa Singh",
       title: "Naturopathy & Holistic Healing Practitioner",
-      bio: "Founder – Pratipal"
+      bio: `Founder – ${siteConfig.name}`
     },
     status: "draft",
     featured: false,
@@ -123,7 +124,7 @@ export default function AdminCoursesPage() {
       instructor: {
         name: "Dr Aparnaa Singh",
         title: "Naturopathy & Holistic Healing Practitioner",
-        bio: "Founder – Pratipal"
+        bio: `Founder – ${siteConfig.name}`
       },
       status: "draft",
       featured: false,

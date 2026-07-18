@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Leaf, ArrowRight, CheckCircle2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { siteConfig } from "@/config/site.config";
 
 function inputCls(err?: string) {
   return (
@@ -149,7 +150,7 @@ export default function ForgotPasswordPage() {
           <div className="w-8 h-8 rounded-full bg-emerald-400/20 border border-emerald-400/30 flex items-center justify-center">
             <Leaf className="h-4 w-4 text-emerald-300" />
           </div>
-          <span className="text-white font-semibold tracking-wide">Pratipal</span>
+          <span className="text-white font-semibold tracking-wide">{siteConfig.name}</span>
         </div>
 
         <div className="relative z-10 space-y-6">
@@ -186,7 +187,7 @@ export default function ForgotPasswordPage() {
             <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center">
               <Leaf className="h-3.5 w-3.5 text-emerald-600" />
             </div>
-            <span className="font-semibold text-gray-800 text-sm">Pratipal</span>
+            <span className="font-semibold text-gray-800 text-sm">{siteConfig.name}</span>
           </div>
 
           {/* Step: email */}

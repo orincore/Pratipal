@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Shipping Policy | Pratipal",
-  description: "Read Pratipal's Shipping Policy — delivery timelines, charges, and order processing details.",
+  title: `Shipping Policy | ${siteConfig.name}`,
+  description: `Read ${siteConfig.name}'s Shipping Policy — delivery timelines, charges, and order processing details.`,
   alternates: { canonical: "/shipping-policy" },
 };
 
@@ -18,7 +19,7 @@ export default function ShippingPolicyPage() {
           </h1>
           <p className="mt-2 text-sm text-stone-500">Last updated: March 25, 2026</p>
           <p className="mt-3 text-sm text-stone-600">
-            Thank you for shopping with Pratipal. Please read our shipping policy carefully to understand how we process and deliver your orders.
+            Thank you for shopping with {siteConfig.name}. Please read our shipping policy carefully to understand how we process and deliver your orders.
           </p>
         </div>
 
@@ -69,7 +70,7 @@ export default function ShippingPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold text-stone-800 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>4. Shipping Coverage</h2>
             <p className="mb-3">We currently ship to all major cities and towns across <strong>India</strong>. We do not offer international shipping at this time.</p>
-            <p>If you are unsure whether we deliver to your location, please contact us at <a href="mailto:connect@pratipal.in" className="text-emerald-700 underline">connect@pratipal.in</a> before placing your order.</p>
+            <p>If you are unsure whether we deliver to your location, please contact us at <a href={`mailto:${siteConfig.contact.supportEmail}`} className="text-emerald-700 underline">{siteConfig.contact.supportEmail}</a> before placing your order.</p>
           </section>
 
           <section>
@@ -80,7 +81,7 @@ export default function ShippingPolicyPage() {
 
           <section>
             <h2 className="text-xl font-semibold text-stone-800 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>6. Packaging</h2>
-            <p>All Pratipal products are carefully packed to ensure they reach you in perfect condition. Our healing products — including candles, essential oils, and crystal kits — are wrapped with protective materials to prevent damage during transit.</p>
+            <p>All {siteConfig.name} products are carefully packed to ensure they reach you in perfect condition. Our healing products — including candles, essential oils, and crystal kits — are wrapped with protective materials to prevent damage during transit.</p>
           </section>
 
           <section>
@@ -103,8 +104,8 @@ export default function ShippingPolicyPage() {
             <h2 className="text-xl font-semibold text-stone-800 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>9. Contact Us</h2>
             <p className="mb-2">For any shipping-related queries, please reach out to us:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>By email: <a href="mailto:connect@pratipal.in" className="text-emerald-700 underline">connect@pratipal.in</a></li>
-              <li>By visiting: <a href="https://www.pratipal.in/" className="text-emerald-700 underline">https://www.pratipal.in/</a></li>
+              <li>By email: <a href={`mailto:${siteConfig.contact.supportEmail}`} className="text-emerald-700 underline">{siteConfig.contact.supportEmail}</a></li>
+              <li>By visiting: <a href={siteConfig.domain} className="text-emerald-700 underline">{siteConfig.domain}</a></li>
             </ul>
           </section>
 

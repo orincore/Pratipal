@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Eye, EyeOff, Leaf, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
+import { siteConfig } from "@/config/site.config";
 
 const PERKS = [
   "Access exclusive wellness products",
@@ -286,7 +287,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
         phone: countryCode + form.phone,
       });
       setSuccess(true);
-      toast.success("Welcome to Pratipal!");
+      toast.success(`Welcome to ${siteConfig.name}!`);
       setTimeout(() => router.push("/"), 600);
     } catch (err: any) {
       toast.error(err.message || "Registration failed");
@@ -514,7 +515,7 @@ function AuthPageContent() {
           <div className="w-8 h-8 rounded-full bg-emerald-400/20 border border-emerald-400/30 flex items-center justify-center">
             <Leaf className="h-4 w-4 text-emerald-300" />
           </div>
-          <span className="text-white font-semibold tracking-wide">Pratipal</span>
+          <span className="text-white font-semibold tracking-wide">{siteConfig.name}</span>
         </div>
 
         {/* Content — fades on switch */}
@@ -574,7 +575,7 @@ function AuthPageContent() {
         {/* Bottom switch prompt */}
         <div className="relative z-10 space-y-3">
           <p className="text-white/40 text-xs">
-            {isLogin ? "New to Pratipal?" : "Already have an account?"}
+            {isLogin ? `New to ${siteConfig.name}?` : "Already have an account?"}
           </p>
           <button
             onClick={() => switchMode(isLogin ? "register" : "login")}
@@ -593,7 +594,7 @@ function AuthPageContent() {
             <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center">
               <Leaf className="h-3.5 w-3.5 text-emerald-600" />
             </div>
-            <span className="font-semibold text-gray-800 text-sm">Pratipal</span>
+            <span className="font-semibold text-gray-800 text-sm">{siteConfig.name}</span>
           </div>
 
           {/* Mobile tab switcher */}

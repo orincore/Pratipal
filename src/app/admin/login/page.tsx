@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Eye, EyeOff, ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/supabase/auth-context";
-import LogoMark from "@/app/assets/logo.png";
+import { siteConfig } from "@/config/site.config";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -89,9 +89,9 @@ export default function AdminLoginPage() {
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="relative w-9 h-9">
-            <Image src={LogoMark} alt="Pratipal" fill sizes="36px" className="object-contain" />
+            <Image src={siteConfig.logo.header} alt={siteConfig.name} fill sizes="36px" className="object-contain" />
           </div>
-          <span className="text-white font-semibold tracking-wide">Pratipal</span>
+          <span className="text-white font-semibold tracking-wide">{siteConfig.name}</span>
         </div>
 
         <div className="relative z-10 space-y-5">
@@ -115,7 +115,7 @@ export default function AdminLoginPage() {
           </div>
         </div>
 
-        <p className="relative z-10 text-white/25 text-xs">© {new Date().getFullYear()} Pratipal Admin Panel</p>
+        <p className="relative z-10 text-white/25 text-xs">© {new Date().getFullYear()} {siteConfig.name} Admin Panel</p>
       </div>
 
       {/* Right panel — form */}
@@ -124,9 +124,9 @@ export default function AdminLoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2.5">
             <div className="relative w-8 h-8">
-              <Image src={LogoMark} alt="Pratipal" fill sizes="32px" className="object-contain" />
+              <Image src={siteConfig.logo.header} alt={siteConfig.name} fill sizes="32px" className="object-contain" />
             </div>
-            <span className="font-semibold text-gray-800">Pratipal</span>
+            <span className="font-semibold text-gray-800">{siteConfig.name}</span>
           </div>
 
           <div className="space-y-1.5">
@@ -151,7 +151,7 @@ export default function AdminLoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@pratipal.in"
+                placeholder={`admin@${siteConfig.domain.replace(/^https?:\/\/(www\.)?/, "")}`}
                 required
                 autoFocus
                 className="w-full h-11 px-4 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 transition placeholder:text-gray-400"

@@ -4,11 +4,12 @@ import { Clock, Calendar, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
+import { siteConfig } from "@/config/site.config";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Blog | Pratipal",
+  title: `Blog | ${siteConfig.name}`,
   description: "Insights on holistic healing, essential oils, and conscious living.",
   alternates: { canonical: "/blogs" },
 };
@@ -39,7 +40,7 @@ export default async function BlogsPage({ searchParams }: { searchParams: Promis
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-8 sm:pb-10 flex items-end justify-between gap-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.3em] font-semibold mb-1" style={{ color: "#6ee7b7" }}>
-              Pratipal Journal
+              {siteConfig.name} Journal
             </p>
             <h1 className="text-2xl sm:text-4xl font-bold text-white leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
               Blog &amp; Insights

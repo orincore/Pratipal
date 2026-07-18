@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth";
 import getDB from "@/lib/db";
 import { sendMail, loginNotificationHtml } from "@/lib/mailer";
+import { BRAND } from "@/lib/email-template";
 
 export async function POST(req: NextRequest) {
   try {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     // Fire-and-forget login notification
     sendMail({
       to: user.email,
-      subject: "New admin login to Pratipal",
+      subject: `New admin login to ${BRAND.name}`,
       html: loginNotificationHtml({
         name: user.full_name || "Admin",
         email: user.email,

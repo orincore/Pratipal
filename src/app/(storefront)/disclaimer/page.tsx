@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Disclaimer | Pratipal",
-  description: "Read the Disclaimer for Pratipal.in regarding the use of information on our website.",
+  title: `Disclaimer | ${siteConfig.name}`,
+  description: `Read the Disclaimer for ${siteConfig.name} regarding the use of information on our website.`,
   alternates: { canonical: "/disclaimer" },
 };
 
@@ -28,10 +29,10 @@ export default function DisclaimerPage() {
             <h3 className="text-base font-semibold text-stone-800 mt-4 mb-2">Definitions</h3>
             <p className="mb-3">For the purposes of this Disclaimer:</p>
             <ul className="list-disc pl-5 space-y-2">
-              <li><strong>Company</strong> (referred to as either "the Company", "We", "Us" or "Our" in this Disclaimer) refers to Pratipal.</li>
+              <li><strong>Company</strong> (referred to as either "the Company", "We", "Us" or "Our" in this Disclaimer) refers to {siteConfig.name}.</li>
               <li><strong>Service</strong> refers to the Website.</li>
               <li><strong>You</strong> means the individual accessing the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</li>
-              <li><strong>Website</strong> refers to Pratipal, accessible from <a href="https://www.pratipal.in/" className="text-emerald-700 underline">https://www.pratipal.in/</a></li>
+              <li><strong>Website</strong> refers to {siteConfig.name}, accessible from <a href={siteConfig.domain} className="text-emerald-700 underline">{siteConfig.domain}</a></li>
             </ul>
           </section>
 
@@ -84,8 +85,8 @@ export default function DisclaimerPage() {
             <h2 className="text-xl font-semibold text-stone-800 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>Contact Us</h2>
             <p className="mb-2">If you have any questions about this Disclaimer, You can contact Us:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>By email: <a href="mailto:connect@pratipal.in" className="text-emerald-700 underline">connect@pratipal.in</a></li>
-              <li>By visiting this page on our website: <a href="https://www.pratipal.in/" className="text-emerald-700 underline">https://www.pratipal.in/</a></li>
+              <li>By email: <a href={`mailto:${siteConfig.contact.supportEmail}`} className="text-emerald-700 underline">{siteConfig.contact.supportEmail}</a></li>
+              <li>By visiting this page on our website: <a href={siteConfig.domain} className="text-emerald-700 underline">{siteConfig.domain}</a></li>
             </ul>
           </section>
 

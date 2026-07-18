@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState, Suspense } from "react";
+import { siteConfig } from "@/config/site.config";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
@@ -499,9 +500,9 @@ function CheckoutPageInner() {
         key: data.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: data.amount,
         currency: data.currency,
-        name: "Pratipal",
+        name: siteConfig.razorpayDisplayName,
         description: "Order Payment",
-        image: "https://pratipal.in/assets/footer_logo.png",
+        image: siteConfig.logo.footer.startsWith("http") ? siteConfig.logo.footer : `${siteConfig.domain}${siteConfig.logo.footer}`,
         order_id: data.razorpay_order_id,
         handler: async function (response: any) {
           await verifyPayment(response, data.order_id);

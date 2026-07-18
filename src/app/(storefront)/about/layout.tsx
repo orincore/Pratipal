@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 
 export const metadata: Metadata = {
-  title: "About Us | Pratipal",
+  title: `About Us | ${siteConfig.name}`,
   description:
-    "Learn about Pratipal — our story, our mission, and the intention behind our crystal-infused healing candles, essential oil roll-ons, and wellness offerings.",
+    `Learn about ${siteConfig.name} — our story, our mission, and the intention behind our crystal-infused healing candles, essential oil roll-ons, and wellness offerings.`,
   alternates: { canonical: "/about" },
 };
 

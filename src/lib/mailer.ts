@@ -1,5 +1,7 @@
 import nodemailer from "nodemailer";
 import { BRAND, renderEmailLayout, emailInfoCard, emailNote, emailStatusPill, type IconName } from "./email-template";
+import { siteConfig } from "@/config/site.config";
+import { SITE_URL } from "./seo";
 
 export const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || "smtp.gmail.com",
@@ -36,16 +38,16 @@ export function loginNotificationHtml({
 }) {
   const role = isAdmin ? "Admin" : "Customer";
   return renderEmailLayout({
-    preheader: `New sign-in to your Pratipal ${role.toLowerCase()} account`,
+    preheader: `New sign-in to your ${BRAND.name} ${role.toLowerCase()} account`,
     badgeIcon: "lock",
     heading: "New Login Detected",
-    subheading: `Your Pratipal ${role} account was just signed in to.`,
+    subheading: `Your ${BRAND.name} ${role} account was just signed in to.`,
     bodyHtml: emailInfoCard([
       { icon: "user", label: "Account", value: email },
       { icon: "user", label: "Name", value: name },
       { icon: "clock", label: "Time", value: time },
     ]) + emailNote(
-      `If this was you, no action is needed. If you didn't sign in, please <a href="mailto:connect@pratipal.in" style="color:${BRAND.navy};font-weight:600;">contact us</a> immediately.`,
+      `If this was you, no action is needed. If you didn't sign in, please <a href="mailto:${siteConfig.contact.supportEmail}" style="color:${BRAND.navy};font-weight:600;">contact us</a> immediately.`,
       "warning",
       "alertTriangle"
     ),
@@ -54,20 +56,20 @@ export function loginNotificationHtml({
 
 export function welcomeEmailHtml({ name }: { name: string }) {
   return renderEmailLayout({
-    preheader: `Welcome to Pratipal, ${name}!`,
+    preheader: `Welcome to ${BRAND.name}, ${name}!`,
     badgeIcon: "leaf",
-    heading: `Welcome to Pratipal, ${name}!`,
+    heading: `Welcome to ${BRAND.name}, ${name}!`,
     subheading: "We're so glad you're here. Your account is ready — explore our healing products, book a session, or dive into our courses.",
     bodyHtml: `
       <div style="background:${BRAND.infoCardBg};border-radius:12px;padding:16px;margin-bottom:6px;">
         <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:${BRAND.textDark};">What you can do now:</p>
         <ul style="margin:0;padding-left:18px;color:${BRAND.textMuted};font-size:13px;line-height:2;">
-          <li>Browse our <a href="https://pratipal.in/shop" style="color:${BRAND.navy};font-weight:600;">healing products</a></li>
-          <li>Book a <a href="https://pratipal.in/booking" style="color:${BRAND.navy};font-weight:600;">one-on-one session</a></li>
-          <li>Explore our <a href="https://pratipal.in/courses" style="color:${BRAND.navy};font-weight:600;">courses &amp; workshops</a></li>
+          <li>Browse our <a href="${SITE_URL}/shop" style="color:${BRAND.navy};font-weight:600;">healing products</a></li>
+          <li>Book a <a href="${SITE_URL}/booking" style="color:${BRAND.navy};font-weight:600;">one-on-one session</a></li>
+          <li>Explore our <a href="${SITE_URL}/courses" style="color:${BRAND.navy};font-weight:600;">courses &amp; workshops</a></li>
         </ul>
       </div>`,
-    cta: { label: "Start Exploring", url: "https://pratipal.in/shop" },
+    cta: { label: "Start Exploring", url: `${SITE_URL}/shop` },
   });
 }
 
@@ -158,7 +160,7 @@ export function orderConfirmationHtml(data: OrderEmailData) {
     heading: `Order Confirmed — ${data.orderNumber}`,
     subheading: `Hi ${data.customerName}, your order has been placed successfully.`,
     bodyHtml,
-    cta: { label: "Track Your Order", url: "https://pratipal.in/order-history" },
+    cta: { label: "Track Your Order", url: `${SITE_URL}/order-history` },
   });
 }
 
@@ -188,7 +190,7 @@ export function ebookDeliveryHtml(data: EbookDeliveryEmailData) {
     subheading: `Hi ${data.customerName}, thanks for your purchase — your download is ready below.`,
     bodyHtml,
     cta: { label: "Download Now", url: data.downloadUrl, icon: "fileText" },
-    footerNote: `Trouble downloading? Reach us at <a href="mailto:connect@pratipal.in" style="color:${BRAND.navy};">connect@pratipal.in</a>`,
+    footerNote: `Trouble downloading? Reach us at <a href="mailto:${siteConfig.contact.supportEmail}" style="color:${BRAND.navy};">${siteConfig.contact.supportEmail}</a>`,
   });
 }
 
@@ -236,7 +238,7 @@ export function trackingUpdateHtml(data: TrackingUpdateEmailData) {
     heading: `Order Update — ${data.orderNumber}`,
     subheading: `Hi ${data.customerName}, here's the latest on your order.`,
     bodyHtml,
-    cta: { label: "View Order Details", url: "https://pratipal.in/order-history" },
+    cta: { label: "View Order Details", url: `${SITE_URL}/order-history` },
   });
 }
 
@@ -261,7 +263,7 @@ export function orderCancelledHtml(data: CancelOrderEmailData) {
     ${reasonBlock}
     ${refundNote}
     <p style="font-size:13px;color:${BRAND.textMuted};margin:0 0 4px;text-align:center;">
-      Questions? Reply to this email or reach us at <a href="mailto:connect@pratipal.in" style="color:${BRAND.navy};font-weight:600;">connect@pratipal.in</a>
+      Questions? Reply to this email or reach us at <a href="mailto:${siteConfig.contact.supportEmail}" style="color:${BRAND.navy};font-weight:600;">${siteConfig.contact.supportEmail}</a>
     </p>`;
 
   return renderEmailLayout({
@@ -270,6 +272,6 @@ export function orderCancelledHtml(data: CancelOrderEmailData) {
     heading: `Order Cancelled — ${data.orderNumber}`,
     subheading: `Hi ${data.customerName}, your order has been cancelled${data.cancelledBy === "admin" ? " by our team" : ""}.`,
     bodyHtml,
-    cta: { label: "Continue Shopping", url: "https://pratipal.in/shop" },
+    cta: { label: "Continue Shopping", url: `${SITE_URL}/shop` },
   });
 }

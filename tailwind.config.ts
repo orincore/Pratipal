@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { siteConfig } from "./brand-config/site.config";
 
 const config = {
   darkMode: ["class"],
@@ -57,19 +58,7 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        brand: {
-          primary: "#232d5f",
-          secondary: "#1b244a",
-          peacock: "#232d5f",
-          earth: "#edeae3",
-          sand: "#d4c6ad",
-          accent: "#f2c094",
-          support: "#2f6f8a",
-          cta: "#d97745",
-          cream: "#f5efe4",
-          warm: "#e0d4c1",
-          dark: "#081629",
-        },
+        brand: siteConfig.colors as unknown as Record<string, string>,
       },
       borderRadius: {
         lg: "var(--radius)",

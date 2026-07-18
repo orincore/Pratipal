@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { siteConfig } from "@/config/site.config";
 import {
   Loader2, BookOpen, Clock, Award, CheckCircle, Gift,
   User, ArrowLeft, X, AlertCircle, Sparkles,
@@ -97,7 +98,7 @@ function EnrollModal({ course, onClose }: { course: Course; onClose: () => void 
           key: razorpay_key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           amount,
           currency: "INR",
-          name: "Pratipal",
+          name: siteConfig.razorpayDisplayName,
           description: course.title,
           order_id: razorpay_order_id,
           prefill: { name: name.trim(), email: email.trim(), contact: phone.trim() },

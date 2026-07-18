@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 import { connectDB } from "@/lib/mongodb";
 import Quote from "@/models/Quote";
 import { format, isToday, parseISO } from "date-fns";
@@ -7,7 +8,7 @@ import { Sparkles } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Daily Quotes | Pratipal",
+  title: `Daily Quotes | ${siteConfig.name}`,
   description: "A collection of daily inspirational quotes to uplift and guide your healing journey.",
   alternates: { canonical: "/quotes" },
 };

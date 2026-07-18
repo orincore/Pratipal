@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 
 export const metadata: Metadata = {
-  title: "Healing Courses | Pratipal",
+  title: `Healing Courses | ${siteConfig.name}`,
   description:
-    "Explore Pratipal's healing and wellness courses — guided learning to deepen your practice and transform your energy.",
+    `Explore ${siteConfig.name}'s healing and wellness courses — guided learning to deepen your practice and transform your energy.`,
   alternates: { canonical: "/courses" },
 };
 

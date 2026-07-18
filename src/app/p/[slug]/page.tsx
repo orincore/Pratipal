@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { DynamicPageRenderer } from "@/components/storefront/dynamic-page-renderer";
 import { LandingTemplate } from "@/components/storefront/landing-template";
 import getDB from "@/lib/db";
+import { siteConfig } from "@/config/site.config";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   return {
-    title: page.seo_title || page.title || "Pratipal",
+    title: page.seo_title || page.title || siteConfig.name,
     description: page.seo_description || "",
     robots: "noindex",
   };

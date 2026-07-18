@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import getDB from "@/lib/db";
 import { sendEmail, generateBookingConfirmationEmail, generateAdminNotificationEmail } from "@/lib/email";
+import { BRAND } from "@/lib/email-template";
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
 
       await sendEmail({
         to: booking.customer_email,
-        subject: "Session Booking Confirmed - Pratipal Healing",
+        subject: `Session Booking Confirmed - ${BRAND.name}`,
         html: generateBookingConfirmationEmail(emailData),
       });
 

@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { ProductCard } from "@/components/storefront/product-card";
 import { useShopSettings } from "@/hooks/use-shop-settings";
 import { TrustpilotSection } from "@/components/storefront/trustpilot-section";
+import { siteConfig } from "@/config/site.config";
 
 type SectionKey = Extract<HomepageSection, "featured" | "best_sellers" | "new_arrivals" | "on_sale">;
 const SECTION_KEYS: SectionKey[] = ["featured", "best_sellers", "new_arrivals", "on_sale"];
@@ -131,7 +132,7 @@ function HeroSection() {
       title: "EVERY MOMENT",
       titleHindi: "\"प्रतिपल\"",
       subtitle: "Do you need healing?",
-      description: "At Pratipal, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.",
+      description: `At ${siteConfig.name}, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.`,
       quote: "\"Healing is not merely cure, it is weaving smile in routine.\"",
       cta1: { text: "Explore Courses", href: "/courses", icon: "gem" },
       cta2: { text: "Shop Products", href: "/shop", icon: "shopping" },
@@ -193,7 +194,7 @@ function HeroSection() {
     title: "EVERY MOMENT",
     titleHindi: "\"प्रतिपल\"",
     subtitle: "Integrating Healing with Routine",
-    description: "At Pratipal, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.",
+    description: `At ${siteConfig.name}, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.`,
     quote: "\"Healing is not merely cure, it is weaving smile in routine.\"",
     cta1: { text: "Start Your Journey", href: "/booking", icon: "zap" },
     cta2: { text: "Explore Courses", href: "/courses", icon: "gem" },
@@ -210,7 +211,7 @@ function HeroSection() {
       title: "EVERY MOMENT",
       titleHindi: "\"प्रतिपल\"",
       subtitle: "Integrating Healing with Routine",
-      description: "At Pratipal, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.",
+      description: `At ${siteConfig.name}, I am your personal healing assistant, integrating ancient healing rituals into your modern lifestyle seamlessly.`,
       quote: "\"Healing is not merely cure, it is weaving smile in routine.\"",
       cta1: { text: "Start Your Journey", href: "/booking", icon: "zap" },
       cta2: { text: "Explore Courses", href: "/courses", icon: "gem" },
@@ -748,7 +749,7 @@ function RecentBlogsSection() {
                     </p>
                   )}
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 text-xs text-stone-400">
-                    <span>{blog.author || "Pratipal"}</span>
+                    <span>{blog.author || siteConfig.name}</span>
                     {blog.read_time && <span>{blog.read_time} min read</span>}
                   </div>
                 </div>

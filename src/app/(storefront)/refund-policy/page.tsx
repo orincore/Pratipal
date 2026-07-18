@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Refund Policy | Pratipal",
-  description: "Read Pratipal's Refund Policy. All purchases are final and non-refundable due to the nature of our digital and healing offerings.",
+  title: `Refund Policy | ${siteConfig.name}`,
+  description: `Read ${siteConfig.name}'s Refund Policy. All purchases are final and non-refundable due to the nature of our digital and healing offerings.`,
   alternates: { canonical: "/refund-policy" },
 };
 
@@ -18,7 +19,7 @@ export default function RefundPolicyPage() {
           </h1>
           <p className="mt-2 text-sm text-stone-500">Last Updated: 20th March 2026</p>
           <p className="mt-3 text-sm text-stone-600">
-            At Pratipal (<a href="https://www.pratipal.in/" className="text-emerald-700 underline">https://www.pratipal.in/</a>), we are committed to delivering high-quality healing courses and products designed to support your personal growth and well-being. Please read our refund policy carefully before making a purchase.
+            At {siteConfig.name} (<a href={siteConfig.domain} className="text-emerald-700 underline">{siteConfig.domain}</a>), we are committed to delivering high-quality healing courses and products designed to support your personal growth and well-being. Please read our refund policy carefully before making a purchase.
           </p>
         </div>
 
@@ -72,8 +73,8 @@ export default function RefundPolicyPage() {
             <h2 className="text-xl font-semibold text-stone-800 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>5. Contact Us</h2>
             <p className="mb-2">For any payment-related issues, you can reach us at:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>By email: <a href="mailto:connect@pratipal.in" className="text-emerald-700 underline">connect@pratipal.in</a></li>
-              <li>By visiting this page on our website: <a href="https://www.pratipal.in/" className="text-emerald-700 underline">https://www.pratipal.in/</a></li>
+              <li>By email: <a href={`mailto:${siteConfig.contact.supportEmail}`} className="text-emerald-700 underline">{siteConfig.contact.supportEmail}</a></li>
+              <li>By visiting this page on our website: <a href={siteConfig.domain} className="text-emerald-700 underline">{siteConfig.domain}</a></li>
             </ul>
           </section>
 

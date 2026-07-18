@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms and Conditions | Pratipal",
-  description: "Read the Terms and Conditions governing your use of Pratipal.in.",
+  title: `Terms and Conditions | ${siteConfig.name}`,
+  description: `Read the Terms and Conditions governing your use of ${siteConfig.name}.`,
   alternates: { canonical: "/terms" },
 };
 
@@ -31,12 +32,12 @@ export default function TermsPage() {
             <ul className="list-disc pl-5 space-y-2">
               <li><strong>Affiliate</strong> means an entity that controls, is controlled by, or is under common control with a party, where "control" means ownership of 50% or more of the shares, equity interest or other securities entitled to vote for election of directors or other managing authority.</li>
               <li><strong>Country</strong> refers to: West Bengal, India</li>
-              <li><strong>Company</strong> (referred to as either "the Company", "We", "Us" or "Our" in these Terms and Conditions) refers to Pratipal.in.</li>
+              <li><strong>Company</strong> (referred to as either "the Company", "We", "Us" or "Our" in these Terms and Conditions) refers to {siteConfig.name}.</li>
               <li><strong>Device</strong> means any device that can access the Service such as a computer, a cell phone or a digital tablet.</li>
               <li><strong>Service</strong> refers to the Website.</li>
               <li><strong>Terms and Conditions</strong> (also referred to as "Terms") means these Terms and Conditions, including any documents expressly incorporated by reference, which govern Your access to and use of the Service and form the entire agreement between You and the Company regarding the Service.</li>
               <li><strong>Third-Party Social Media Service</strong> means any services or content (including data, information, products or services) provided by a third party that is displayed, included, made available, or linked to through the Service.</li>
-              <li><strong>Website</strong> refers to Pratipal.in, accessible from <a href="https://www.pratipal.in/" className="text-emerald-700 underline">https://www.pratipal.in/</a></li>
+              <li><strong>Website</strong> refers to {siteConfig.name}, accessible from <a href={siteConfig.domain} className="text-emerald-700 underline">{siteConfig.domain}</a></li>
               <li><strong>You</strong> means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</li>
             </ul>
           </section>
@@ -126,8 +127,8 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-stone-800 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>Contact Us</h2>
             <p className="mb-2">If you have any questions about these Terms and Conditions, You can contact us:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>By email: <a href="mailto:connect@pratipal.in" className="text-emerald-700 underline">connect@pratipal.in</a></li>
-              <li>By visiting this page on our website: <a href="https://www.pratipal.in/" className="text-emerald-700 underline">https://www.pratipal.in/</a></li>
+              <li>By email: <a href={`mailto:${siteConfig.contact.supportEmail}`} className="text-emerald-700 underline">{siteConfig.contact.supportEmail}</a></li>
+              <li>By visiting this page on our website: <a href={siteConfig.domain} className="text-emerald-700 underline">{siteConfig.domain}</a></li>
             </ul>
           </section>
 

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { sendMail } from "@/lib/mailer";
 import getDB from "@/lib/db";
-import { renderEmailLayout, emailCodeBox, emailNote } from "@/lib/email-template";
+import { BRAND, renderEmailLayout, emailCodeBox, emailNote } from "@/lib/email-template";
+import { siteConfig } from "@/config/site.config";
 
 // In-memory OTP store for password reset: email → { otp, expires }
 const resetOtpStore = new Map<string, { otp: string; expires: number }>();
@@ -34,12 +35,12 @@ export async function POST(req: NextRequest) {
 
     await sendMail({
       to: email,
-      subject: "Reset your Pratipal password",
+      subject: `Reset your ${BRAND.name} password`,
       html: renderEmailLayout({
         preheader: `Your password reset code is ${otp}`,
         badgeIcon: "lock",
         heading: "Reset your password",
-        subheading: `Hi ${name}, use this code to reset your Pratipal password.`,
+        subheading: `Hi ${name}, use this code to reset your ${BRAND.name} password.`,
         bodyHtml:
           emailCodeBox(otp) +
           `<p style="font-size:12px;color:#9ca3af;margin:0;text-align:center;">This code expires in <strong>10 minutes</strong>. If you didn't request this, ignore this email.</p>`,
@@ -110,14 +111,14 @@ export async function PATCH(req: NextRequest) {
 
     await sendMail({
       to: email,
-      subject: "Your Pratipal password has been reset",
+      subject: `Your ${BRAND.name} password has been reset`,
       html: renderEmailLayout({
         preheader: `Your password was changed on ${resetTime} IST`,
         badgeIcon: "check",
         heading: "Password successfully reset",
-        subheading: `Hi ${name}, your Pratipal account password was successfully changed on ${resetTime} IST. If you made this change, no further action is needed.`,
+        subheading: `Hi ${name}, your ${BRAND.name} account password was successfully changed on ${resetTime} IST. If you made this change, no further action is needed.`,
         bodyHtml: emailNote(
-          `If you did not reset your password, please contact us immediately at <a href="mailto:connect@pratipal.in" style="font-weight:600;">connect@pratipal.in</a>`,
+          `If you did not reset your password, please contact us immediately at <a href="mailto:${siteConfig.contact.supportEmail}" style="font-weight:600;">${siteConfig.contact.supportEmail}</a>`,
           "danger"
         ),
       }),

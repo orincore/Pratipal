@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { siteConfig } from "@/config/site.config";
 
-const TP_URL = "https://www.trustpilot.com/review/pratipal.in";
+const TP_URL = siteConfig.analytics.trustpilotDomain
+  ? `https://www.trustpilot.com/review/${siteConfig.analytics.trustpilotDomain}`
+  : null;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 let cache: { data: TrustpilotData; ts: number } | null = null;
@@ -29,6 +32,7 @@ export interface TrustpilotData {
 }
 
 async function fetchFromTrustpilot(): Promise<TrustpilotData> {
+  if (!TP_URL) throw new Error("Trustpilot is not configured for this deployment");
   const res = await fetch(TP_URL, {
     headers: {
       "User-Agent":
@@ -70,7 +74,7 @@ async function fetchFromTrustpilot(): Promise<TrustpilotData> {
     }));
 
   return {
-    businessName: bu.displayName ?? "Pratipal",
+    businessName: bu.displayName ?? siteConfig.name,
     trustScore: bu.trustScore ?? 0,
     totalReviews: bu.numberOfReviews ?? reviews.length,
     stars: bu.stars ?? bu.trustScore ?? 0,

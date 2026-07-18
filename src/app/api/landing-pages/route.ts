@@ -68,26 +68,14 @@ export async function POST(req: NextRequest) {
   const page = await LandingPage.create({
     title,
     slug: finalSlug,
+    // Empty legacy rich-content doc: the page-level Rich Content slot is
+    // hidden while empty (see isLegacyRichContentEmpty), so new pages start
+    // without the catch-all editor — rich content is composed from
+    // individual per-widget blocks instead.
     content:
-      body.content ??
-      {
+      body.content ?? {
         type: "doc",
-        content: [
-          {
-            type: "heading",
-            attrs: { level: 1 },
-            content: [{ type: "text", text: title }],
-          },
-          {
-            type: "paragraph",
-            content: [
-              {
-                type: "text",
-                text: "Start editing your landing page here...",
-              },
-            ],
-          },
-        ],
+        content: [{ type: "paragraph" }],
       },
     theme:
       body.theme ?? {

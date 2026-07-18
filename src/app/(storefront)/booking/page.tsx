@@ -1,11 +1,13 @@
 import { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
+import { SITE_URL } from "@/lib/seo";
 import { BookingPageClient } from "@/components/booking/booking-page-client";
 import { connectDB } from "@/lib/mongodb";
 import Service from "@/models/Service";
 import Script from "next/script";
 
 export const metadata: Metadata = {
-  title: "Services & Booking | Pratipal Healing",
+  title: `Services & Booking | ${siteConfig.name}`,
   description: "Book your personalized healing session — One to One, Need Based, Group Healing, or Learning Curve.",
   alternates: { canonical: "/booking" },
 };
@@ -45,7 +47,7 @@ export default async function BookingPage() {
             price: s.base_price,
             priceCurrency: "INR",
           }],
-      url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://pratipal.in"}/booking`,
+      url: `${SITE_URL}/booking`,
     })),
   };
 

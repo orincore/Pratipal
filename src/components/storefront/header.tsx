@@ -6,7 +6,7 @@ import Image from "next/image";
 import { ShoppingCart, Menu, X, Search, User, Loader2, BookOpen, ShoppingBag, Stethoscope } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { CartDrawer } from "./cart-drawer";
-import LogoMark from "@/app/assets/logo.png";
+import { siteConfig } from "@/config/site.config";
 import { useCustomerAuth } from "@/lib/customer-auth-context";
 import { useRouter, usePathname } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
@@ -188,7 +188,7 @@ export function Header() {
               </button>
               <Link href="/" className="flex items-center">
                 <div className="relative h-10 w-10">
-                  <Image src={LogoMark} alt="Pratipal" fill sizes="40px" className="object-contain" priority />
+                  <Image src={siteConfig.logo.header} alt={siteConfig.name} fill sizes="40px" className="object-contain" priority />
                 </div>
               </Link>
             </div>

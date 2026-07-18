@@ -12,6 +12,7 @@ import { formatPrice } from "@/lib/utils";
 import { CheckCircle2, Package, ShieldCheck, Zap } from "lucide-react";
 import connectDB from "@/lib/mongodb";
 import ShopSettings from "@/models/ShopSettings";
+import { siteConfig } from "@/config/site.config";
 
 function resolveBaseUrl() {
   if (typeof window !== "undefined") return "";
@@ -19,7 +20,7 @@ function resolveBaseUrl() {
     if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
     const vercelUrl = process.env.VERCEL_URL;
     if (vercelUrl) return vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
-    return "https://www.pratipal.in";
+    return siteConfig.domain;
   }
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SITE_URL;
   if (envUrl) return envUrl.replace(/\/$/, "");
@@ -60,13 +61,13 @@ interface ProductParams {
 export async function generateMetadata({ params }: ProductParams): Promise<Metadata> {
   const { slug } = await params;
   const product = await fetchProduct(slug);
-  if (!product) return { title: "Product Not Found | Pratipal" };
+  if (!product) return { title: `Product Not Found | ${siteConfig.name}` };
   return {
-    title: `${product.name} | Pratipal`,
+    title: `${product.name} | ${siteConfig.name}`,
     description: product.meta_description || product.short_description || product.description,
     alternates: { canonical: `/product/${product.slug}` },
     openGraph: {
-      title: `${product.name} | Pratipal`,
+      title: `${product.name} | ${siteConfig.name}`,
       description: product.meta_description || product.short_description,
       images: product.featured_image ? [product.featured_image] : undefined,
     },

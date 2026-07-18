@@ -3,6 +3,7 @@ import crypto from "crypto";
 import getDB from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { BRAND, renderEmailLayout, emailInfoCard, emailNote, emailButton } from "@/lib/email-template";
+import { siteConfig } from "@/config/site.config";
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,8 +48,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate WhatsApp redirect URL
-    const whatsappNumber = "917605072424"; // +91 7605072424
-    const message = `Hi, I just booked a session on Pratipal!
+    const whatsappNumber = siteConfig.contact.whatsapp;
+    const message = `Hi, I just booked a session on ${BRAND.name}!
 
 📋 *Booking Details*
 • Booking ID: ${booking.booking_number}

@@ -3,10 +3,10 @@ import { Inter, Playfair_Display, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import Script from "next/script";
-import LogoMark from "@/app/assets/logo.png";
 import { FloatingActionButton } from "@/components/ui/floating-action-button";
 import { SITE_URL } from "@/lib/seo";
 import { GOOGLE_FONTS_HREF } from "@/lib/fonts";
+import { siteConfig } from "@/config/site.config";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -24,19 +24,17 @@ const cormorant = Cormorant_Garamond({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Pratipal | Healing & Wellness Store",
-  description:
-    "Discover crystal-infused healing candles, therapeutic essential oil roll-ons, and energy intention salts crafted with love and intention.",
+  title: siteConfig.seo.defaultTitle,
+  description: siteConfig.seo.defaultDescription,
   icons: {
-    icon: LogoMark.src,
-    shortcut: LogoMark.src,
-    apple: LogoMark.src,
+    icon: siteConfig.logo.header,
+    shortcut: siteConfig.logo.header,
+    apple: siteConfig.logo.header,
   },
   openGraph: {
-    title: "Pratipal | Healing & Wellness Store",
-    description:
-      "Discover crystal-infused healing candles, therapeutic essential oil roll-ons, and energy intention salts crafted with love and intention.",
-    images: [LogoMark.src],
+    title: siteConfig.seo.defaultTitle,
+    description: siteConfig.seo.defaultDescription,
+    images: [siteConfig.logo.header],
   },
 };
 
@@ -53,24 +51,28 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
         {/* Google Tag Manager */}
-        <Script
-          id="gtm-head"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-W88FQD7L');`,
-          }}
-        />
+        {siteConfig.analytics.gtmId && (
+          <Script
+            id="gtm-head"
+            strategy="beforeInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${siteConfig.analytics.gtmId}');`,
+            }}
+          />
+        )}
       </head>
       <body className={`${inter.variable} ${playfair.variable} ${cormorant.variable} ${inter.className} bg-stone-50 text-stone-800`}>
         {/* Google Tag Manager (noscript) */}
-        <noscript>
-          <iframe
-            src="https://www.googletagmanager.com/ns.html?id=GTM-W88FQD7L"
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          />
-        </noscript>
+        {siteConfig.analytics.gtmId && (
+          <noscript>
+            <iframe
+              src={`https://www.googletagmanager.com/ns.html?id=${siteConfig.analytics.gtmId}`}
+              height="0"
+              width="0"
+              style={{ display: "none", visibility: "hidden" }}
+            />
+          </noscript>
+        )}
         {children}
         <FloatingActionButton />
         <Toaster position="bottom-right" richColors />

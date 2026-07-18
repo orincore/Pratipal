@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 
 export const metadata: Metadata = {
-  title: "Gallery | Pratipal",
+  title: `Gallery | ${siteConfig.name}`,
   description:
-    "Browse the Pratipal gallery — moments, products, and healing experiences captured from our wellness journey.",
+    `Browse the ${siteConfig.name} gallery — moments, products, and healing experiences captured from our wellness journey.`,
   alternates: { canonical: "/gallery" },
 };
 

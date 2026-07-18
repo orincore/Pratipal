@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Calendar, Mail, Phone, Home, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { CartAnimationProvider } from "@/lib/cart-animation-context";
+import { siteConfig } from "@/config/site.config";
 import { HeaderThemeProvider } from "@/lib/header-theme-context";
 import { CustomerAuthProvider } from "@/lib/customer-auth-context";
 
@@ -129,7 +130,7 @@ function BookingSuccessContent() {
                 <h3 className="font-semibold text-gray-800 mb-3">Need Help?</h3>
                 <div className="flex items-center gap-3 text-gray-700">
                   <Mail className="h-5 w-5 text-brand-teal" />
-                  <span className="text-sm">hello@pratipal.in</span>
+                  <span className="text-sm">{siteConfig.contact.supportEmail}</span>
                 </div>
                 <div className="flex items-center gap-3 text-gray-700">
                   <Phone className="h-5 w-5 text-brand-teal" />

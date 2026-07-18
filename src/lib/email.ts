@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { BRAND, renderEmailLayout, emailInfoCard, emailNote } from "./email-template";
+import { siteConfig } from "@/config/site.config";
 
 export interface EmailOptions {
   to: string;
@@ -20,7 +21,7 @@ export async function sendEmail({ to, subject, html }: EmailOptions) {
 
   try {
     const info = await transporter.sendMail({
-      from: `"Pratipal Healing" <${process.env.SMTP_USER}>`,
+      from: `"${siteConfig.email.fromName}" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html,
@@ -71,7 +72,7 @@ export function generateBookingConfirmationEmail(data: {
           <li>Prepare any questions you'd like to discuss during the session</li>
         </ul>
       </div>`,
-    footerNote: `Questions? Reach us at <a href="mailto:connect@pratipal.in" style="color:${BRAND.navy};">connect@pratipal.in</a>`,
+    footerNote: `Questions? Reach us at <a href="mailto:${siteConfig.contact.supportEmail}" style="color:${BRAND.navy};">${siteConfig.contact.supportEmail}</a>`,
   });
 }
 

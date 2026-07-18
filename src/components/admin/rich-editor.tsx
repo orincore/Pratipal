@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
-import { NodeSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -39,6 +39,20 @@ import {
   DEFAULT_LEAD_FORM_ATTRS,
   type LeadFormAttrs,
 } from "@/lib/tiptap/extensions/lead-form";
+import {
+  FlexboxContainer,
+  FlexItem,
+  GridContainer,
+  GridItem,
+  DEFAULT_FLEXBOX_ATTRS,
+  DEFAULT_FLEX_ITEM_ATTRS,
+  DEFAULT_GRID_ATTRS,
+  DEFAULT_GRID_ITEM_ATTRS,
+  type FlexboxAttrs,
+  type FlexItemAttrs,
+  type GridAttrs,
+  type GridItemAttrs,
+} from "@/lib/tiptap/extensions/flex-grid";
 import { FeatureGrid, DEFAULT_FEATURE_ITEM } from "@/lib/tiptap/extensions/feature-grid";
 import { StatsRow, DEFAULT_STAT_ITEM } from "@/lib/tiptap/extensions/stats-row";
 import { FaqAccordion, DEFAULT_FAQ_ITEM } from "@/lib/tiptap/extensions/faq-accordion";
@@ -47,12 +61,23 @@ import { MarqueeStrip } from "@/lib/tiptap/extensions/marquee-strip";
 import { ImageGallery, DEFAULT_GALLERY_ITEM } from "@/lib/tiptap/extensions/image-gallery";
 import {
   DEFAULT_CONTENT_SETTINGS,
+  normalizeLandingContent,
   type LandingContent,
   type LandingContentSettings,
 } from "@/lib/tiptap/content";
-import { LandingTemplate } from "@/components/storefront/landing-template";
+import { LandingTemplate, type TemplateEditorBridge, autoScrollCanvasDuringDrag, RICH_ELEMENT_DND_TYPE, isLegacyRichContentEmpty } from "@/components/storefront/landing-template";
 import { TemplateEditor } from "./template-editor";
-import type { LandingTemplateData } from "@/lib/template-types";
+import type { LandingTemplateData, RichBlockEntry } from "@/lib/template-types";
+import {
+  CANONICAL_SECTIONS,
+  SECTION_LABELS,
+  resolveSectionOrder,
+  getSectionVisibility,
+  applySectionVisibility,
+  getSectionLabel,
+  isRichBlockKey,
+  richBlockId,
+} from "@/lib/template-types";
 import {
   Bold,
   Italic,
@@ -106,9 +131,19 @@ import {
   BarChart3,
   HelpCircle,
   MessageSquare,
-  Megaphone,
   Images,
   Plus,
+  StretchHorizontal,
+  Grid3x3,
+  Scissors,
+  ClipboardPaste,
+  ClipboardCopy,
+  MoveUp,
+  MoveDown,
+  SlidersHorizontal,
+  Baseline,
+  CornerDownLeft,
+  MousePointer2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -263,11 +298,15 @@ function WidgetButton({
   label,
   onClick,
   color = "gray",
+  dragType,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   color?: string;
+  // When set, the widget can also be dragged onto the canvas and dropped at
+  // an exact position in the rich content (Elementor-style).
+  dragType?: string;
 }) {
   const colorClasses: Record<string, string> = {
     gray: "bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200",
@@ -281,7 +320,19 @@ function WidgetButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all hover:scale-[1.02] hover:shadow-sm active:scale-[0.98] ${colorClasses[color] || colorClasses.gray}`}
+      draggable={!!dragType}
+      onDragStart={
+        dragType
+          ? (e) => {
+              e.dataTransfer.setData(RICH_ELEMENT_DND_TYPE, dragType);
+              e.dataTransfer.effectAllowed = "copy";
+            }
+          : undefined
+      }
+      title={dragType ? `${label} — click to insert, or drag onto the canvas` : label}
+      className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all hover:scale-[1.02] hover:shadow-sm active:scale-[0.98] ${
+        dragType ? "cursor-grab active:cursor-grabbing select-none [-webkit-user-drag:element]" : ""
+      } ${colorClasses[color] || colorClasses.gray}`}
     >
       {icon}
       <span className="text-[10px] font-medium">{label}</span>
@@ -633,6 +684,79 @@ const BLOCK_PANEL_LABELS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Right-click context menu — element/block detection
+// ---------------------------------------------------------------------------
+
+// Human labels for every node type the context menu can select as a "block".
+const CTX_ELEMENT_LABELS: Record<string, string> = {
+  image: "Image",
+  customButton: "Button",
+  leadForm: "Form",
+  youtube: "Video",
+  twoColumnSection: "Two-Column",
+  pageSection: "Section",
+  flexboxContainer: "Flexbox",
+  gridContainer: "Grid",
+  blockquote: "Quote",
+  codeBlock: "Code Block",
+  horizontalRule: "Divider",
+  featureGrid: "Feature Grid",
+  statsRow: "Stats",
+  faqAccordion: "FAQ",
+  testimonialCards: "Testimonials",
+  marqueeStrip: "Marquee",
+  imageGallery: "Gallery",
+};
+
+// Leaf/atom elements that sit directly under the click and always open the
+// block menu (they carry no free-flowing text of their own to format).
+const CTX_ATOM_TYPES = new Set([
+  "image",
+  "customButton",
+  "leadForm",
+  "youtube",
+  "horizontalRule",
+  ...CONTENT_BLOCK_TYPES,
+]);
+
+// Layout containers walked from the click's ancestors. Right-clicking their
+// empty (non-text) area opens the block menu; right-clicking their text still
+// opens the text menu but offers "Select <container>" shortcuts.
+const CTX_CONTAINER_TYPES = new Set([
+  "twoColumnSection",
+  "pageSection",
+  "flexboxContainer",
+  "gridContainer",
+  "blockquote",
+  "codeBlock",
+]);
+
+// Swatches offered inline in the text menu.
+const CTX_TEXT_COLORS = [
+  "#111827",
+  "#ef4444",
+  "#f59e0b",
+  "#10b981",
+  "#3b82f6",
+  "#7c3aed",
+  "#ec4899",
+  "#ffffff",
+];
+const CTX_HIGHLIGHT_COLORS = [
+  "#FEF08A",
+  "#BBF7D0",
+  "#BFDBFE",
+  "#FBCFE8",
+  "#FED7AA",
+  "#E9D5FF",
+];
+
+// Font sizes (px) offered in the text menu's "Text size" row.
+const CTX_FONT_SIZES = [
+  11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 100,
+];
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -657,6 +781,33 @@ export function RichEditor({
   // (e.g. switching pages) even when React's state updates lag the rapid
   // transactions a slider drag or fast typing produces.
   const lastEmittedDocJson = useRef<string | null>(null);
+
+  // -------------------------------------------------------------------------
+  // Multiple rich blocks: exactly one live/editable TipTap doc at a time.
+  // `focusedRichBlockId` is null when the live editor is bound to the legacy
+  // singleton `richContent` doc (the `content` prop, unchanged default
+  // behavior); otherwise it's the id of whichever dynamic block
+  // (`templateData.richBlocks`) is currently focused. The ref mirrors the
+  // state so onUpdate/emitChange — closures baked into useEditor's config —
+  // always write to whichever block is *currently* focused, never a value
+  // stale from the render that created the closure.
+  // -------------------------------------------------------------------------
+  const [focusedRichBlockId, setFocusedRichBlockId] = useState<string | null>(null);
+  const focusedBlockIdRef = useRef<string | null>(null);
+  // Set right after creating a brand-new (empty) block that a dropped widget
+  // should be seeded into — consumed by an effect once the editor's content
+  // actually reflects that fresh empty doc (see the effect after
+  // insertElementByType below).
+  const [pendingSeedElementType, setPendingSeedElementType] = useState<string | null>(null);
+
+  // The doc the live editor should currently hold: a focused dynamic block's
+  // own doc, or the legacy singleton `content.doc` when nothing is focused.
+  const activeDoc = useMemo(() => {
+    if (focusedRichBlockId) {
+      return (templateData?.richBlocks || []).find((b: RichBlockEntry) => b.id === focusedRichBlockId)?.content?.doc;
+    }
+    return content?.doc;
+  }, [focusedRichBlockId, templateData?.richBlocks, content?.doc]);
 
   // Layout / page-level settings
   const [settings, setSettings] = useState<LandingContentSettings>(() => ({
@@ -698,6 +849,30 @@ export function RichEditor({
   const [showSectionPanel, setShowSectionPanel] = useState(false);
   const [sectionAttrs, setSectionAttrs] = useState<PageSectionAttrs>({ ...DEFAULT_SECTION_ATTRS });
 
+  // Flexbox / Grid layout panels. Cell info tracks which cell of the
+  // container the cursor currently sits in ("Cell 2 of 3") so the panel can
+  // edit that cell's own sizing alongside the container settings.
+  const [showFlexPanel, setShowFlexPanel] = useState(false);
+  const [flexAttrs, setFlexAttrs] = useState<FlexboxAttrs>({ ...DEFAULT_FLEXBOX_ATTRS });
+  const [flexItemAttrs, setFlexItemAttrs] = useState<FlexItemAttrs>({ ...DEFAULT_FLEX_ITEM_ATTRS });
+  const [flexCellInfo, setFlexCellInfo] = useState<{ index: number; count: number } | null>(null);
+  const [showGridPanel, setShowGridPanel] = useState(false);
+  const [gridAttrs, setGridAttrs] = useState<GridAttrs>({ ...DEFAULT_GRID_ATTRS });
+  const [gridItemAttrs, setGridItemAttrs] = useState<GridItemAttrs>({ ...DEFAULT_GRID_ITEM_ATTRS });
+  const [gridCellInfo, setGridCellInfo] = useState<{ index: number; count: number } | null>(null);
+
+  // Exact document positions of the currently-targeted flex/grid cell and
+  // container. Property edits patch the node at these positions rather than
+  // "the nearest one to the live selection" — sidebar inputs blur the editor
+  // and the selection can drift (or land in a sibling/nested container), which
+  // is what made cell/container edits leak onto the wrong element. Refs (not
+  // state) so the latest value is always readable inside the update callbacks
+  // without stale closures, and without re-rendering on every selection.
+  const flexItemPosRef = useRef<number | null>(null);
+  const gridItemPosRef = useRef<number | null>(null);
+  const flexContainerPosRef = useRef<number | null>(null);
+  const gridContainerPosRef = useRef<number | null>(null);
+
   // Lead form panel
   const [showFormPanel, setShowFormPanel] = useState(false);
   const [formAttrs, setFormAttrs] = useState<LeadFormAttrs>({ ...DEFAULT_LEAD_FORM_ATTRS });
@@ -715,6 +890,23 @@ export function RichEditor({
   // node's type — far less boilerplate than per-block state.
   const [activeBlock, setActiveBlock] = useState<{ type: string; attrs: any } | null>(null);
 
+  // -------------------------------------------------------------------------
+  // Right-click context menu. `mode: "text"` shows the full inline text-editor
+  // menu (formatting, headings, alignment, lists, links, colors, clipboard);
+  // `mode: "block"` shows the element/block menu (edit, replace, duplicate,
+  // move, convert, delete). `element` is populated in block mode with the
+  // selected node's type so the menu can offer the type-specific actions.
+  // -------------------------------------------------------------------------
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number;
+    y: number;
+    mode: "text" | "block";
+    element?: { type: string; label: string; pos: number };
+    // Whether the caret/selection sits inside a container we can "select up" to.
+    containers?: { type: string; label: string; pos: number }[];
+    hasSelection?: boolean;
+  } | null>(null);
+
   // Whether the Elements tab is showing a selected element's properties
   // (replacing the Insert Elements grid) instead of the grid itself. This is
   // deliberately its own bit of state rather than something re-derived from
@@ -731,13 +923,275 @@ export function RichEditor({
     templateData ? "template" : "widgets"
   );
 
-  // Propagate settings changes upward
+  // -------------------------------------------------------------------------
+  // Template canvas editing (Elementor-style) — selection, reordering,
+  // visibility and block insertion, shared between the canvas overlay and the
+  // Template sidebar.
+  // -------------------------------------------------------------------------
+  const [selectedTplSection, setSelectedTplSection] = useState<string | null>(null);
+  // Bumped on every canvas selection so the sidebar re-opens/scrolls to the
+  // section card even when re-selecting the same section.
+  const [tplFocusNonce, setTplFocusNonce] = useState(0);
+
+  const selectTplSection = useCallback((key: string) => {
+    setSelectedTplSection(key);
+    setTplFocusNonce((n) => n + 1);
+    setActiveTab("template");
+    // Bring the section into view on the canvas ("nearest" = no jump when the
+    // click originated on the canvas itself).
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-section-shell="${key}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
+
+  // The single function every focus-swap goes through: pass a dynamic
+  // block's id to make it live, or null to return focus to the legacy
+  // singleton `richContent` doc. `seedElementType`, when given, queues a
+  // freshly-dropped widget to be inserted into the (empty) block once its
+  // doc is actually live — see the pendingSeedElementType effect below.
+  const focusRichBlock = useCallback(
+    (blockId: string | null, opts?: { seedElementType?: string; settingsOverride?: LandingContentSettings }) => {
+      if (focusedBlockIdRef.current === blockId && !opts?.seedElementType) return;
+      focusedBlockIdRef.current = blockId;
+      setFocusedRichBlockId(blockId);
+      // Forces the content-sync effect to apply the new block's doc even if
+      // it happens to JSON-match whatever was last emitted for the
+      // previously-focused block (very plausible for two fresh empty docs).
+      lastEmittedDocJson.current = null;
+      // setContent (used by the sync effect) doesn't fire onUpdate/
+      // onSelectionUpdate, so stale widget-property panels from the
+      // previously-focused block would otherwise persist against the new
+      // content — every focus swap must explicitly close them.
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      closeElementProperties();
+      // `settingsOverride` lets a caller that just created the block (e.g.
+      // insertRichBlockAt) pass its settings directly — reading them back
+      // off `templateData.richBlocks` here would use this render's stale
+      // closure, from BEFORE the synchronous setTemplateData call that
+      // added the block, and silently fall back to DEFAULT_CONTENT_SETTINGS.
+      const blockSettings = opts?.settingsOverride
+        ?? (blockId
+          ? (templateData?.richBlocks || []).find((b: RichBlockEntry) => b.id === blockId)?.content?.settings
+          : content?.settings);
+      setSettings({ ...DEFAULT_CONTENT_SETTINGS, ...(blockSettings ?? {}) });
+      if (opts?.seedElementType) setPendingSeedElementType(opts.seedElementType);
+    },
+    // closeElementProperties is intentionally omitted: it's declared later
+    // in this component and is only ever invoked from inside this callback
+    // body (deferred), never read at definition time, so it's safe to omit
+    // — matching the existing `editor` omission pattern a few effects down.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [templateData, content?.settings]
+  );
+
+  const moveTplSectionTo = useCallback(
+    (key: string, gapIndex: number) => {
+      if (!templateData || !setTemplateData) return;
+      const order = resolveSectionOrder(templateData.sectionOrder);
+      const from = order.indexOf(key);
+      if (from === -1) return;
+      const newOrder = [...order];
+      newOrder.splice(from, 1);
+      const target = Math.max(0, Math.min(newOrder.length, gapIndex > from ? gapIndex - 1 : gapIndex));
+      newOrder.splice(target, 0, key);
+      // Dropping a block onto the canvas means "I want it on the page" — so a
+      // hidden block dragged in from the palette becomes visible.
+      const next = applySectionVisibility(templateData, key, true);
+      setTemplateData({ ...next, sectionOrder: newOrder });
+    },
+    [templateData, setTemplateData]
+  );
+
+  const moveTplSection = useCallback(
+    (key: string, dir: -1 | 1) => {
+      if (!templateData || !setTemplateData) return;
+      const order = resolveSectionOrder(templateData.sectionOrder);
+      const i = order.indexOf(key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= order.length) return;
+      const newOrder = [...order];
+      [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
+      setTemplateData({ ...templateData, sectionOrder: newOrder });
+    },
+    [templateData, setTemplateData]
+  );
+
+  const toggleTplVisibility = useCallback(
+    (key: string) => {
+      if (!templateData || !setTemplateData) return;
+      const nextVisible = !getSectionVisibility(templateData, key);
+      // Hiding the block currently being edited would leave the live editor
+      // bound to something the canvas no longer renders — return focus to
+      // the legacy doc first.
+      if (!nextVisible && isRichBlockKey(key) && focusedBlockIdRef.current === richBlockId(key)) {
+        focusRichBlock(null);
+      }
+      setTemplateData(applySectionVisibility(templateData, key, nextVisible));
+    },
+    [templateData, setTemplateData, focusRichBlock]
+  );
+
+  // Creates a brand-new, independent rich-content block at a template-level
+  // gap — either empty (the "+" popup's "Rich Content Block (new)" entry)
+  // or seeded with one widget (a drag from the Elements tab landing directly
+  // between two template sections). Mirrors insertTplBlock's shape.
+  const insertRichBlockAt = useCallback(
+    (gapIndex: number, seedElementType?: string) => {
+      if (!templateData || !setTemplateData) return;
+      const id = crypto.randomUUID();
+      const sectionKey = `richContent:${id}`;
+      // DEFAULT_CONTENT_SETTINGS' paddingY (32px) was sized for the legacy
+      // singleton doc — a big, flexible page-body editor meant to hold a
+      // lot of content. A new per-widget block starts as just one small
+      // widget, and each block's settings are independent (see the Style
+      // tab), so give it a tight default instead of inheriting that budget
+      // — otherwise the unfocused static-preview rendering (DynamicPageRenderer,
+      // which is what most blocks show most of the time) pads out 64px of
+      // empty vertical space around a single Heading or Button.
+      const newBlock: RichBlockEntry = { id, content: normalizeLandingContent(undefined, { paddingY: 8 }) };
+      const order = resolveSectionOrder(templateData.sectionOrder);
+      const newOrder = [...order];
+      newOrder.splice(Math.max(0, Math.min(newOrder.length, gapIndex)), 0, sectionKey);
+      setTemplateData({
+        ...templateData,
+        richBlocks: [...(templateData.richBlocks || []), newBlock],
+        sectionOrder: newOrder,
+      });
+      setSelectedTplSection(sectionKey);
+      setTplFocusNonce((n) => n + 1);
+      // Deliberately does NOT switch to the Template tab (unlike
+      // insertTplBlock) — dynamic rich blocks have no settings card there
+      // (see the sidebar palette filter in template-editor.tsx), and a drop
+      // from the Elements tab should keep the user right where they are.
+      // settingsOverride passes newBlock's own settings directly — focusRichBlock
+      // reading them back off templateData.richBlocks would hit this render's
+      // stale closure, from before the setTemplateData call just above lands.
+      focusRichBlock(id, { seedElementType, settingsOverride: newBlock.content.settings });
+    },
+    [templateData, setTemplateData, focusRichBlock]
+  );
+
+  // Full delete (not hide) — only dynamic rich blocks get this; fixed
+  // template sections and the legacy singleton stay hide/show-only.
+  const removeRichBlock = useCallback(
+    (sectionKey: string) => {
+      if (!templateData || !setTemplateData) return;
+      const id = richBlockId(sectionKey);
+      const order = resolveSectionOrder(templateData.sectionOrder).filter((k) => k !== sectionKey);
+      setTemplateData({
+        ...templateData,
+        richBlocks: (templateData.richBlocks || []).filter((b: RichBlockEntry) => b.id !== id),
+        sectionOrder: order,
+      });
+      if (focusedBlockIdRef.current === id) focusRichBlock(null);
+      setSelectedTplSection((prev) => (prev === sectionKey ? null : prev));
+      toast.success("Rich content block removed");
+    },
+    [templateData, setTemplateData, focusRichBlock]
+  );
+
+  const insertTplBlock = useCallback(
+    (key: string, gapIndex: number) => {
+      if (key === "__newRichBlock") {
+        insertRichBlockAt(gapIndex);
+        return;
+      }
+      if (!templateData || !setTemplateData) return;
+      let next: LandingTemplateData = templateData;
+      let sectionKey = key;
+      if (key === "__newContentBlock") {
+        sectionKey = "contentBlocks";
+        next = {
+          ...next,
+          contentBlocks: [
+            ...(next.contentBlocks || []),
+            {
+              enabled: true,
+              layout: "media-left" as const,
+              mediaType: "image" as const,
+              mediaUrl: "",
+              textFormat: "plain" as const,
+              heading: "New Content Block",
+              content: "Write your content here...",
+            },
+          ],
+        };
+      } else {
+        next = applySectionVisibility(next, key, true);
+      }
+      const order = resolveSectionOrder(next.sectionOrder);
+      const from = order.indexOf(sectionKey);
+      const newOrder = [...order];
+      newOrder.splice(from, 1);
+      const target = Math.max(0, Math.min(newOrder.length, gapIndex > from ? gapIndex - 1 : gapIndex));
+      newOrder.splice(target, 0, sectionKey);
+      setTemplateData({ ...next, sectionOrder: newOrder });
+      setSelectedTplSection(sectionKey);
+      setTplFocusNonce((n) => n + 1);
+      setActiveTab("template");
+      toast.success(`${SECTION_LABELS[sectionKey] || sectionKey} added to page`);
+    },
+    [templateData, setTemplateData, insertRichBlockAt]
+  );
+
+  const tplInsertableBlocks = useMemo(() => {
+    if (!templateData) return [];
+    const hidden = (CANONICAL_SECTIONS as readonly string[])
+      .filter((k) => k !== "richContent" && !getSectionVisibility(templateData, k))
+      .map((k) => ({ key: k, label: SECTION_LABELS[k] || k }));
+    return [
+      { key: "__newContentBlock", label: "Content Block (new)" },
+      { key: "__newRichBlock", label: "Rich Content Block (new)" },
+      ...hidden,
+    ];
+  }, [templateData]);
+
+  const tplBridge: TemplateEditorBridge | undefined =
+    templateData && setTemplateData
+      ? {
+          selectedSection: selectedTplSection,
+          onSelectSection: selectTplSection,
+          onMoveSection: moveTplSection,
+          onMoveSectionTo: moveTplSectionTo,
+          onToggleVisibility: toggleTplVisibility,
+          onInsertBlock: insertTplBlock,
+          onDuplicateSection: (key: string) => {
+            if (key === "contentBlocks") {
+              const order = resolveSectionOrder(templateData.sectionOrder);
+              insertTplBlock("__newContentBlock", order.indexOf("contentBlocks") + 1);
+            }
+          },
+          insertableBlocks: tplInsertableBlocks,
+          focusedBlockId: focusedRichBlockId ? `richContent:${focusedRichBlockId}` : "richContent",
+          onFocusRichBlock: (key: string) => focusRichBlock(key === "richContent" ? null : richBlockId(key)),
+          onInsertRichBlockWithElement: (elementType: string, gapIndex: number) =>
+            insertRichBlockAt(gapIndex, elementType),
+          onRemoveRichBlock: removeRichBlock,
+        }
+      : undefined;
+
+  // Propagate content/settings changes upward — routed to whichever rich
+  // block is *currently* focused (read from the ref, never a value stale
+  // from the render that created this closure), or the legacy page-level
+  // `content` prop when nothing dynamic is focused.
   const emitChange = useCallback(
     (doc: any, s: LandingContentSettings) => {
       lastEmittedDocJson.current = JSON.stringify(doc);
+      const blockId = focusedBlockIdRef.current;
+      if (blockId && templateData && setTemplateData) {
+        setTemplateData({
+          ...templateData,
+          richBlocks: (templateData.richBlocks || []).map((b: RichBlockEntry) =>
+            b.id === blockId ? { ...b, content: { doc, settings: s } } : b
+          ),
+        });
+        return;
+      }
       onChange({ doc, settings: s });
     },
-    [onChange]
+    [onChange, templateData, setTemplateData]
   );
 
   // When settings change, emit
@@ -761,6 +1215,11 @@ export function RichEditor({
   // Tracks which kind of element was last selected so we only auto-switch the
   // side panel to "Style" on a *new* selection (and not on every caret move).
   const lastElementKindRef = useRef<string | null>(null);
+  // While a widget-grid insert is in flight, don't let the resulting
+  // selection change auto-open an (ancestor) element's properties panel —
+  // that would yank the Insert Elements grid away mid-flow when e.g. a Quote
+  // is inserted inside a previously added Section or Two-Column block.
+  const suppressPanelRef = useRef(0);
   // Human-readable label for the currently selected block (shown in the
   // floating action bar so the user always knows what they're editing).
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
@@ -823,30 +1282,79 @@ export function RichEditor({
     // --- Content blocks (atom nodes → NodeSelection on click) ---
     const isContentBlock = !!nodeSel && CONTENT_BLOCK_TYPES.includes(nodeSel.type.name);
 
-    // --- Section / two-column: walk ancestors, or the node itself ---
-    let foundTwoCol = false;
-    let foundSection = false;
+    // --- Layout containers (two-col / section / flexbox / grid): the
+    // selected node itself, else walk ancestors innermost-first so the
+    // nearest container's panel wins when containers nest.
+    const syncContainer = (name: string, attrs: Record<string, any>) => {
+      if (name === "twoColumnSection") {
+        setTwoColAttrs({ ...DEFAULT_TWO_COL_ATTRS, ...(attrs as Partial<TwoColumnAttrs>) });
+        return "twocol" as const;
+      }
+      if (name === "pageSection") {
+        setSectionAttrs({ ...DEFAULT_SECTION_ATTRS, ...(attrs as Partial<PageSectionAttrs>) });
+        return "section" as const;
+      }
+      if (name === "flexboxContainer") {
+        setFlexAttrs({ ...DEFAULT_FLEXBOX_ATTRS, ...(attrs as Partial<FlexboxAttrs>) });
+        return "flexbox" as const;
+      }
+      if (name === "gridContainer") {
+        setGridAttrs({ ...DEFAULT_GRID_ATTRS, ...(attrs as Partial<GridAttrs>) });
+        return "grid" as const;
+      }
+      return null;
+    };
 
-    if (nodeSel?.type?.name === "twoColumnSection") {
-      setTwoColAttrs({ ...DEFAULT_TWO_COL_ATTRS, ...(nodeSel.attrs as Partial<TwoColumnAttrs>) });
-      foundTwoCol = true;
-    }
-    if (nodeSel?.type?.name === "pageSection") {
-      setSectionAttrs({ ...DEFAULT_SECTION_ATTRS, ...(nodeSel.attrs as Partial<PageSectionAttrs>) });
-      foundSection = true;
-    }
+    // Reset the targeting refs each sync; they're only repopulated for the
+    // innermost matching node so edits always land on the cell/container the
+    // panel is actually showing.
+    flexItemPosRef.current = null;
+    gridItemPosRef.current = null;
+    flexContainerPosRef.current = null;
+    gridContainerPosRef.current = null;
 
+    let containerKind: "twocol" | "section" | "flexbox" | "grid" | null = nodeSel
+      ? syncContainer(nodeSel.type.name, nodeSel.attrs)
+      : null;
+    // A directly-selected (NodeSelection) container: its position is sel.from.
+    if (nodeSel?.type?.name === "flexboxContainer") flexContainerPosRef.current = sel.from;
+    if (nodeSel?.type?.name === "gridContainer") gridContainerPosRef.current = sel.from;
+    let flexCell: { index: number; count: number } | null = null;
+    let gridCell: { index: number; count: number } | null = null;
     for (let depth = $from.depth; depth > 0; depth--) {
       const ancestor = $from.node(depth);
-      if (ancestor.type.name === "twoColumnSection" && !foundTwoCol) {
-        setTwoColAttrs({ ...DEFAULT_TWO_COL_ATTRS, ...(ancestor.attrs as Partial<TwoColumnAttrs>) });
-        foundTwoCol = true;
+      // Only the nearest (innermost) container's attrs should ever populate
+      // the panel — once containerKind is set (by the NodeSelection itself,
+      // or by a deeper ancestor earlier in this same loop), skip calling
+      // syncContainer for any further-out ancestor. Without this guard, a
+      // flexbox nested inside a flexbox (or grid-in-grid) would call
+      // setFlexAttrs/setGridAttrs a second time for the OUTER container and
+      // clobber the inner one's values in the panel — even though
+      // flexContainerPosRef below still (correctly) targets the inner one,
+      // so edits would land on a different node than the one being shown.
+      if (!containerKind) {
+        const found = syncContainer(ancestor.type.name, ancestor.attrs);
+        if (found) containerKind = found;
       }
-      if (ancestor.type.name === "pageSection" && !foundSection) {
-        setSectionAttrs({ ...DEFAULT_SECTION_ATTRS, ...(ancestor.attrs as Partial<PageSectionAttrs>) });
-        foundSection = true;
+      if (ancestor.type.name === "flexboxContainer" && flexContainerPosRef.current === null) {
+        flexContainerPosRef.current = $from.before(depth);
+      }
+      if (ancestor.type.name === "gridContainer" && gridContainerPosRef.current === null) {
+        gridContainerPosRef.current = $from.before(depth);
+      }
+      if (ancestor.type.name === "flexItem" && !flexCell) {
+        setFlexItemAttrs({ ...DEFAULT_FLEX_ITEM_ATTRS, ...(ancestor.attrs as Partial<FlexItemAttrs>) });
+        flexItemPosRef.current = $from.before(depth);
+        flexCell = { index: $from.index(depth - 1), count: $from.node(depth - 1).childCount };
+      }
+      if (ancestor.type.name === "gridItem" && !gridCell) {
+        setGridItemAttrs({ ...DEFAULT_GRID_ITEM_ATTRS, ...(ancestor.attrs as Partial<GridItemAttrs>) });
+        gridItemPosRef.current = $from.before(depth);
+        gridCell = { index: $from.index(depth - 1), count: $from.node(depth - 1).childCount };
       }
     }
+    setFlexCellInfo(flexCell);
+    setGridCellInfo(gridCell);
 
     // --- Determine selected kind ---
     const kind = isButton
@@ -859,11 +1367,7 @@ export function RichEditor({
       ? "video"
       : isContentBlock
       ? nodeSel!.type.name
-      : foundTwoCol
-      ? "twocol"
-      : foundSection
-      ? "section"
-      : null;
+      : containerKind;
 
     // A transaction from one of OUR OWN attribute-update commands (typing in
     // a field, dragging a color/slider) can transiently resolve to no
@@ -874,6 +1378,11 @@ export function RichEditor({
     // (closeElementProperties).
     if (!kind) return;
 
+    // Attribute state above is already synced; skip the panel reveal while a
+    // widget-grid insert is in flight (see suppressPanelRef) so the Insert
+    // Elements grid doesn't vanish mid-flow.
+    if (Date.now() < suppressPanelRef.current) return;
+
     const labels: Record<string, string> = {
       button: "Button",
       image: "Image",
@@ -881,6 +1390,8 @@ export function RichEditor({
       video: "Video",
       twocol: "Two-Column",
       section: "Section",
+      flexbox: "Flexbox",
+      grid: "Grid",
       featureGrid: "Feature Grid",
       statsRow: "Stats",
       faqAccordion: "FAQ",
@@ -899,6 +1410,8 @@ export function RichEditor({
     setShowVideoPanel(kind === "video");
     setShowTwoColPanel(kind === "twocol");
     setShowSectionPanel(kind === "section");
+    setShowFlexPanel(kind === "flexbox");
+    setShowGridPanel(kind === "grid");
     setActiveBlock(isContentBlock ? { type: nodeSel!.type.name, attrs: { ...nodeSel!.attrs } } : null);
     setSelectedLabel(labels[kind]);
 
@@ -931,6 +1444,8 @@ export function RichEditor({
     setShowVideoPanel(false);
     setShowTwoColPanel(false);
     setShowSectionPanel(false);
+    setShowFlexPanel(false);
+    setShowGridPanel(false);
     setActiveBlock(null);
     setSelectedLabel(null);
     lastElementKindRef.current = null;
@@ -939,7 +1454,19 @@ export function RichEditor({
   // ---- TipTap editor ----
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3, 4] },
+        // Violet insertion line while dragging widgets over the canvas.
+        dropcursor: { color: "#7c3aed", width: 3 },
+        // StarterKit v3 bundles TrailingNode, whose appendTransaction force-
+        // appends an empty paragraph whenever the doc doesn't end in one —
+        // so every widget dropped from the Elements tab grew a stray
+        // paragraph under it that no delete/setContent could remove (the
+        // plugin re-added it in the same dispatch). This canvas holds
+        // discrete widgets, not free-flowing prose; typing after a trailing
+        // widget still works via the gap cursor.
+        trailingNode: false,
+      }),
       ResizableImage.configure({
         HTMLAttributes: { class: "rounded-lg max-w-full" },
       }),
@@ -968,6 +1495,10 @@ export function RichEditor({
       TwoColumnSection,
       ColumnMedia,
       ColumnContent,
+      FlexboxContainer,
+      FlexItem,
+      GridContainer,
+      GridItem,
       PageSection,
       LeadForm,
       FeatureGrid,
@@ -994,9 +1525,18 @@ export function RichEditor({
     editorProps: {
       attributes: {
         // `tiptap` class is required for the canvas hover/selection styles in
-        // globals.css to apply.
-        class:
-          "tiptap prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[600px] px-6 py-4",
+        // globals.css to apply. The large min-height and generous vertical
+        // padding only make sense for the legacy singleton doc (meant to
+        // feel like a big flexible page body with room to work in) —
+        // applying them to every small, freshly created per-widget block
+        // left each one with hundreds of pixels of blank space below one
+        // Heading/Button, since this class is shared by whichever block is
+        // currently focused. Dynamic blocks just size to their own content;
+        // the empty-state hint wrapper elsewhere already provides its own
+        // small minHeight for a truly empty block.
+        class: `tiptap prose prose-sm sm:prose-base max-w-none focus:outline-none px-6 ${
+          focusedRichBlockId ? "py-2 rich-block-focused" : "py-4 min-h-[600px]"
+        }`,
       },
       // Links must never navigate/open inside the editor — clicking one should
       // only place the cursor so editing flow isn't disturbed.
@@ -1009,21 +1549,29 @@ export function RichEditor({
     immediatelyRender: false,
   });
 
-  // Sync external content changes
+  // Sync external content changes — `activeDoc` is the focused block's doc
+  // (or the legacy page-level doc when nothing dynamic is focused), so this
+  // also fires on every focus swap, since lastEmittedDocJson gets reset to
+  // null there specifically to force it to run.
   useEffect(() => {
-    if (!editor || !content?.doc) return;
-    const nextJson = JSON.stringify(content.doc);
+    if (!editor || !activeDoc) return;
+    const nextJson = JSON.stringify(activeDoc);
     // This is just our own change echoed back through the parent — the
     // editor's live state (and selection) is already correct, so leave it
     // alone. Only a doc that differs from what we last emitted is a genuine
-    // external change (initial load, switching pages, etc.) worth applying.
+    // external change (initial load, switching pages/blocks, etc.) worth
+    // applying.
     if (nextJson === lastEmittedDocJson.current) return;
     const currentJson = JSON.stringify(editor.getJSON());
     if (currentJson !== nextJson) {
-      suppressNextUpdate.current = true;
-      editor.commands.setContent(content.doc);
+      // setContent does NOT emit an update, so never arm suppressNextUpdate
+      // here — an armed flag would swallow the user's next real edit (the
+      // first keystroke/deletion after load never reached parent state).
+      // Recording what we applied is enough to break any echo loop.
+      editor.commands.setContent(activeDoc);
+      lastEmittedDocJson.current = nextJson;
     }
-  }, [editor, content?.doc]);
+  }, [editor, activeDoc]);
 
   // ---- Inject delete buttons on every block element in the canvas ----
   useEffect(() => {
@@ -1417,6 +1965,184 @@ export function RichEditor({
     [editor]
   );
 
+  // ---- Flexbox / Grid layout containers ----
+  const insertFlexbox = useCallback(() => {
+    editor?.commands.insertFlexbox({ cells: 2 });
+  }, [editor]);
+
+  const insertGridBox = useCallback(() => {
+    editor?.commands.insertGridBox({ columns: 3 });
+  }, [editor]);
+
+  // Flexbox/Grid containers and cells render through ProseMirror's default
+  // (non-custom) node view too, so an attribute change swaps their DOM
+  // element the same way images/videos do (see updateAtomNodeAttrs above) —
+  // exposing them to the same async-selectionchange-resets-the-selection
+  // failure mode. Unlike those atoms though, a container is usually being
+  // edited while the caret sits INSIDE one of its cells (a TextSelection),
+  // not via a NodeSelection on the container itself — only reassert a
+  // NodeSelection when the container/cell really was what was NodeSelected
+  // before the edit (e.g. via the right-click "Select block" menu), so a
+  // plain TextSelection inside a cell is left to ProseMirror's own (already
+  // correct) mapping instead of being hijacked into selecting the whole
+  // container on every settings tweak. Returns false (pos missing/stale) so
+  // callers can fall back to the position-agnostic "nearest" command.
+  const updateContainerAttrs = useCallback(
+    (
+      typeName: "flexboxContainer" | "gridContainer" | "flexItem" | "gridItem",
+      attrs: Record<string, any>,
+      pos: number | null
+    ) => {
+      if (!editor || pos == null) return false;
+      const node = editor.state.doc.nodeAt(pos);
+      if (!node || node.type.name !== typeName) return false;
+      const sel = editor.state.selection as any;
+      const wasNodeSelected = sel.node && sel.node.type.name === typeName && sel.from === pos;
+      const tr = editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attrs });
+      if (wasNodeSelected) tr.setSelection(NodeSelection.create(tr.doc, pos));
+      editor.view.dispatch(tr);
+      if (wasNodeSelected) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => reassertNodeSelection(typeName, pos));
+        });
+      }
+      return true;
+    },
+    [editor, reassertNodeSelection]
+  );
+
+  const updateFlexAttr = useCallback(
+    (key: keyof FlexboxAttrs, value: any) => {
+      if (!editor) return;
+      setFlexAttrs((prev) => ({ ...prev, [key]: value }));
+      if (!updateContainerAttrs("flexboxContainer", { [key]: value }, flexContainerPosRef.current)) {
+        editor.commands.updateFlexbox({ [key]: value });
+      }
+    },
+    [editor, updateContainerAttrs]
+  );
+
+  const updateFlexItemAttr = useCallback(
+    (key: keyof FlexItemAttrs, value: any) => {
+      if (!editor) return;
+      setFlexItemAttrs((prev) => ({ ...prev, [key]: value }));
+      if (!updateContainerAttrs("flexItem", { [key]: value }, flexItemPosRef.current)) {
+        editor.commands.updateFlexItem({ [key]: value });
+      }
+    },
+    [editor, updateContainerAttrs]
+  );
+
+  const updateGridAttr = useCallback(
+    (key: keyof GridAttrs, value: any) => {
+      if (!editor) return;
+      setGridAttrs((prev) => ({ ...prev, [key]: value }));
+      if (!updateContainerAttrs("gridContainer", { [key]: value }, gridContainerPosRef.current)) {
+        editor.commands.updateGridBox({ [key]: value });
+      }
+    },
+    [editor, updateContainerAttrs]
+  );
+
+  const updateGridItemAttr = useCallback(
+    (key: keyof GridItemAttrs, value: any) => {
+      if (!editor) return;
+      setGridItemAttrs((prev) => ({ ...prev, [key]: value }));
+      if (!updateContainerAttrs("gridItem", { [key]: value }, gridItemPosRef.current)) {
+        editor.commands.updateGridItem({ [key]: value });
+      }
+    },
+    [editor, updateContainerAttrs]
+  );
+
+  // The legacy page-level Rich Content slot is hidden whenever its doc is
+  // empty (see isLegacyRichContentEmpty). In that state a palette click with
+  // no dynamic block focused would otherwise silently edit the hidden legacy
+  // doc — instead, seed a fresh individual block at the end of the page,
+  // exactly like dropping the element into the last gap.
+  const legacyRichHidden = useMemo(() => isLegacyRichContentEmpty(content), [content]);
+
+  const paletteInsert = useCallback(
+    (type: string, fallback: () => void) => {
+      if (legacyRichHidden && !focusedBlockIdRef.current && templateData && setTemplateData) {
+        insertRichBlockAt(resolveSectionOrder(templateData.sectionOrder).length, type);
+        return;
+      }
+      fallback();
+    },
+    [legacyRichHidden, templateData, setTemplateData, insertRichBlockAt]
+  );
+
+  const addLayoutCell = useCallback(
+    (containerType: "flexboxContainer" | "gridContainer") => {
+      if (!editor) return;
+      if (editor.commands.addLayoutCell(containerType)) {
+        toast.success("Cell added");
+      }
+    },
+    [editor]
+  );
+
+  // Explicitly select cell `index` of the current flex/grid container so its
+  // per-cell properties can be edited — clicking small empty cells directly on
+  // the zoomed canvas is fiddly, so the panel offers a chip per cell. Places
+  // the caret inside the cell, which drives syncSelection → the "Selected
+  // Cell" panel and the targeting refs update to that exact cell.
+  const selectLayoutCell = useCallback(
+    (containerType: "flexboxContainer" | "gridContainer", index: number) => {
+      if (!editor) return;
+      const containerPos =
+        containerType === "flexboxContainer"
+          ? flexContainerPosRef.current
+          : gridContainerPosRef.current;
+      if (containerPos == null) return;
+      const container = editor.state.doc.nodeAt(containerPos);
+      if (!container || index < 0 || index >= container.childCount) return;
+      let cellPos = containerPos + 1;
+      for (let j = 0; j < index; j++) cellPos += container.child(j).nodeSize;
+      const sel = TextSelection.near(editor.state.doc.resolve(cellPos + 1));
+      editor.view.dispatch(editor.state.tr.setSelection(sel).scrollIntoView());
+      editor.view.focus();
+    },
+    [editor]
+  );
+
+  const removeLayoutCell = useCallback(
+    (containerType: "flexboxContainer" | "gridContainer") => {
+      if (!editor) return;
+      if (editor.commands.removeLayoutCell(containerType)) {
+        toast.success("Cell removed");
+      } else {
+        toast.error("A layout needs at least one cell — delete the whole layout instead");
+      }
+    },
+    [editor]
+  );
+
+  // Delete the whole flexbox/grid container the cursor is in.
+  const deleteLayoutContainer = useCallback(
+    (containerType: "flexboxContainer" | "gridContainer") => {
+      if (!editor) return;
+      const sel = editor.state.selection as any;
+      const { state } = editor;
+      if (sel.node && sel.node.type.name === containerType) {
+        editor.chain().focus().deleteSelection().run();
+      } else {
+        const { $from } = state.selection;
+        for (let depth = $from.depth; depth > 0; depth--) {
+          if ($from.node(depth).type.name === containerType) {
+            const pos = $from.before(depth);
+            editor.view.dispatch(state.tr.delete(pos, pos + $from.node(depth).nodeSize));
+            break;
+          }
+        }
+      }
+      closeElementProperties();
+      toast.success(containerType === "flexboxContainer" ? "Flexbox removed" : "Grid removed");
+    },
+    [editor, closeElementProperties]
+  );
+
   const handleBgImageUpload = useCallback(() => {
     bgImageInputRef.current?.click();
   }, []);
@@ -1539,12 +2265,232 @@ export function RichEditor({
   const insertTestimonialCards = useCallback(() => {
     editor?.commands.insertTestimonialCards({ accentColor: themeColors?.primary ?? "#7c3aed" });
   }, [editor, themeColors]);
-  const insertMarqueeStrip = useCallback(() => {
-    editor?.commands.insertMarqueeStrip({ backgroundColor: themeColors?.primary ?? "#7c3aed" });
-  }, [editor, themeColors]);
   const insertImageGallery = useCallback(() => {
     editor?.commands.insertImageGallery();
   }, [editor]);
+
+  // -------------------------------------------------------------------------
+  // Drag widgets from the Elements panel onto the canvas: the drop lands at
+  // the exact position in the rich content (ProseMirror's dropcursor shows
+  // the insertion line while dragging; we intercept the drop before
+  // ProseMirror pastes the raw payload as text).
+  // -------------------------------------------------------------------------
+  const insertElementByType = useCallback(
+    (type: string, pos: number) => {
+      if (!editor) return;
+      // A brand-new block still holds TipTap's default single empty
+      // paragraph (see normalizeLandingContent). Inserting AT a position
+      // leaves that placeholder behind as an invisible trailing blank
+      // paragraph — replace the whole (empty) doc range instead so the
+      // dropped widget becomes the block's only content, not a sibling of
+      // dead space. Non-empty docs (dropping into existing content) are
+      // unaffected — `target` stays a plain insertion point there.
+      // NOT editor.isEmpty — that reports true for any doc with no *text*,
+      // including one whose only content is a flexbox/grid with empty cells,
+      // and the whole-doc replacement below would then swallow the container
+      // (merging its cells into whatever was dropped). "Empty" here strictly
+      // means the single blank paragraph a brand-new block is born with.
+      const docNode = editor.state.doc;
+      const wasEmpty =
+        docNode.childCount === 1 &&
+        docNode.firstChild!.type.name === "paragraph" &&
+        docNode.firstChild!.content.size === 0;
+      let target: number | { from: number; to: number } = pos;
+      if (wasEmpty) {
+        target = { from: 0, to: editor.state.doc.content.size };
+      } else {
+        // `pos` sits at a block boundary. If it borders an empty paragraph
+        // (e.g. the placeholder a fresh flex/grid cell starts with), aim the
+        // caret INSIDE that paragraph instead: a caret in an empty textblock
+        // is always a valid TextSelection (a raw boundary inside an
+        // isolating cell is not, and the insert would escape the cell), and
+        // insertContent/insertContentAt auto-expand an empty textblock so
+        // the placeholder is replaced by the dropped element, not kept as a
+        // stray sibling.
+        try {
+          const $b = editor.state.doc.resolve(pos);
+          const after = $b.nodeAfter;
+          const before = $b.nodeBefore;
+          if (after && after.type.name === "paragraph" && after.content.size === 0) {
+            target = pos + 1;
+          } else if (before && before.type.name === "paragraph" && before.content.size === 0) {
+            target = pos - before.nodeSize + 1;
+          }
+        } catch {
+          // keep the raw boundary
+        }
+      }
+      const at = editor.chain().focus().setTextSelection(target);
+      switch (type) {
+        case "heading":
+          at.insertContentAt(target, { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "New Heading" }] }).run();
+          break;
+        case "text":
+          at.insertContentAt(target, { type: "paragraph", content: [{ type: "text", text: "New text block. Click to edit." }] }).run();
+          break;
+        case "quote":
+          at.insertContentAt(target, { type: "blockquote", content: [{ type: "paragraph", content: [{ type: "text", text: "A memorable quote goes here." }] }] }).run();
+          break;
+        case "list":
+          at.insertContentAt(target, { type: "bulletList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "First item" }] }] }] }).run();
+          break;
+        case "numbered":
+          at.insertContentAt(target, { type: "orderedList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "First item" }] }] }] }).run();
+          break;
+        case "divider":
+          at.insertContentAt(target, { type: "horizontalRule" }).run();
+          break;
+        case "code":
+          at.insertContentAt(target, { type: "codeBlock", content: [{ type: "text", text: "// code" }] }).run();
+          break;
+        // The rest insert at the current selection, which we just placed at
+        // the drop position.
+        case "image":
+          at.run();
+          handleImageUpload();
+          break;
+        case "button":
+          at.run();
+          insertButton();
+          break;
+        case "video":
+          at.run();
+          addYoutubeVideo();
+          break;
+        case "section":
+          at.run();
+          insertSection();
+          break;
+        case "form":
+          at.run();
+          insertLeadForm();
+          break;
+        // Legacy payloads from before 2-Col was replaced by Flexbox/Grid in
+        // the palette — an in-flight drag or stale client can still emit them.
+        case "twocol-left":
+          at.run();
+          insertTwoCol("media-left");
+          break;
+        case "twocol-right":
+          at.run();
+          insertTwoCol("media-right");
+          break;
+        case "flexbox":
+          at.run();
+          insertFlexbox();
+          break;
+        case "grid":
+          at.run();
+          insertGridBox();
+          break;
+        case "featureGrid":
+          at.run();
+          insertFeatureGrid();
+          break;
+        case "statsRow":
+          at.run();
+          insertStatsRow();
+          break;
+        case "faqAccordion":
+          at.run();
+          insertFaqAccordion();
+          break;
+        case "testimonialCards":
+          at.run();
+          insertTestimonialCards();
+          break;
+        case "imageGallery":
+          at.run();
+          insertImageGallery();
+          break;
+        default:
+          return;
+      }
+      // Seeding a brand-new block: the placeholder paragraph the block was
+      // born with (normalizeLandingContent) can survive the insert as an
+      // empty trailing paragraph — residue, not user content, so strip it.
+      // (The old TrailingNode extension that used to re-add it on every
+      // dispatch is disabled in the StarterKit config above, so this
+      // cleanup actually sticks now.) Only runs for wasEmpty — a non-empty
+      // doc's own trailing paragraph is real user content.
+      if (wasEmpty) {
+        const doc = editor.state.doc;
+        const last = doc.lastChild;
+        if (doc.childCount > 1 && last && last.type.name === "paragraph" && last.content.size === 0) {
+          const json = editor.getJSON();
+          const cleaned = { type: "doc", content: (json.content || []).slice(0, -1) };
+          editor.commands.setContent(cleaned);
+          // setContent deliberately doesn't fire onUpdate (it's also used to
+          // apply externally-sourced docs without re-triggering a save) —
+          // so this cleanup's result has to be persisted explicitly, or the
+          // trailing paragraph reappears the moment the block is saved,
+          // reloaded, or its static preview is rendered from stale data.
+          lastEmittedDocJson.current = JSON.stringify(cleaned);
+          emitChange(cleaned, settings);
+        }
+      }
+    },
+    [editor, handleImageUpload, insertButton, addYoutubeVideo, insertSection, insertLeadForm, insertTwoCol, insertFlexbox, insertGridBox, insertFeatureGrid, insertStatsRow, insertFaqAccordion, insertTestimonialCards, insertImageGallery, emitChange, settings]
+  );
+
+  // Consumes a widget queued by insertRichBlockAt/focusRichBlock: once the
+  // editor's content genuinely reflects the newly-focused (empty) block's
+  // doc — applied synchronously by the content-sync effect above, which
+  // always runs first since it's declared earlier in this component and
+  // React fires effects in declaration order — insert the widget that was
+  // dropped to create this block in the first place.
+  useEffect(() => {
+    if (!editor || !pendingSeedElementType) return;
+    const type = pendingSeedElementType;
+    setPendingSeedElementType(null);
+    insertElementByType(type, 0);
+  }, [editor, pendingSeedElementType, insertElementByType]);
+
+  const handleCanvasDropCapture = useCallback(
+    (e: React.DragEvent) => {
+      if (!editor || !e.dataTransfer.types.includes(RICH_ELEMENT_DND_TYPE)) return;
+      const targetEl = e.target as HTMLElement | null;
+      // Only over the currently-focused block's own contenteditable root —
+      // a static (unfocused) block's preview never carries the `.tiptap`
+      // class, but this identity check guards against it explicitly rather
+      // than relying on that by construction.
+      if (targetEl?.closest?.(".tiptap") !== editor.view.dom) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const type = e.dataTransfer.getData(RICH_ELEMENT_DND_TYPE);
+      const coords = editor.view.posAtCoords({ left: e.clientX, top: e.clientY });
+      let boundary = coords ? coords.pos : editor.state.doc.content.size;
+      // Snap to the nearest block boundary (drop above or below the block
+      // under the pointer) so elements never split a paragraph midway.
+      // Normally that's a TOP-LEVEL boundary, but a drop over a flex/grid
+      // cell should land INSIDE that cell, so there the snap happens at the
+      // cell's own child depth instead.
+      try {
+        const $p = editor.state.doc.resolve(boundary);
+        let cellDepth = 0; // 0 = doc, i.e. snap between top-level blocks
+        for (let depth = $p.depth; depth > 0; depth--) {
+          const name = $p.node(depth).type.name;
+          if (name === "flexItem" || name === "gridItem") {
+            cellDepth = depth;
+            break;
+          }
+        }
+        if ($p.depth > cellDepth) {
+          const blockPos = $p.before(cellDepth + 1);
+          const blockNode = editor.state.doc.nodeAt(blockPos);
+          const dom = editor.view.nodeDOM(blockPos) as HTMLElement | null;
+          if (blockNode && dom?.getBoundingClientRect) {
+            const rect = dom.getBoundingClientRect();
+            boundary = e.clientY < rect.top + rect.height / 2 ? blockPos : blockPos + blockNode.nodeSize;
+          }
+        }
+      } catch {
+        // fall back to the raw position
+      }
+      insertElementByType(type, boundary);
+    },
+    [editor, insertElementByType]
+  );
 
   // Update one attribute on the currently-selected content block. The editor's
   // onUpdate → syncSelection re-reads the node, so the panel stays in sync; we
@@ -1581,6 +2527,8 @@ export function RichEditor({
     const sel = selection as any;
     if (sel.node) {
       editor.chain().focus().deleteSelection().run();
+      // The element is gone — close its (now stale) properties panel.
+      closeElementProperties();
       toast.success("Element removed");
       return;
     }
@@ -1590,6 +2538,8 @@ export function RichEditor({
     const deletableTypes = new Set([
       "twoColumnSection",
       "pageSection",
+      "flexboxContainer",
+      "gridContainer",
       "customButton",
       "blockquote",
       "codeBlock",
@@ -1604,6 +2554,7 @@ export function RichEditor({
         const pos = $from.before(depth);
         const tr = state.tr.delete(pos, pos + node.nodeSize);
         editor.view.dispatch(tr);
+        closeElementProperties();
         toast.success("Element removed");
         return;
       }
@@ -1612,7 +2563,7 @@ export function RichEditor({
 
     // Fallback: delete the current block
     editor.chain().focus().deleteNode("paragraph").run();
-  }, [editor]);
+  }, [editor, closeElementProperties]);
 
   // ---- Duplicate the currently selected block element ----
   const duplicateSelectedNode = useCallback(() => {
@@ -1787,13 +2738,236 @@ export function RichEditor({
     }
   }, [editor]);
 
+  // -------------------------------------------------------------------------
+  // Right-click context menu
+  // -------------------------------------------------------------------------
+
+  // Select the node that starts at `pos` as a ProseMirror NodeSelection. This
+  // reuses the app's existing selection→panel wiring (syncSelection), so the
+  // matching Properties panel opens exactly as it would on a normal click.
+  const selectNodeAt = useCallback(
+    (pos: number) => {
+      if (!editor) return;
+      try {
+        const sel = NodeSelection.create(editor.state.doc, pos);
+        editor.view.dispatch(editor.state.tr.setSelection(sel).scrollIntoView());
+        editor.view.focus();
+      } catch {
+        /* node no longer selectable at this pos — ignore */
+      }
+    },
+    [editor]
+  );
+
+  // Move the block that starts at `pos` up/down among its siblings.
+  const moveNodeAt = useCallback(
+    (pos: number, dir: -1 | 1) => {
+      if (!editor) return;
+      const { state } = editor;
+      const node = state.doc.nodeAt(pos);
+      if (!node) return;
+      try {
+        const $pos = state.doc.resolve(pos);
+        const index = $pos.index();
+        const parent = $pos.parent;
+        if (dir === -1 && index === 0) {
+          toast.error("Already at the top");
+          return;
+        }
+        if (dir === 1 && index >= parent.childCount - 1) {
+          toast.error("Already at the bottom");
+          return;
+        }
+        let tr = state.tr;
+        if (dir === -1) {
+          const prevPos = $pos.posAtIndex(index - 1);
+          tr = tr.delete(pos, pos + node.nodeSize);
+          tr = tr.insert(prevPos, node);
+          tr = tr.setSelection(NodeSelection.create(tr.doc, prevPos));
+        } else {
+          const next = parent.child(index + 1);
+          const insertAt = pos + node.nodeSize + next.nodeSize;
+          tr = tr.insert(insertAt, node);
+          tr = tr.delete(pos, pos + node.nodeSize);
+          tr = tr.setSelection(NodeSelection.create(tr.doc, pos + next.nodeSize));
+        }
+        editor.view.dispatch(tr.scrollIntoView());
+        editor.view.focus();
+        toast.success(dir === -1 ? "Moved up" : "Moved down");
+      } catch {
+        toast.error("Couldn't move this element");
+      }
+    },
+    [editor]
+  );
+
+  const pasteFromClipboard = useCallback(async () => {
+    if (!editor) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) editor.chain().focus().insertContent(text).run();
+    } catch {
+      toast.error("Clipboard access blocked by the browser");
+    }
+  }, [editor]);
+
+  // Decide which menu (text vs block) to show for a right-click at the given
+  // viewport coordinates, adjust the editor selection to match, and open it.
+  const openContextMenu = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!editor) return;
+      const view = editor.view;
+      const posInfo = view.posAtCoords({ left: clientX, top: clientY });
+      if (!posInfo) return;
+
+      const { doc } = editor.state;
+      const clampedPos = Math.max(0, Math.min(posInfo.pos, doc.content.size));
+      const $pos = doc.resolve(clampedPos);
+
+      // 1) Atom/leaf element sitting directly under the click.
+      let atom: { type: string; pos: number } | null = null;
+      const candidates = [posInfo.inside, posInfo.pos, posInfo.pos - 1];
+      for (const p of candidates) {
+        if (p == null || p < 0 || p > doc.content.size) continue;
+        const n = doc.nodeAt(p);
+        if (n && CTX_ATOM_TYPES.has(n.type.name)) {
+          atom = { type: n.type.name, pos: p };
+          break;
+        }
+      }
+      if (!atom && $pos.nodeAfter && CTX_ATOM_TYPES.has($pos.nodeAfter.type.name)) {
+        atom = { type: $pos.nodeAfter.type.name, pos: clampedPos };
+      }
+
+      // 2) Layout-container ancestors (innermost first).
+      const containers: { type: string; label: string; pos: number }[] = [];
+      for (let d = $pos.depth; d >= 1; d--) {
+        const n = $pos.node(d);
+        if (CTX_CONTAINER_TYPES.has(n.type.name)) {
+          containers.push({
+            type: n.type.name,
+            label: CTX_ELEMENT_LABELS[n.type.name] || n.type.name,
+            pos: $pos.before(d),
+          });
+        }
+      }
+
+      const inText = $pos.parent.isTextblock;
+
+      let mode: "text" | "block" = "text";
+      let element: { type: string; label: string; pos: number } | undefined;
+
+      if (atom) {
+        mode = "block";
+        element = { type: atom.type, label: CTX_ELEMENT_LABELS[atom.type] || atom.type, pos: atom.pos };
+      } else if (!inText && containers.length) {
+        mode = "block";
+        element = containers[0];
+      }
+
+      if (mode === "block" && element) {
+        selectNodeAt(element.pos);
+      } else {
+        // Text menu: place the caret where the user clicked unless they
+        // right-clicked inside an existing (non-empty) text selection.
+        const { from, to } = editor.state.selection;
+        const insideSel = from !== to && clampedPos >= from && clampedPos <= to;
+        if (!insideSel) {
+          try {
+            view.dispatch(
+              editor.state.tr.setSelection(TextSelection.near(doc.resolve(clampedPos)))
+            );
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
+      const sel = editor.state.selection;
+      setCtxMenu({
+        x: clientX,
+        y: clientY,
+        mode,
+        element,
+        containers,
+        hasSelection: sel.from !== sel.to && !(sel as any).node,
+      });
+    },
+    [editor, selectNodeAt]
+  );
+
+  // Attach the native contextmenu listener to the editable surface. Bound to
+  // editor.view.dom (a stable node ProseMirror owns) so it survives the
+  // EditorContent remounts that happen when focus moves between rich blocks.
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom as HTMLElement;
+    const handler = (e: MouseEvent) => {
+      e.preventDefault();
+      openContextMenu(e.clientX, e.clientY);
+    };
+    dom.addEventListener("contextmenu", handler);
+    return () => dom.removeEventListener("contextmenu", handler);
+  }, [editor, openContextMenu]);
+
+  // Close the menu on Escape / resize. It deliberately does NOT close on
+  // scroll — the menu is position:fixed, so it stays put while the canvas
+  // scrolls beneath it. Click-outside (the backdrop) and Escape dismiss it.
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [ctxMenu]);
+
   if (!editor) return null;
 
   const wordCount = editor.getText().split(/\s+/).filter((w) => w).length;
   const charCount = editor.getText().length;
 
   // Check if any element-specific panel is active
-  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel || showVideoPanel || !!activeBlock;
+  const hasElementPanel = showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFlexPanel || showGridPanel || showFormPanel || showVideoPanel || !!activeBlock;
+
+  // How many cells the currently-targeted flex/grid container has, read live
+  // from the doc so the panel can render one "pick this cell" chip per cell —
+  // even when the whole container (not a specific cell) is selected.
+  const cellCountAt = (pos: number | null, containerType: string): number => {
+    if (pos == null) return 0;
+    const n = editor.state.doc.nodeAt(pos);
+    return n && n.type.name === containerType ? n.childCount : 0;
+  };
+  const flexCellCount = cellCountAt(flexContainerPosRef.current, "flexboxContainer");
+  const gridCellCount = cellCountAt(gridContainerPosRef.current, "gridContainer");
+
+  // ---- Context-menu action helpers (editor is non-null here) ----
+  const closeCtx = () => setCtxMenu(null);
+  const ctxRun = (fn: () => void) => {
+    fn();
+    closeCtx();
+  };
+  const openElementProperties = () => {
+    setPropertiesOpen(true);
+    setActiveTab("widgets");
+    requestAnimationFrame(() => {
+      document
+        .querySelector("[data-element-properties]")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+  const ctxClipboard = (cmd: "copy" | "cut") => {
+    try {
+      document.execCommand(cmd);
+    } catch {
+      toast.error("Clipboard action unavailable");
+    }
+  };
 
   return (
     <div className="flex h-full w-full min-w-0">
@@ -1880,7 +3054,15 @@ export function RichEditor({
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {activeTab === "template" && templateData ? (
             <div className="p-3">
-              <TemplateEditor data={templateData} onChange={setTemplateData} landingPageId={landingPageId} />
+              <TemplateEditor
+                data={templateData}
+                onChange={setTemplateData}
+                landingPageId={landingPageId}
+                activeSection={selectedTplSection}
+                activeNonce={tplFocusNonce}
+                onSelectSection={selectTplSection}
+                hideLegacyRichContent={legacyRichHidden}
+              />
             </div>
           ) : activeTab === "widgets" ? (
             <>
@@ -1888,90 +3070,114 @@ export function RichEditor({
               <>
               {/* ===== INSERT WIDGETS GRID ===== */}
               <PanelSection title="Insert Elements" icon={<LayoutGrid className="h-4 w-4" />} defaultOpen>
-                <div className="grid grid-cols-3 gap-2">
+                <div
+                  className="grid grid-cols-3 gap-2"
+                  onClickCapture={() => {
+                    suppressPanelRef.current = Date.now() + 500;
+                    // If an element is currently node-selected, inserting a new
+                    // widget would REPLACE it. Hop the cursor to just after the
+                    // selected node so inserts always add, never swallow.
+                    const sel = editor?.state.selection as any;
+                    if (sel?.node) editor?.commands.setTextSelection(sel.to);
+                  }}
+                >
                   <WidgetButton
                     icon={<Heading1 className="h-5 w-5" />}
                     label="Heading"
+                    dragType="heading"
                     color="blue"
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                    onClick={() => paletteInsert("heading", () => editor.chain().focus().toggleHeading({ level: 1 }).run())}
                   />
                   <WidgetButton
                     icon={<Type className="h-5 w-5" />}
                     label="Text"
+                    dragType="text"
                     color="gray"
-                    onClick={() => editor.chain().focus().setParagraph().run()}
+                    onClick={() => paletteInsert("text", () => editor.chain().focus().setParagraph().run())}
                   />
                   <WidgetButton
                     icon={<Upload className="h-5 w-5" />}
                     label="Image"
+                    dragType="image"
                     color="green"
-                    onClick={handleImageUpload}
+                    onClick={() => paletteInsert("image", handleImageUpload)}
                   />
                   <WidgetButton
                     icon={<MousePointerClick className="h-5 w-5" />}
                     label="Button"
+                    dragType="button"
                     color="violet"
-                    onClick={insertButton}
+                    onClick={() => paletteInsert("button", insertButton)}
                   />
                   <WidgetButton
                     icon={<YoutubeIcon className="h-5 w-5" />}
                     label="Video"
+                    dragType="video"
                     color="rose"
-                    onClick={addYoutubeVideo}
+                    onClick={() => paletteInsert("video", addYoutubeVideo)}
                   />
                   <WidgetButton
                     icon={<Minus className="h-5 w-5" />}
                     label="Divider"
+                    dragType="divider"
                     color="gray"
-                    onClick={() => editor.chain().focus().setHorizontalRule().run()}
+                    onClick={() => paletteInsert("divider", () => editor.chain().focus().setHorizontalRule().run())}
                   />
                   <WidgetButton
                     icon={<Layers className="h-5 w-5" />}
                     label="Section"
+                    dragType="section"
                     color="amber"
-                    onClick={() => insertSection()}
+                    onClick={() => paletteInsert("section", () => insertSection())}
                   />
                   <WidgetButton
                     icon={<FormInput className="h-5 w-5" />}
                     label="Form"
+                    dragType="form"
                     color="green"
-                    onClick={insertLeadForm}
+                    onClick={() => paletteInsert("form", insertLeadForm)}
                   />
                   <WidgetButton
-                    icon={<PanelLeftDashed className="h-5 w-5" />}
-                    label="2-Col Left"
+                    icon={<StretchHorizontal className="h-5 w-5" />}
+                    label="Flexbox"
+                    dragType="flexbox"
                     color="blue"
-                    onClick={() => insertTwoCol("media-left")}
+                    onClick={() => paletteInsert("flexbox", insertFlexbox)}
                   />
                   <WidgetButton
-                    icon={<PanelRightDashed className="h-5 w-5" />}
-                    label="2-Col Right"
+                    icon={<Grid3x3 className="h-5 w-5" />}
+                    label="Grid"
+                    dragType="grid"
                     color="blue"
-                    onClick={() => insertTwoCol("media-right")}
+                    onClick={() => paletteInsert("grid", insertGridBox)}
                   />
                   <WidgetButton
                     icon={<Quote className="h-5 w-5" />}
                     label="Quote"
+                    dragType="quote"
                     color="amber"
-                    onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                    onClick={() => paletteInsert("quote", () => editor.chain().focus().toggleBlockquote().run())}
                   />
                   <WidgetButton
                     icon={<List className="h-5 w-5" />}
                     label="List"
+                    dragType="list"
                     color="gray"
-                    onClick={() => editor.chain().focus().toggleBulletList().run()}
+                    onClick={() => paletteInsert("list", () => editor.chain().focus().toggleBulletList().run())}
                   />
                   <WidgetButton
                     icon={<ListOrdered className="h-5 w-5" />}
                     label="Numbered"
+                    dragType="numbered"
                     color="gray"
-                    onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                    onClick={() => paletteInsert("numbered", () => editor.chain().focus().toggleOrderedList().run())}
                   />
                   <WidgetButton
                     icon={<Code2 className="h-5 w-5" />}
                     label="Code"
+                    dragType="code"
                     color="gray"
-                    onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                    onClick={() => paletteInsert("code", () => editor.chain().focus().toggleCodeBlock().run())}
                   />
                   <WidgetButton
                     icon={<WrapText className="h-5 w-5" />}
@@ -1984,42 +3190,51 @@ export function RichEditor({
 
               {/* ===== SECTIONS & BLOCKS ===== */}
               <PanelSection title="Sections & Blocks" icon={<Layers className="h-4 w-4" />} defaultOpen>
-                <div className="grid grid-cols-3 gap-2">
+                <div
+                  className="grid grid-cols-3 gap-2"
+                  onClickCapture={() => {
+                    suppressPanelRef.current = Date.now() + 500;
+                    // If an element is currently node-selected, inserting a new
+                    // widget would REPLACE it. Hop the cursor to just after the
+                    // selected node so inserts always add, never swallow.
+                    const sel = editor?.state.selection as any;
+                    if (sel?.node) editor?.commands.setTextSelection(sel.to);
+                  }}
+                >
                   <WidgetButton
                     icon={<Sparkles className="h-5 w-5" />}
                     label="Features"
+                    dragType="featureGrid"
                     color="violet"
-                    onClick={insertFeatureGrid}
+                    onClick={() => paletteInsert("featureGrid", insertFeatureGrid)}
                   />
                   <WidgetButton
                     icon={<BarChart3 className="h-5 w-5" />}
                     label="Stats"
+                    dragType="statsRow"
                     color="blue"
-                    onClick={insertStatsRow}
+                    onClick={() => paletteInsert("statsRow", insertStatsRow)}
                   />
                   <WidgetButton
                     icon={<HelpCircle className="h-5 w-5" />}
                     label="FAQ"
+                    dragType="faqAccordion"
                     color="amber"
-                    onClick={insertFaqAccordion}
+                    onClick={() => paletteInsert("faqAccordion", insertFaqAccordion)}
                   />
                   <WidgetButton
                     icon={<MessageSquare className="h-5 w-5" />}
                     label="Reviews"
+                    dragType="testimonialCards"
                     color="green"
-                    onClick={insertTestimonialCards}
-                  />
-                  <WidgetButton
-                    icon={<Megaphone className="h-5 w-5" />}
-                    label="Marquee"
-                    color="rose"
-                    onClick={insertMarqueeStrip}
+                    onClick={() => paletteInsert("testimonialCards", insertTestimonialCards)}
                   />
                   <WidgetButton
                     icon={<Images className="h-5 w-5" />}
                     label="Gallery"
+                    dragType="imageGallery"
                     color="gray"
-                    onClick={insertImageGallery}
+                    onClick={() => paletteInsert("imageGallery", insertImageGallery)}
                   />
                 </div>
               </PanelSection>
@@ -2993,6 +4208,543 @@ export function RichEditor({
                 </PanelSection>
               )}
 
+              {showFlexPanel && (
+                <PanelSection title="Flexbox Properties" icon={<StretchHorizontal className="h-4 w-4" />} defaultOpen badge="Active">
+                  <div className="space-y-3">
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => deleteLayoutContainer("flexboxContainer")}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remove Flexbox
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => addLayoutCell("flexboxContainer")}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-medium hover:bg-violet-100 transition-colors"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Cell
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeLayoutCell("flexboxContainer")}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        <Minus className="h-3.5 w-3.5" /> Remove Cell
+                      </button>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Direction</Label>
+                      <select
+                        value={flexAttrs.direction}
+                        onChange={(e) => updateFlexAttr("direction", e.target.value)}
+                        className="w-full h-8 px-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                      >
+                        <option value="row">Row (horizontal)</option>
+                        <option value="row-reverse">Row Reverse</option>
+                        <option value="column">Column (vertical)</option>
+                        <option value="column-reverse">Column Reverse</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Justify Content</Label>
+                      <select
+                        value={flexAttrs.justifyContent}
+                        onChange={(e) => updateFlexAttr("justifyContent", e.target.value)}
+                        className="w-full h-8 px-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                      >
+                        <option value="flex-start">Start</option>
+                        <option value="center">Center</option>
+                        <option value="flex-end">End</option>
+                        <option value="space-between">Space Between</option>
+                        <option value="space-around">Space Around</option>
+                        <option value="space-evenly">Space Evenly</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Align Items</Label>
+                      <select
+                        value={flexAttrs.alignItems}
+                        onChange={(e) => updateFlexAttr("alignItems", e.target.value)}
+                        className="w-full h-8 px-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                      >
+                        <option value="stretch">Stretch</option>
+                        <option value="flex-start">Top</option>
+                        <option value="center">Center</option>
+                        <option value="flex-end">Bottom</option>
+                        <option value="baseline">Baseline</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Gap (px)</Label>
+                        <Input
+                          type="number"
+                          value={flexAttrs.gap}
+                          onChange={(e) => updateFlexAttr("gap", Number(e.target.value))}
+                          className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                          min={0}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Min Height</Label>
+                        <Input
+                          type="number"
+                          value={flexAttrs.minHeight}
+                          onChange={(e) => updateFlexAttr("minHeight", Number(e.target.value))}
+                          className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                          min={0}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Padding</Label>
+                      <div className="flex gap-2 mt-1">
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">X</span>
+                          <Input
+                            type="number"
+                            value={flexAttrs.paddingX}
+                            onChange={(e) => updateFlexAttr("paddingX", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">Y</span>
+                          <Input
+                            type="number"
+                            value={flexAttrs.paddingY}
+                            onChange={(e) => updateFlexAttr("paddingY", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <ColorRow label="Background" value={flexAttrs.backgroundColor} onChange={(v) => updateFlexAttr("backgroundColor", v)} />
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Border Radius (px)</Label>
+                      <Input
+                        type="number"
+                        value={flexAttrs.borderRadius}
+                        onChange={(e) => updateFlexAttr("borderRadius", Number(e.target.value))}
+                        className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                        min={0}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] text-gray-600">Wrap Items</Label>
+                        <Switch checked={flexAttrs.wrap} onCheckedChange={(v) => updateFlexAttr("wrap", v)} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] text-gray-600">Full Width</Label>
+                        <Switch checked={flexAttrs.fullWidth} onCheckedChange={(v) => updateFlexAttr("fullWidth", v)} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] text-gray-600">Stack on Mobile</Label>
+                        <Switch checked={flexAttrs.stackOnMobile} onCheckedChange={(v) => updateFlexAttr("stackOnMobile", v)} />
+                      </div>
+                    </div>
+                    {flexCellCount > 0 && (
+                      <div>
+                        <Label className="text-[11px] text-gray-600">Edit a cell</Label>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {Array.from({ length: flexCellCount }, (_, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => selectLayoutCell("flexboxContainer", i)}
+                              className={`h-7 min-w-[28px] px-2 rounded-md text-[11px] font-semibold border transition-colors ${
+                                flexCellInfo?.index === i
+                                  ? "bg-violet-600 text-white border-violet-600"
+                                  : "bg-white text-gray-600 border-gray-200 hover:border-violet-300 hover:bg-violet-50"
+                              }`}
+                            >
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {flexCellInfo && (
+                      <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-2.5 space-y-3">
+                        <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wider">
+                          Selected Cell ({flexCellInfo.index + 1} of {flexCellInfo.count})
+                        </p>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Grow</span>
+                            <Input
+                              type="number"
+                              value={flexItemAttrs.grow}
+                              onChange={(e) => updateFlexItemAttr("grow", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Shrink</span>
+                            <Input
+                              type="number"
+                              value={flexItemAttrs.shrink}
+                              onChange={(e) => updateFlexItemAttr("shrink", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400">Basis / Width (0% = share equally, or e.g. auto, 240px, 33%)</span>
+                          <Input
+                            value={flexItemAttrs.basis}
+                            onChange={(e) => updateFlexItemAttr("basis", e.target.value)}
+                            className="h-8 text-xs mt-1 bg-white border-gray-200"
+                            placeholder="0%"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400">Align Self</span>
+                          <select
+                            value={flexItemAttrs.alignSelf}
+                            onChange={(e) => updateFlexItemAttr("alignSelf", e.target.value)}
+                            className="w-full h-8 px-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                          >
+                            <option value="auto">Auto (inherit)</option>
+                            <option value="flex-start">Top</option>
+                            <option value="center">Center</option>
+                            <option value="flex-end">Bottom</option>
+                            <option value="stretch">Stretch</option>
+                            <option value="baseline">Baseline</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Min Width</span>
+                            <Input
+                              type="number"
+                              value={flexItemAttrs.minWidth}
+                              onChange={(e) => updateFlexItemAttr("minWidth", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Padding</span>
+                            <Input
+                              type="number"
+                              value={flexItemAttrs.padding}
+                              onChange={(e) => updateFlexItemAttr("padding", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Radius</span>
+                            <Input
+                              type="number"
+                              value={flexItemAttrs.borderRadius}
+                              onChange={(e) => updateFlexItemAttr("borderRadius", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                        </div>
+                        <ColorRow label="Cell Background" value={flexItemAttrs.backgroundColor} onChange={(v) => updateFlexItemAttr("backgroundColor", v)} />
+                      </div>
+                    )}
+                  </div>
+                </PanelSection>
+              )}
+
+              {showGridPanel && (
+                <PanelSection title="Grid Properties" icon={<Grid3x3 className="h-4 w-4" />} defaultOpen badge="Active">
+                  <div className="space-y-3">
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => deleteLayoutContainer("gridContainer")}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[11px] font-medium hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Remove Grid
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => addLayoutCell("gridContainer")}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-medium hover:bg-violet-100 transition-colors"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Cell
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeLayoutCell("gridContainer")}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        <Minus className="h-3.5 w-3.5" /> Remove Cell
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Columns</Label>
+                        <Input
+                          type="number"
+                          value={gridAttrs.columns}
+                          onChange={(e) => updateGridAttr("columns", Math.max(1, Number(e.target.value)))}
+                          className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                          min={1}
+                          max={12}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Row Min H.</Label>
+                        <Input
+                          type="number"
+                          value={gridAttrs.rowMinHeight}
+                          onChange={(e) => updateGridAttr("rowMinHeight", Number(e.target.value))}
+                          className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                          min={0}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Custom Columns (CSS)</Label>
+                      <Input
+                        value={gridAttrs.customTemplate}
+                        onChange={(e) => updateGridAttr("customTemplate", e.target.value)}
+                        className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                        placeholder="e.g. 2fr 1fr — overrides Columns"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Gap</Label>
+                      <div className="flex gap-2 mt-1">
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">Horizontal</span>
+                          <Input
+                            type="number"
+                            value={gridAttrs.gapX}
+                            onChange={(e) => updateGridAttr("gapX", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">Vertical</span>
+                          <Input
+                            type="number"
+                            value={gridAttrs.gapY}
+                            onChange={(e) => updateGridAttr("gapY", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Justify Items</Label>
+                        <select
+                          value={gridAttrs.justifyItems}
+                          onChange={(e) => updateGridAttr("justifyItems", e.target.value)}
+                          className="w-full h-8 px-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                        >
+                          <option value="stretch">Stretch</option>
+                          <option value="start">Start</option>
+                          <option value="center">Center</option>
+                          <option value="end">End</option>
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Align Items</Label>
+                        <select
+                          value={gridAttrs.alignItems}
+                          onChange={(e) => updateGridAttr("alignItems", e.target.value)}
+                          className="w-full h-8 px-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                        >
+                          <option value="stretch">Stretch</option>
+                          <option value="start">Top</option>
+                          <option value="center">Center</option>
+                          <option value="end">Bottom</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Padding</Label>
+                      <div className="flex gap-2 mt-1">
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">X</span>
+                          <Input
+                            type="number"
+                            value={gridAttrs.paddingX}
+                            onChange={(e) => updateGridAttr("paddingX", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[10px] text-gray-400">Y</span>
+                          <Input
+                            type="number"
+                            value={gridAttrs.paddingY}
+                            onChange={(e) => updateGridAttr("paddingY", Number(e.target.value))}
+                            className="h-8 text-xs bg-gray-50 border-gray-200"
+                            min={0}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Min Height</Label>
+                        <Input
+                          type="number"
+                          value={gridAttrs.minHeight}
+                          onChange={(e) => updateGridAttr("minHeight", Number(e.target.value))}
+                          className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                          min={0}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-[11px] text-gray-500 uppercase tracking-wider">Radius</Label>
+                        <Input
+                          type="number"
+                          value={gridAttrs.borderRadius}
+                          onChange={(e) => updateGridAttr("borderRadius", Number(e.target.value))}
+                          className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                          min={0}
+                        />
+                      </div>
+                    </div>
+                    <ColorRow label="Background" value={gridAttrs.backgroundColor} onChange={(v) => updateGridAttr("backgroundColor", v)} />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] text-gray-600">Stack on Mobile</Label>
+                      <Switch checked={gridAttrs.stackOnMobile} onCheckedChange={(v) => updateGridAttr("stackOnMobile", v)} />
+                    </div>
+                    {gridCellCount > 0 && (
+                      <div>
+                        <Label className="text-[11px] text-gray-600">Edit a cell</Label>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {Array.from({ length: gridCellCount }, (_, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => selectLayoutCell("gridContainer", i)}
+                              className={`h-7 min-w-[28px] px-2 rounded-md text-[11px] font-semibold border transition-colors ${
+                                gridCellInfo?.index === i
+                                  ? "bg-violet-600 text-white border-violet-600"
+                                  : "bg-white text-gray-600 border-gray-200 hover:border-violet-300 hover:bg-violet-50"
+                              }`}
+                            >
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {gridCellInfo && (
+                      <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-2.5 space-y-3">
+                        <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wider">
+                          Selected Cell ({gridCellInfo.index + 1} of {gridCellInfo.count})
+                        </p>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Col Span</span>
+                            <Input
+                              type="number"
+                              value={gridItemAttrs.colSpan}
+                              onChange={(e) => updateGridItemAttr("colSpan", Math.max(1, Number(e.target.value)))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={1}
+                              max={12}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Row Span</span>
+                            <Input
+                              type="number"
+                              value={gridItemAttrs.rowSpan}
+                              onChange={(e) => updateGridItemAttr("rowSpan", Math.max(1, Number(e.target.value)))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={1}
+                              max={12}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Justify Self</span>
+                            <select
+                              value={gridItemAttrs.justifySelf}
+                              onChange={(e) => updateGridItemAttr("justifySelf", e.target.value)}
+                              className="w-full h-8 px-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                            >
+                              <option value="auto">Auto</option>
+                              <option value="start">Start</option>
+                              <option value="center">Center</option>
+                              <option value="end">End</option>
+                              <option value="stretch">Stretch</option>
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Align Self</span>
+                            <select
+                              value={gridItemAttrs.alignSelf}
+                              onChange={(e) => updateGridItemAttr("alignSelf", e.target.value)}
+                              className="w-full h-8 px-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-300 mt-1"
+                            >
+                              <option value="auto">Auto</option>
+                              <option value="start">Top</option>
+                              <option value="center">Center</option>
+                              <option value="end">Bottom</option>
+                              <option value="stretch">Stretch</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Min Height</span>
+                            <Input
+                              type="number"
+                              value={gridItemAttrs.minHeight}
+                              onChange={(e) => updateGridItemAttr("minHeight", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Padding</span>
+                            <Input
+                              type="number"
+                              value={gridItemAttrs.padding}
+                              onChange={(e) => updateGridItemAttr("padding", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-[10px] text-gray-400">Radius</span>
+                            <Input
+                              type="number"
+                              value={gridItemAttrs.borderRadius}
+                              onChange={(e) => updateGridItemAttr("borderRadius", Number(e.target.value))}
+                              className="h-8 text-xs bg-white border-gray-200"
+                              min={0}
+                            />
+                          </div>
+                        </div>
+                        <ColorRow label="Cell Background" value={gridItemAttrs.backgroundColor} onChange={(v) => updateGridItemAttr("backgroundColor", v)} />
+                      </div>
+                    )}
+                  </div>
+                </PanelSection>
+              )}
+
               {showFormPanel && (
                 <PanelSection title="Form Properties" icon={<FormInput className="h-4 w-4" />} defaultOpen badge="Active">
                   <div className="space-y-3">
@@ -3321,9 +5073,45 @@ export function RichEditor({
       </div>
 
       {/* ===== MAIN CANVAS (Editor Content) — left of the tools panel ===== */}
-      <div className="order-2 flex-1 min-w-0 bg-gray-100 overflow-y-auto overflow-x-hidden relative">
+      <div
+        className="order-2 flex-1 min-w-0 bg-gray-100 overflow-y-auto overflow-x-hidden relative"
+        onDropCapture={handleCanvasDropCapture}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes(RICH_ELEMENT_DND_TYPE)) {
+            autoScrollCanvasDuringDrag(e);
+          }
+        }}
+      >
+        {/* Undo / Redo — always visible regardless of selection. The
+            keyboard shortcuts (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl/Cmd+Y)
+            already work via StarterKit's bundled history extension; these
+            buttons just give the same actions a discoverable, mouse-usable
+            home and a visible enabled/disabled state. */}
+        <div className="sticky top-3 z-30 flex justify-start pl-3 pointer-events-none">
+          <div className="pointer-events-auto inline-flex items-center gap-0.5 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg px-1 py-1">
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+              title="Undo (Ctrl/Cmd+Z)"
+              className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <Undo className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+              title="Redo (Ctrl/Cmd+Y)"
+              className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <Redo className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
         {/* Floating Action Bar */}
-        {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFormPanel || showVideoPanel) && (
+        {(showBtnPanel || showImgPanel || showTwoColPanel || showSectionPanel || showFlexPanel || showGridPanel || showFormPanel || showVideoPanel) && (
           <div className="sticky top-3 z-30 flex justify-center pointer-events-none">
             <div className="pointer-events-auto inline-flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg px-2 py-1.5">
               {selectedLabel && (
@@ -3385,6 +5173,19 @@ export function RichEditor({
         {editor && (
           <BubbleMenu
             editor={editor}
+            // Default appendTo is the editor's DOM parent, which puts this
+            // menu in the same local stacking context as the template
+            // editor's z-30 section-insert-point strips. Escape to a
+            // body-level portal — but that alone isn't enough: the strip's
+            // z-30 has no intervening positioned ancestor, so it wins the
+            // root stacking context over this menu's implicit z-index:auto
+            // regardless of DOM order. The floating container (menuEl) is
+            // only reachable via ref, since BubbleMenu spreads its other
+            // props onto an inner child instead — so force its z-index here.
+            appendTo={() => document.body}
+            ref={(el) => {
+              if (el) el.style.zIndex = "9999";
+            }}
             shouldShow={({ editor: ed, from, to }) => {
               // Only for non-empty *text* selections (not node selections like
               // images/buttons, which have their own floating bar).
@@ -3432,6 +5233,7 @@ export function RichEditor({
                 landingPageId={landingPageId}
                 pageSlug={pageSlug}
                 editorInstance={editor}
+                editorBridge={tplBridge}
               />
             </div>
           ) : (
@@ -3454,7 +5256,285 @@ export function RichEditor({
           )}
         </div>
       </div>
+
+      {/* ===== Right-click Context Menu ===== */}
+      {ctxMenu && (
+        <>
+          {/* Backdrop — a click or a fresh right-click anywhere dismisses it. */}
+          <div
+            className="fixed inset-0 z-[9998]"
+            onMouseDown={closeCtx}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              closeCtx();
+            }}
+          />
+          <div
+            role="menu"
+            className="fixed z-[9999] w-60 max-h-[70vh] overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-2xl"
+            style={{
+              left: Math.min(ctxMenu.x, (typeof window !== "undefined" ? window.innerWidth : 1280) - 252),
+              top: Math.max(8, Math.min(ctxMenu.y, (typeof window !== "undefined" ? window.innerHeight : 800) - 300)),
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {ctxMenu.mode === "text" ? (
+              /* ------------------------- TEXT MENU ------------------------- */
+              <>
+                <CtxItem icon={<Scissors />} label="Cut" shortcut="⌘X" onClick={() => ctxRun(() => ctxClipboard("cut"))} />
+                <CtxItem icon={<ClipboardCopy />} label="Copy" shortcut="⌘C" onClick={() => ctxRun(() => ctxClipboard("copy"))} />
+                <CtxItem icon={<ClipboardPaste />} label="Paste" shortcut="⌘V" onClick={() => ctxRun(() => { void pasteFromClipboard(); })} />
+
+                <CtxSep />
+                <CtxHeader label="Format" />
+                <CtxItem icon={<Bold />} label="Bold" shortcut="⌘B" active={editor.isActive("bold")} onClick={() => ctxRun(() => editor.chain().focus().toggleBold().run())} />
+                <CtxItem icon={<Italic />} label="Italic" shortcut="⌘I" active={editor.isActive("italic")} onClick={() => ctxRun(() => editor.chain().focus().toggleItalic().run())} />
+                <CtxItem icon={<UnderlineIcon />} label="Underline" shortcut="⌘U" active={editor.isActive("underline")} onClick={() => ctxRun(() => editor.chain().focus().toggleUnderline().run())} />
+                <CtxItem icon={<Strikethrough />} label="Strikethrough" active={editor.isActive("strike")} onClick={() => ctxRun(() => editor.chain().focus().toggleStrike().run())} />
+                <CtxItem icon={<Code />} label="Inline code" active={editor.isActive("code")} onClick={() => ctxRun(() => editor.chain().focus().toggleCode().run())} />
+
+                <CtxSep />
+                <CtxHeader label="Turn into" />
+                <CtxItem icon={<Pilcrow />} label="Paragraph" active={editor.isActive("paragraph")} onClick={() => ctxRun(() => editor.chain().focus().setParagraph().run())} />
+                <CtxItem icon={<Heading1 />} label="Heading 1" active={editor.isActive("heading", { level: 1 })} onClick={() => ctxRun(() => editor.chain().focus().toggleHeading({ level: 1 }).run())} />
+                <CtxItem icon={<Heading2 />} label="Heading 2" active={editor.isActive("heading", { level: 2 })} onClick={() => ctxRun(() => editor.chain().focus().toggleHeading({ level: 2 }).run())} />
+                <CtxItem icon={<Heading3 />} label="Heading 3" active={editor.isActive("heading", { level: 3 })} onClick={() => ctxRun(() => editor.chain().focus().toggleHeading({ level: 3 }).run())} />
+                <CtxItem icon={<Heading4 />} label="Heading 4" active={editor.isActive("heading", { level: 4 })} onClick={() => ctxRun(() => editor.chain().focus().toggleHeading({ level: 4 }).run())} />
+
+                <CtxSep />
+                <CtxHeader label="Text size" />
+                <div className="flex flex-wrap gap-1 px-3 py-1.5">
+                  {CTX_FONT_SIZES.map((s) => {
+                    const active = editor.getAttributes("textStyle").fontSize === `${s}px`;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        title={`${s}px`}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => ctxRun(() => editor.chain().focus().setFontSize(`${s}px`).run())}
+                        className={`h-6 min-w-[26px] px-1.5 rounded-md text-[11px] font-medium border transition-colors ${
+                          active
+                            ? "bg-violet-600 text-white border-violet-600"
+                            : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    title="Reset to default size"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => ctxRun(() => editor.chain().focus().unsetFontSize().run())}
+                    className="h-6 px-2 rounded-md text-[11px] font-medium border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    Default
+                  </button>
+                </div>
+
+                <CtxSep />
+                <CtxHeader label="Align" />
+                <CtxItem icon={<AlignLeft />} label="Left" active={editor.isActive({ textAlign: "left" })} onClick={() => ctxRun(() => editor.chain().focus().setTextAlign("left").run())} />
+                <CtxItem icon={<AlignCenter />} label="Center" active={editor.isActive({ textAlign: "center" })} onClick={() => ctxRun(() => editor.chain().focus().setTextAlign("center").run())} />
+                <CtxItem icon={<AlignRight />} label="Right" active={editor.isActive({ textAlign: "right" })} onClick={() => ctxRun(() => editor.chain().focus().setTextAlign("right").run())} />
+                <CtxItem icon={<AlignJustify />} label="Justify" active={editor.isActive({ textAlign: "justify" })} onClick={() => ctxRun(() => editor.chain().focus().setTextAlign("justify").run())} />
+
+                <CtxSep />
+                <CtxHeader label="Lists & blocks" />
+                <CtxItem icon={<List />} label="Bullet list" active={editor.isActive("bulletList")} onClick={() => ctxRun(() => editor.chain().focus().toggleBulletList().run())} />
+                <CtxItem icon={<ListOrdered />} label="Numbered list" active={editor.isActive("orderedList")} onClick={() => ctxRun(() => editor.chain().focus().toggleOrderedList().run())} />
+                <CtxItem icon={<Quote />} label="Blockquote" active={editor.isActive("blockquote")} onClick={() => ctxRun(() => editor.chain().focus().toggleBlockquote().run())} />
+                <CtxItem icon={<Code2 />} label="Code block" active={editor.isActive("codeBlock")} onClick={() => ctxRun(() => editor.chain().focus().toggleCodeBlock().run())} />
+
+                <CtxSep />
+                <CtxHeader label="Link" />
+                <CtxItem icon={<LinkIcon />} label={editor.isActive("link") ? "Edit link" : "Add link"} active={editor.isActive("link")} onClick={() => ctxRun(handleSetLink)} />
+                <CtxItem icon={<Unlink />} label="Remove link" disabled={!editor.isActive("link")} onClick={() => ctxRun(() => editor.chain().focus().unsetLink().run())} />
+
+                <CtxSep />
+                <CtxHeader label="Text color" />
+                <div className="flex flex-wrap gap-1.5 px-3 py-1.5">
+                  {CTX_TEXT_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      title={c}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => ctxRun(() => applyTextColor(c))}
+                      className="h-5 w-5 rounded-full border border-gray-200 shadow-sm hover:scale-110 transition-transform"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <CtxItem icon={<RemoveFormatting />} label="Reset text color" onClick={() => ctxRun(() => editor.chain().focus().unsetColor().run())} />
+
+                <CtxSep />
+                <CtxHeader label="Highlight" />
+                <div className="flex flex-wrap gap-1.5 px-3 py-1.5">
+                  {CTX_HIGHLIGHT_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      title={c}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => ctxRun(() => applyHighlight(c))}
+                      className="h-5 w-5 rounded-full border border-gray-200 shadow-sm hover:scale-110 transition-transform"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <CtxItem icon={<Highlighter />} label="Remove highlight" disabled={!editor.isActive("highlight")} onClick={() => ctxRun(() => editor.chain().focus().unsetHighlight().run())} />
+
+                <CtxSep />
+                <CtxHeader label="Insert" />
+                <CtxItem icon={<Minus />} label="Divider" onClick={() => ctxRun(() => editor.chain().focus().setHorizontalRule().run())} />
+                <CtxItem icon={<CornerDownLeft />} label="Line break" onClick={() => ctxRun(() => editor.chain().focus().setHardBreak().run())} />
+
+                <CtxSep />
+                <CtxItem icon={<RemoveFormatting />} label="Clear formatting" onClick={() => ctxRun(() => editor.chain().focus().unsetAllMarks().clearNodes().run())} />
+
+                {ctxMenu.containers && ctxMenu.containers.length > 0 && (
+                  <>
+                    <CtxSep />
+                    <CtxHeader label="Select block" />
+                    {ctxMenu.containers.map((c, i) => (
+                      <CtxItem
+                        key={`${c.type}-${c.pos}-${i}`}
+                        icon={<MousePointer2 />}
+                        label={`Select ${c.label}`}
+                        onClick={() =>
+                          ctxRun(() => {
+                            selectNodeAt(c.pos);
+                            openElementProperties();
+                          })
+                        }
+                      />
+                    ))}
+                    <CtxItem icon={<Copy />} label="Duplicate block" onClick={() => ctxRun(duplicateSelectedNode)} />
+                    <CtxItem icon={<Trash2 />} label="Delete block" danger onClick={() => ctxRun(deleteSelectedNode)} />
+                  </>
+                )}
+              </>
+            ) : (
+              /* ------------------------- BLOCK MENU ------------------------ */
+              <>
+                <div className="px-3 py-2 flex items-center gap-2 text-xs font-semibold text-violet-700">
+                  <Layers className="h-3.5 w-3.5" />
+                  {ctxMenu.element?.label ?? "Element"}
+                </div>
+                <CtxSep />
+                <CtxItem icon={<SlidersHorizontal />} label="Edit properties" onClick={() => ctxRun(openElementProperties)} />
+
+                {ctxMenu.element?.type === "image" && (
+                  <CtxItem icon={<Replace />} label="Replace image" onClick={() => ctxRun(replaceImage)} />
+                )}
+                {ctxMenu.element?.type === "twoColumnSection" && (
+                  <CtxItem icon={<ArrowDownToLine />} label="Convert to 1-column" onClick={() => ctxRun(convertToSingleCol)} />
+                )}
+
+                <CtxSep />
+                <CtxItem icon={<MoveUp />} label="Move up" onClick={() => ctxRun(() => ctxMenu.element && moveNodeAt(ctxMenu.element.pos, -1))} />
+                <CtxItem icon={<MoveDown />} label="Move down" onClick={() => ctxRun(() => ctxMenu.element && moveNodeAt(ctxMenu.element.pos, 1))} />
+                <CtxItem icon={<Copy />} label="Duplicate" onClick={() => ctxRun(duplicateSelectedNode)} />
+
+                <CtxSep />
+                <CtxItem icon={<ClipboardCopy />} label="Copy" shortcut="⌘C" onClick={() => ctxRun(() => ctxClipboard("copy"))} />
+                <CtxItem icon={<Scissors />} label="Cut" shortcut="⌘X" onClick={() => ctxRun(() => ctxClipboard("cut"))} />
+
+                {ctxMenu.containers && ctxMenu.containers.filter((c) => c.pos !== ctxMenu.element?.pos).length > 0 && (
+                  <>
+                    <CtxSep />
+                    <CtxHeader label="Select parent" />
+                    {ctxMenu.containers
+                      .filter((c) => c.pos !== ctxMenu.element?.pos)
+                      .map((c, i) => (
+                        <CtxItem
+                          key={`${c.type}-${c.pos}-${i}`}
+                          icon={<MousePointer2 />}
+                          label={`Select ${c.label}`}
+                          onClick={() =>
+                            ctxRun(() => {
+                              selectNodeAt(c.pos);
+                              openElementProperties();
+                            })
+                          }
+                        />
+                      ))}
+                  </>
+                )}
+
+                <CtxSep />
+                <CtxItem icon={<Trash2 />} label="Delete" shortcut="Del" danger onClick={() => ctxRun(deleteSelectedNode)} />
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Context-menu helpers
+// ---------------------------------------------------------------------------
+
+function CtxSep() {
+  return <div className="my-1 h-px bg-gray-100" />;
+}
+
+function CtxHeader({ label }: { label: string }) {
+  return (
+    <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+      {label}
+    </div>
+  );
+}
+
+function CtxItem({
+  icon,
+  label,
+  onClick,
+  active,
+  danger,
+  disabled,
+  shortcut,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  danger?: boolean;
+  disabled?: boolean;
+  shortcut?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      // Preserve the editor selection: mousedown would otherwise blur the
+      // editor and collapse the selection before the click command runs.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] text-left transition-colors ${
+        disabled
+          ? "opacity-40 cursor-not-allowed text-gray-400"
+          : danger
+          ? "text-red-600 hover:bg-red-50"
+          : active
+          ? "text-violet-700 bg-violet-50 hover:bg-violet-100"
+          : "text-gray-700 hover:bg-gray-100"
+      }`}
+    >
+      <span className="flex h-4 w-4 items-center justify-center flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5">
+        {icon}
+      </span>
+      <span className="flex-1 truncate">{label}</span>
+      {shortcut && <span className="text-[10px] text-gray-400 font-mono">{shortcut}</span>}
+    </button>
   );
 }
 
@@ -3477,6 +5557,9 @@ function BubbleButton({
     <button
       type="button"
       onClick={onClick}
+      // Without this, mousedown blurs the editor → the text selection
+      // collapses → the bubble menu unmounts before the click ever lands.
+      onMouseDown={(e) => e.preventDefault()}
       title={title}
       className={`h-7 w-7 flex items-center justify-center rounded-md transition-colors ${
         active ? "bg-white text-gray-900" : "text-white/80 hover:bg-white/15 hover:text-white"
@@ -3504,6 +5587,7 @@ function ToolbarButton({
     <button
       type="button"
       onClick={onClick}
+      onMouseDown={(e) => e.preventDefault()}
       disabled={disabled}
       title={title}
       className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${

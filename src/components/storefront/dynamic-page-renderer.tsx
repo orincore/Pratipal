@@ -21,6 +21,12 @@ import {
   ColumnContent,
 } from "@/lib/tiptap/extensions/two-column";
 import { PageSection } from "@/lib/tiptap/extensions/page-section";
+import {
+  FlexboxContainer,
+  FlexItem,
+  GridContainer,
+  GridItem,
+} from "@/lib/tiptap/extensions/flex-grid";
 import { LeadForm } from "@/lib/tiptap/extensions/lead-form";
 import { FeatureGrid } from "@/lib/tiptap/extensions/feature-grid";
 import { StatsRow } from "@/lib/tiptap/extensions/stats-row";
@@ -45,6 +51,12 @@ interface DynamicPageRendererProps {
   title: string;
   pageSlug?: string;
   landingPageId?: string;
+  // True when this renders a single small block inside a larger page (the
+  // admin canvas's static preview of an unfocused rich block) rather than
+  // an entire standalone page — skips the min-h-screen the root otherwise
+  // gets, which would otherwise force every such block to full-viewport
+  // height regardless of how little content it actually holds.
+  embedded?: boolean;
 }
 
 const extensions = [
@@ -81,6 +93,10 @@ const extensions = [
   TwoColumnSection,
   ColumnMedia,
   ColumnContent,
+  FlexboxContainer,
+  FlexItem,
+  GridContainer,
+  GridItem,
   PageSection,
   LeadForm,
   FeatureGrid,
@@ -132,6 +148,7 @@ export function DynamicPageRenderer({
   title,
   pageSlug,
   landingPageId,
+  embedded,
 }: DynamicPageRendererProps) {
   const [isClient, setIsClient] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
@@ -252,7 +269,7 @@ export function DynamicPageRenderer({
 
   return (
     <div
-      className="min-h-screen"
+      className={embedded ? undefined : "min-h-screen"}
       style={{ backgroundColor: pageBg }}
     >
       <style
@@ -268,6 +285,15 @@ export function DynamicPageRenderer({
             .dynamic-page h2 { font-size: 2rem; font-weight: 700; margin-bottom: 0.75rem; margin-top: 2rem; line-height: 1.25; }
             .dynamic-page h3 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; margin-top: 1.5rem; line-height: 1.3; }
             .dynamic-page h4 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; margin-top: 1rem; }
+            /* These top margins separate a block from whatever came BEFORE
+               it — meaningless (just dead space) on the first child, which
+               has nothing above it inside this content area. */
+            .dynamic-page > *:first-child { margin-top: 0 !important; }
+            /* The live editor keeps a trailing empty paragraph so users
+               always have somewhere to click and keep typing — this static
+               (non-editing) render has no cursor to place, so it's pure
+               dead space here and can be collapsed outright. */
+            .dynamic-page > p:empty { display: none; }
             .dynamic-page p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
             .dynamic-page ul, .dynamic-page ol { margin-bottom: 1rem; padding-left: 1.5rem; }
             .dynamic-page ul { list-style-type: disc; }

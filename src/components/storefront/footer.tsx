@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Mail, Phone, MapPin, Instagram, Facebook, Youtube } from "lucide-react";
-import LogoMark from "@/app/assets/logo.png";
+import { siteConfig } from "@/config/site.config";
 
 export function Footer() {
+  const { social, contact } = siteConfig;
   return (
     <footer>
       <div className="bg-[#f5efe4] py-8">
@@ -12,18 +13,24 @@ export function Footer() {
             {/* Brand */}
             <div className="col-span-2 md:col-span-1 flex flex-col items-center">
               <div className="relative h-36 w-48 mb-3">
-                <Image src="/assets/footer_logo.png" alt="Pratipal logo" fill sizes="192px" className="object-contain object-center" />
+                <Image src={siteConfig.logo.footer} alt={`${siteConfig.name} logo`} fill sizes="192px" className="object-contain object-center" />
               </div>
               <div className="flex items-center justify-center gap-2">
-                <a href="https://www.instagram.com/pratipalofficial.in" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
-                  <Instagram className="h-3.5 w-3.5" />
-                </a>
-                <a href="https://facebook.com/pratipalofficial" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
-                  <Facebook className="h-3.5 w-3.5" />
-                </a>
-                <a href="https://youtube.com/@pratipalbyaparnaa" target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
-                  <Youtube className="h-3.5 w-3.5" />
-                </a>
+                {social.instagram && (
+                  <a href={social.instagram} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
+                    <Instagram className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {social.facebook && (
+                  <a href={social.facebook} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
+                    <Facebook className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {social.youtube && (
+                  <a href={social.youtube} target="_blank" rel="noopener noreferrer" className="h-8 w-8 rounded-full bg-[#232d5f]/10 hover:bg-[#232d5f] text-[#232d5f] hover:text-white flex items-center justify-center transition-all duration-300">
+                    <Youtube className="h-3.5 w-3.5" />
+                  </a>
+                )}
               </div>
             </div>
 
@@ -74,21 +81,25 @@ export function Footer() {
                 <ul className="space-y-2">
                   <li className="flex items-center gap-2">
                     <Mail className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                    <span className="text-xs text-[#232d5f]/90">connect@pratipal.in</span>
+                    <span className="text-xs text-[#232d5f]/90">{contact.supportEmail}</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Phone className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                    <span className="text-xs text-[#232d5f]/90">+91 76050 72424</span>
+                    <span className="text-xs text-[#232d5f]/90">{contact.phone}</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <MapPin className="h-3.5 w-3.5 text-[#d97745] flex-shrink-0" />
-                    <span className="text-xs text-[#232d5f]/90">Kolkata, India</span>
+                    <span className="text-xs text-[#232d5f]/90">
+                      {[contact.address.city, contact.address.country].filter(Boolean).join(", ") || "—"}
+                    </span>
                   </li>
                 </ul>
               </div>
-              <div className="relative h-24 w-24 sm:h-28 sm:w-28 flex-shrink-0" title="ISO Certified">
-                <Image src="/assets/iso.png" alt="ISO Certified" fill sizes="112px" className="object-contain" />
-              </div>
+              {siteConfig.logo.isoBadge && (
+                <div className="relative h-24 w-24 sm:h-28 sm:w-28 flex-shrink-0" title="ISO Certified">
+                  <Image src={siteConfig.logo.isoBadge} alt="ISO Certified" fill sizes="112px" className="object-contain" />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -97,8 +108,10 @@ export function Footer() {
       <div className="bg-[#1b244a] py-3">
         <div className="container">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-1 mb-2">
-            <p className="text-[11px] text-white/70 tracking-wider">&copy; {new Date().getFullYear()} Pratipal. All rights reserved.</p>
-            <p className="text-[11px] text-white/50 tracking-wider">Integrating Healing with Routine 🇮🇳</p>
+            <p className="text-[11px] text-white/70 tracking-wider">&copy; {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
+            {siteConfig.copyrightTagline && (
+              <p className="text-[11px] text-white/50 tracking-wider">{siteConfig.copyrightTagline}</p>
+            )}
           </div>
           <div className="h-px bg-white/20 w-full" />
         </div>

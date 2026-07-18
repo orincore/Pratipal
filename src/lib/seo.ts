@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/config/site.config";
 
 /**
  * Single source of truth for the site's canonical origin.
@@ -8,7 +9,7 @@ import type { Metadata } from "next";
  * mismatched hosts (www vs non-www) cause duplicate-content issues in search.
  */
 export const SITE_URL = normalizeOrigin(
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.pratipal.in"
+  process.env.NEXT_PUBLIC_SITE_URL || siteConfig.domain
 );
 
 function normalizeOrigin(url: string): string {

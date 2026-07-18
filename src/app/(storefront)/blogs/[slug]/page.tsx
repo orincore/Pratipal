@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Clock, Calendar, ArrowLeft, ArrowRight, User } from "lucide-react";
 import { format } from "date-fns";
+import { siteConfig } from "@/config/site.config";
+import { SITE_URL } from "@/lib/seo";
 import { connectDB } from "@/lib/mongodb";
 import Blog from "@/models/Blog";
 import { ShareButtons } from "@/components/storefront/share-buttons";
@@ -154,14 +156,14 @@ export default async function BlogPostPage({ params }: Props) {
             <div>
               <p className="text-xs uppercase tracking-widest text-emerald-600 font-semibold mb-0.5">Written by</p>
               <p className="font-bold text-stone-900">{blog.author}</p>
-              <p className="text-sm text-stone-500 mt-1">Holistic healing practitioner &amp; wellness guide at Pratipal.</p>
+              <p className="text-sm text-stone-500 mt-1">Holistic healing practitioner &amp; wellness guide at {siteConfig.name}.</p>
             </div>
           </div>
 
           {/* Share buttons */}
           <div className="mt-8 bg-white border border-stone-100 rounded-2xl p-6 shadow-sm">
             <p className="font-semibold text-gray-700 mb-3 text-sm">Share this Article</p>
-            <ShareButtons url={`${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://pratipal.in'}/blogs/${blog.slug}`} />
+            <ShareButtons url={`${SITE_URL}/blogs/${blog.slug}`} />
           </div>
 
           {/* Back link */}

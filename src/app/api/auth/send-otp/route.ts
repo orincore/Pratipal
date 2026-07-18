@@ -22,12 +22,12 @@ export async function POST(req: NextRequest) {
 
     await sendMail({
       to: email,
-      subject: "Your Pratipal verification code",
+      subject: `Your ${BRAND.name} verification code`,
       html: renderEmailLayout({
         preheader: `Your verification code is ${otp}`,
         badgeIcon: "mail",
         heading: "Verify your email",
-        subheading: "Enter this code to complete your Pratipal registration.",
+        subheading: `Enter this code to complete your ${BRAND.name} registration.`,
         bodyHtml:
           emailCodeBox(otp) +
           `<p style="font-size:12px;color:${BRAND.textMuted};margin:0;text-align:center;">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>`,

@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useContext, useMemo, useRef } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  ChevronUp,
+  EyeOff,
+  Copy,
+  ArrowUpDown,
   Code2,
   Plus,
   Trash2,
@@ -69,8 +73,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { DEFAULT_MEDIA_SETTINGS, type LandingTemplateData, type MediaFieldOptions } from "@/lib/template-types";
+import {
+  DEFAULT_MEDIA_SETTINGS,
+  SECTION_LABELS,
+  CANONICAL_SECTIONS,
+  resolveSectionOrder,
+  getSectionVisibility,
+  applySectionVisibility,
+  isRichBlockKey,
+  type LandingTemplateData,
+  type MediaFieldOptions,
+  type SectionStyleOptions,
+} from "@/lib/template-types";
+import { SECTION_DND_TYPE, NEW_BLOCK_DND_TYPE } from "@/components/storefront/landing-template";
 import { FONT_OPTIONS } from "@/lib/fonts";
+
+// Shares the live template data with deeply nested field components (e.g. the
+// per-section style panel) without threading props through every call site.
+const TemplateEditorCtx = React.createContext<{
+  data: LandingTemplateData;
+  onChange: (d: LandingTemplateData) => void;
+} | null>(null);
 
 const mediaKey = (...parts: (string | number)[]) => parts.join(".");
 
@@ -120,28 +143,73 @@ const ICON_OPTIONS: { name: string; icon: LucideIcon }[] = [
   { name: "MessageSquare", icon: MessageSquare },
 ];
 
+// Per-section style panel: background color plus Elementor-style outer
+// spacing. Reads/writes sectionStyles through TemplateEditorCtx so the 15+
+// existing call sites didn't need new props.
 function SectionBgField({ sectionKey, value, onChange }: { sectionKey: string; value: string; onChange: (key: string, v: string) => void }) {
+  const ctx = useContext(TemplateEditorCtx);
+  const styles: SectionStyleOptions = ctx?.data.sectionStyles?.[sectionKey] || {};
+  const setStyles = (patch: Partial<SectionStyleOptions>) => {
+    if (!ctx) return;
+    ctx.onChange({
+      ...ctx.data,
+      sectionStyles: {
+        ...(ctx.data.sectionStyles || {}),
+        [sectionKey]: { ...styles, ...patch },
+      },
+    });
+  };
+
   return (
-    <div className="flex items-center justify-between">
-      <Label className="text-xs text-gray-500">Background color</Label>
-      <div className="flex items-center gap-1.5">
-        <input
-          type="color"
-          value={value || "#ffffff"}
-          onChange={(e) => onChange(sectionKey, e.target.value)}
-          className="h-6 w-8 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
-        />
-        {value && (
-          <button
-            type="button"
-            onClick={() => onChange(sectionKey, "")}
-            className="text-[10px] text-gray-400 hover:text-red-500 transition"
-            title="Reset to default"
-          >
-            ✕
-          </button>
-        )}
+    <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5 space-y-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Section Style</p>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-gray-500">Background color</Label>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="color"
+            value={value || "#ffffff"}
+            onChange={(e) => onChange(sectionKey, e.target.value)}
+            className="h-6 w-8 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
+          />
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange(sectionKey, "")}
+              className="text-[10px] text-gray-400 hover:text-red-500 transition"
+              title="Reset to default"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
+      {ctx && (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-[10px] text-gray-400">Spacing top (px)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={400}
+              value={styles.paddingTop ?? 0}
+              onChange={(e) => setStyles({ paddingTop: Math.max(0, Number(e.target.value) || 0) })}
+              className="h-7 text-xs bg-white border-gray-200 mt-0.5"
+            />
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-400">Spacing bottom (px)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={400}
+              value={styles.paddingBottom ?? 0}
+              onChange={(e) => setStyles({ paddingBottom: Math.max(0, Number(e.target.value) || 0) })}
+              className="h-7 text-xs bg-white border-gray-200 mt-0.5"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -188,46 +256,155 @@ function IconPicker({ value, onChange }: { value: string; onChange: (name: strin
 }
 
 // ---------------------------------------------------------------------------
-// Collapsible Section with Drag Handle
+// Collapsible Section card
+// Dragging starts ONLY from the grip handle (so the rest of the card stays
+// freely clickable/selectable), shows a slim drop-position indicator instead
+// of relying on "drop exactly on the header", and every reorderable card also
+// gets explicit up/down arrows plus a show/hide toggle.
 // ---------------------------------------------------------------------------
+interface SectionDnd {
+  isDragSource: boolean;
+  indicator: "top" | "bottom" | null;
+  onGripDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  onCardDragOver: (e: React.DragEvent) => void;
+  onCardDrop: (e: React.DragEvent) => void;
+  onCardDragLeave: () => void;
+}
+
 function Section({
   title,
   icon,
   children,
   defaultOpen = false,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  draggable = false,
+  sectionKey,
+  dnd,
+  onMove,
+  isFirst,
+  isLast,
+  isActive,
+  activeNonce,
+  visible,
+  onToggleVisible,
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   defaultOpen?: boolean;
-  onDragStart?: (e: React.DragEvent) => void;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: (e: React.DragEvent) => void;
-  draggable?: boolean;
+  sectionKey?: string;
+  dnd?: SectionDnd;
+  onMove?: (dir: -1 | 1) => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  isActive?: boolean;
+  activeNonce?: number;
+  visible?: boolean;
+  onToggleVisible?: () => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const lastNonce = React.useRef(0);
+
+  // When this section is selected from the canvas, open the card and bring it
+  // into view — even when re-selecting the same section again.
+  React.useEffect(() => {
+    if (isActive && activeNonce && activeNonce !== lastNonce.current) {
+      lastNonce.current = activeNonce;
+      setOpen(true);
+      requestAnimationFrame(() => {
+        ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+  }, [isActive, activeNonce]);
+
   return (
-    <div 
-      className="border border-gray-200 rounded-xl overflow-hidden bg-white"
-      draggable={draggable}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
+    <div
+      ref={ref}
+      data-section-card={sectionKey}
+      className={`relative border rounded-xl bg-white transition-all ${
+        isActive ? "border-violet-400 ring-1 ring-violet-300 shadow-sm" : "border-gray-200"
+      } ${dnd?.isDragSource ? "opacity-40" : ""}`}
+      onDragOver={dnd?.onCardDragOver}
+      onDrop={dnd?.onCardDrop}
+      onDragLeave={dnd?.onCardDragLeave}
     >
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-      >
-        {draggable && <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing" />}
-        <span className="text-gray-500">{icon}</span>
-        <span className="text-sm font-semibold text-gray-800 flex-1">{title}</span>
-        {open ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-      </button>
+      {dnd?.indicator === "top" && (
+        <div className="absolute -top-[3px] left-2 right-2 h-1 rounded-full bg-violet-500 z-10 pointer-events-none" />
+      )}
+      {dnd?.indicator === "bottom" && (
+        <div className="absolute -bottom-[3px] left-2 right-2 h-1 rounded-full bg-violet-500 z-10 pointer-events-none" />
+      )}
+
+      <div className="w-full flex items-center gap-1 pl-1.5 pr-2 py-2 hover:bg-gray-50 transition-colors rounded-t-xl">
+        {dnd && (
+          <button
+            type="button"
+            title="Drag to reorder"
+            draggable
+            onDragStart={dnd.onGripDragStart}
+            onDragEnd={dnd.onDragEnd}
+            onClick={(e) => e.stopPropagation()}
+            className="h-7 w-5 flex items-center justify-center text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0 select-none [-webkit-user-drag:element]"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left py-1"
+        >
+          <span className="text-gray-500 flex-shrink-0">{icon}</span>
+          <span
+            className={`text-[13px] font-semibold flex-1 truncate ${
+              visible === false ? "text-gray-400" : "text-gray-800"
+            }`}
+          >
+            {title}
+          </span>
+        </button>
+        {onMove && (
+          <div className="flex flex-col flex-shrink-0">
+            <button
+              type="button"
+              title="Move up"
+              disabled={isFirst}
+              onClick={() => onMove(-1)}
+              className="h-3.5 w-5 flex items-center justify-center text-gray-300 hover:text-violet-600 disabled:opacity-30 disabled:hover:text-gray-300"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Move down"
+              disabled={isLast}
+              onClick={() => onMove(1)}
+              className="h-3.5 w-5 flex items-center justify-center text-gray-300 hover:text-violet-600 disabled:opacity-30 disabled:hover:text-gray-300"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+        {onToggleVisible && (
+          <button
+            type="button"
+            title={visible === false ? "Show section" : "Hide section"}
+            onClick={onToggleVisible}
+            className={`h-6 w-6 flex items-center justify-center rounded-md flex-shrink-0 transition-colors ${
+              visible === false ? "text-gray-300 hover:text-gray-500" : "text-violet-500 hover:text-violet-700"
+            }`}
+          >
+            {visible === false ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="h-6 w-6 flex items-center justify-center text-gray-400 flex-shrink-0"
+        >
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+      </div>
       {open && <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">{children}</div>}
     </div>
   );
@@ -593,10 +770,28 @@ interface TemplateEditorProps {
   data: LandingTemplateData;
   onChange: (data: LandingTemplateData) => void;
   landingPageId?: string;
+  // Section selected on the canvas — opens/scrolls to its card here.
+  activeSection?: string | null;
+  activeNonce?: number;
+  onSelectSection?: (key: string) => void;
+  // True when the legacy page-level Rich Content slot is empty and therefore
+  // absent from the canvas — hide its sidebar card too (see
+  // isLegacyRichContentEmpty in landing-template.tsx).
+  hideLegacyRichContent?: boolean;
 }
 
-export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditorProps) {
+export function TemplateEditor({
+  data,
+  onChange,
+  landingPageId,
+  activeSection,
+  activeNonce,
+  onSelectSection,
+  hideLegacyRichContent,
+}: TemplateEditorProps) {
   const [draggedSection, setDraggedSection] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<{ key: string; pos: "top" | "bottom" } | null>(null);
+  const dragGhostRef = useRef<HTMLElement | null>(null);
   const [testEmailTo, setTestEmailTo] = useState("");
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
 
@@ -629,15 +824,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
     }
   }, [landingPageId, testEmailTo, data.invitation.thankYouButtons]);
   
-  const canonicalSections = useMemo(
-    () => ['hero', 'marquee', 'why', 'about', 'logos', 'gallery', 'stats', 'testimonials', 'videoTestimonials', 'program', 'contentBlocks', 'richContent', 'invitation', 'bonus', 'faq', 'footer'],
-    []
-  );
-  const sectionOrder = useMemo(() => {
-    const base = data.sectionOrder?.length ? data.sectionOrder : canonicalSections;
-    const missing = canonicalSections.filter((key) => !base.includes(key));
-    return [...base, ...missing];
-  }, [data.sectionOrder, canonicalSections]);
+  const sectionOrder = useMemo(() => resolveSectionOrder(data.sectionOrder), [data.sectionOrder]);
   const mediaSettings = data.mediaSettings || {};
 
   const update = useCallback(
@@ -693,30 +880,154 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
     [data, mediaSettings, onChange]
   );
 
-  const handleDragStart = useCallback((sectionKey: string) => (e: React.DragEvent) => {
-    setDraggedSection(sectionKey);
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
+  // -------------------------------------------------------------------------
+  // Section reordering (drag from grip handle, arrows, drop indicators)
+  // -------------------------------------------------------------------------
+  const moveSection = useCallback(
+    (key: string, dir: -1 | 1) => {
+      const order = [...sectionOrder];
+      const i = order.indexOf(key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= order.length) return;
+      [order[i], order[j]] = [order[j], order[i]];
+      onChange({ ...data, sectionOrder: order });
+    },
+    [sectionOrder, data, onChange]
+  );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const handleDrop = useCallback((targetSection: string) => (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!draggedSection || draggedSection === targetSection) return;
-
-    const newOrder = [...sectionOrder];
-    const draggedIndex = newOrder.indexOf(draggedSection);
-    const targetIndex = newOrder.indexOf(targetSection);
-
-    newOrder.splice(draggedIndex, 1);
-    newOrder.splice(targetIndex, 0, draggedSection);
-
-    onChange({ ...data, sectionOrder: newOrder });
+  const cleanupDrag = useCallback(() => {
     setDraggedSection(null);
-  }, [draggedSection, sectionOrder, data, onChange]);
+    setDragOver(null);
+    dragGhostRef.current?.remove();
+    dragGhostRef.current = null;
+  }, []);
+
+  const handleGripDragStart = useCallback(
+    (sectionKey: string) => (e: React.DragEvent) => {
+      setDraggedSection(sectionKey);
+      e.dataTransfer.setData(SECTION_DND_TYPE, sectionKey);
+      e.dataTransfer.setData("text/plain", sectionKey);
+      e.dataTransfer.effectAllowed = "move";
+      // Small labeled chip as the drag image, instead of the browser dragging
+      // a screenshot of the whole card around the screen.
+      const ghost = document.createElement("div");
+      ghost.textContent = SECTION_LABELS[sectionKey] || sectionKey;
+      Object.assign(ghost.style, {
+        position: "fixed",
+        top: "-100px",
+        left: "-100px",
+        padding: "6px 14px",
+        background: "#7c3aed",
+        color: "#fff",
+        fontSize: "12px",
+        fontWeight: "600",
+        borderRadius: "8px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+        pointerEvents: "none",
+        zIndex: "9999",
+      } as CSSStyleDeclaration);
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, 16, 16);
+      dragGhostRef.current = ghost;
+    },
+    []
+  );
+
+  const handleCardDragOver = useCallback(
+    (sectionKey: string) => (e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes(SECTION_DND_TYPE)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pos: "top" | "bottom" = e.clientY < rect.top + rect.height / 2 ? "top" : "bottom";
+      setDragOver((prev) => (prev?.key === sectionKey && prev.pos === pos ? prev : { key: sectionKey, pos }));
+      // Auto-scroll the sidebar while dragging near its edges.
+      const container = (e.currentTarget as HTMLElement).closest(".overflow-y-auto");
+      if (container) {
+        const cRect = container.getBoundingClientRect();
+        if (e.clientY < cRect.top + 64) container.scrollBy({ top: -16 });
+        else if (e.clientY > cRect.bottom - 64) container.scrollBy({ top: 16 });
+      }
+    },
+    []
+  );
+
+  const handleCardDrop = useCallback(
+    (targetSection: string) => (e: React.DragEvent) => {
+      e.preventDefault();
+      const source = e.dataTransfer.getData(SECTION_DND_TYPE) || draggedSection;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pos: "top" | "bottom" = e.clientY < rect.top + rect.height / 2 ? "top" : "bottom";
+      cleanupDrag();
+      if (!source || source === targetSection) return;
+
+      const order = [...sectionOrder];
+      const from = order.indexOf(source);
+      if (from === -1) return;
+      order.splice(from, 1);
+      let target = order.indexOf(targetSection);
+      if (target === -1) return;
+      if (pos === "bottom") target += 1;
+      order.splice(target, 0, source);
+      onChange({ ...data, sectionOrder: order });
+    },
+    [draggedSection, sectionOrder, data, onChange, cleanupDrag]
+  );
+
+  // Bundles every per-card prop (drag, arrows, visibility, active highlight)
+  // for a reorderable section — used by all section cards below.
+  const sectionProps = (key: string) => ({
+    sectionKey: key,
+    dnd: {
+      isDragSource: draggedSection === key,
+      indicator: dragOver?.key === key ? dragOver.pos : null,
+      onGripDragStart: handleGripDragStart(key),
+      onDragEnd: cleanupDrag,
+      onCardDragOver: handleCardDragOver(key),
+      onCardDrop: handleCardDrop(key),
+      onCardDragLeave: () => setDragOver((p) => (p?.key === key ? null : p)),
+    } as SectionDnd,
+    onMove: (dir: -1 | 1) => moveSection(key, dir),
+    isFirst: sectionOrder.indexOf(key) === 0,
+    isLast: sectionOrder.indexOf(key) === sectionOrder.length - 1,
+    isActive: activeSection === key,
+    activeNonce,
+    visible: getSectionVisibility(data, key),
+    onToggleVisible:
+      key === "richContent"
+        ? undefined
+        : () => onChange(applySectionVisibility(data, key, !getSectionVisibility(data, key))),
+  });
+
+  // -------------------------------------------------------------------------
+  // Content-block list helpers (reorder / duplicate keep media settings in
+  // sync because those are keyed by block index).
+  // -------------------------------------------------------------------------
+  const swapContentBlocks = useCallback(
+    (i: number, j: number) => {
+      const blocks = [...(data.contentBlocks || [])];
+      if (j < 0 || j >= blocks.length) return;
+      [blocks[i], blocks[j]] = [blocks[j], blocks[i]];
+      const ms = { ...(data.mediaSettings || {}) };
+      const ki = mediaKey("contentBlocks", i, "mediaUrl");
+      const kj = mediaKey("contentBlocks", j, "mediaUrl");
+      const vi = ms[ki];
+      const vj = ms[kj];
+      if (vj) ms[ki] = vj; else delete ms[ki];
+      if (vi) ms[kj] = vi; else delete ms[kj];
+      onChange({ ...data, contentBlocks: blocks, mediaSettings: ms });
+    },
+    [data, onChange]
+  );
+
+  const duplicateContentBlock = useCallback(
+    (i: number) => {
+      const blocks = [...(data.contentBlocks || [])];
+      blocks.splice(i + 1, 0, { ...blocks[i] });
+      onChange({ ...data, contentBlocks: blocks });
+    },
+    [data, onChange]
+  );
 
   const sectionComponents: Record<string, JSX.Element> = {
     richContent: (
@@ -724,10 +1035,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="richContent"
         title="Rich Editor Content Block"
         icon={<Code2 className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('richContent')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('richContent')}
+        {...sectionProps('richContent')}
       >
         <div className="space-y-2">
           <SectionBgField sectionKey="richContent" value={data.sectionBg?.['richContent'] || ''} onChange={updateSectionBg} />
@@ -807,10 +1115,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         title="Hero Section" 
         icon={<Star className="h-4 w-4" />} 
         defaultOpen
-        draggable
-        onDragStart={handleDragStart('hero')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('hero')}
+        {...sectionProps('hero')}
       >
         <SectionBgField sectionKey="hero" value={data.sectionBg?.['hero'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1008,10 +1313,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="marquee"
         title="Marquee / Ticker" 
         icon={<Type className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('marquee')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('marquee')}
+        {...sectionProps('marquee')}
       >
         <SectionBgField sectionKey="marquee" value={data.sectionBg?.['marquee'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1046,10 +1348,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="why"
         title="Why Section" 
         icon={<LayoutGrid className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('why')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('why')}
+        {...sectionProps('why')}
       >
         <SectionBgField sectionKey="why" value={data.sectionBg?.['why'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1108,10 +1407,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="about"
         title="About Section" 
         icon={<Users className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('about')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('about')}
+        {...sectionProps('about')}
       >
         <SectionBgField sectionKey="about" value={data.sectionBg?.['about'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1166,10 +1462,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="logos"
         title="Logo Bar" 
         icon={<Award className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('logos')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('logos')}
+        {...sectionProps('logos')}
       >
         <SectionBgField sectionKey="logos" value={data.sectionBg?.['logos'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1214,10 +1507,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="gallery"
         title="Gallery" 
         icon={<ImageIcon className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('gallery')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('gallery')}
+        {...sectionProps('gallery')}
       >
         <SectionBgField sectionKey="gallery" value={data.sectionBg?.['gallery'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1273,10 +1563,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="stats"
         title="Stats / CTA Section" 
         icon={<Globe className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('stats')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('stats')}
+        {...sectionProps('stats')}
       >
         <SectionBgField sectionKey="stats" value={data.sectionBg?.['stats'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1346,10 +1633,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="testimonials"
         title="Testimonials" 
         icon={<MessageSquare className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('testimonials')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('testimonials')}
+        {...sectionProps('testimonials')}
       >
         <SectionBgField sectionKey="testimonials" value={data.sectionBg?.['testimonials'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1411,10 +1695,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="videoTestimonials"
         title="Video Testimonials"
         icon={<Video className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('videoTestimonials')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('videoTestimonials')}
+        {...sectionProps('videoTestimonials')}
       >
         <SectionBgField sectionKey="videoTestimonials" value={data.sectionBg?.['videoTestimonials'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1477,10 +1758,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="program"
         title="Program / What You'll Learn" 
         icon={<BookOpen className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('program')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('program')}
+        {...sectionProps('program')}
       >
         <SectionBgField sectionKey="program" value={data.sectionBg?.['program'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1552,10 +1830,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="bonus"
         title="Bonus Section" 
         icon={<Gift className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('bonus')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('bonus')}
+        {...sectionProps('bonus')}
       >
         <SectionBgField sectionKey="bonus" value={data.sectionBg?.['bonus'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -1607,10 +1882,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="contentBlocks"
         title="Content Blocks" 
         icon={<Layers className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('contentBlocks')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('contentBlocks')}
+        {...sectionProps('contentBlocks')}
       >
         <div className="text-xs text-gray-500 mb-3">
           Add multiple content blocks with media (image/video/YouTube) and text side by side
@@ -1621,13 +1893,24 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
           <div key={i} className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50/50">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-semibold text-gray-400 uppercase">Block {i + 1}</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
-                clearMediaSettings(blockKey);
-                const blocks = Array.isArray(data.contentBlocks) ? data.contentBlocks : [];
-                onChange({ ...data, contentBlocks: blocks.filter((_, j) => j !== i) });
-              }}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              <div className="flex items-center gap-0.5">
+                <Button variant="ghost" size="sm" title="Move block up" disabled={i === 0} className="h-6 px-1.5 text-gray-400 hover:text-violet-600 disabled:opacity-30" onClick={() => swapContentBlocks(i, i - 1)}>
+                  <ChevronUp className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" title="Move block down" disabled={i === (data.contentBlocks?.length || 0) - 1} className="h-6 px-1.5 text-gray-400 hover:text-violet-600 disabled:opacity-30" onClick={() => swapContentBlocks(i, i + 1)}>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" title="Duplicate block" className="h-6 px-1.5 text-gray-400 hover:text-violet-600" onClick={() => duplicateContentBlock(i)}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" title="Delete block" className="h-6 px-1.5 text-red-500" onClick={() => {
+                  clearMediaSettings(blockKey);
+                  const blocks = Array.isArray(data.contentBlocks) ? data.contentBlocks : [];
+                  onChange({ ...data, contentBlocks: blocks.filter((_, j) => j !== i) });
+                }}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
             
             <div className="flex items-center justify-between">
@@ -1772,10 +2055,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="invitation"
         title="Request Invitation"
         icon={<CalendarCheck2 className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('invitation')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('invitation')}
+        {...sectionProps('invitation')}
       >
         <SectionBgField sectionKey="invitation" value={data.sectionBg?.['invitation'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -2124,10 +2404,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="footer"
         title="Footer" 
         icon={<Globe className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('footer')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('footer')}
+        {...sectionProps('footer')}
       >
         <SectionBgField sectionKey="footer" value={data.sectionBg?.['footer'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -2203,10 +2480,7 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
         key="faq"
         title="FAQ Section"
         icon={<HelpCircle className="h-4 w-4" />}
-        draggable
-        onDragStart={handleDragStart('faq')}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop('faq')}
+        {...sectionProps('faq')}
       >
         <SectionBgField sectionKey="faq" value={data.sectionBg?.['faq'] || ''} onChange={updateSectionBg} />
         <div className="flex items-center justify-between">
@@ -2264,11 +2538,103 @@ export function TemplateEditor({ data, onChange, landingPageId }: TemplateEditor
     ),
   };
 
+  const newContentBlockDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData(NEW_BLOCK_DND_TYPE, "__newContentBlock");
+    e.dataTransfer.effectAllowed = "copy";
+    const ghost = document.createElement("div");
+    ghost.textContent = "New Content Block";
+    Object.assign(ghost.style, {
+      position: "fixed",
+      top: "-100px",
+      left: "-100px",
+      padding: "6px 14px",
+      background: "#7c3aed",
+      color: "#fff",
+      fontSize: "12px",
+      fontWeight: "600",
+      borderRadius: "8px",
+      pointerEvents: "none",
+      zIndex: "9999",
+    } as CSSStyleDeclaration);
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 16, 16);
+    dragGhostRef.current = ghost;
+  };
+
   return (
-    <div className="space-y-3 p-1">
-      {sectionComponents.colors}
-      {sectionComponents.floatingButton}
-      {sectionOrder.map(key => sectionComponents[key]).filter(Boolean)}
-    </div>
+    <TemplateEditorCtx.Provider value={{ data, onChange }}>
+      <div className="space-y-3 p-1">
+        {/* ===== Blocks palette — drag chips onto the canvas (Elementor-style) ===== */}
+        <div className="border border-gray-200 rounded-xl bg-white p-3">
+          <p className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5 mb-1">
+            <ArrowUpDown className="h-3.5 w-3.5 text-violet-500" /> Blocks
+          </p>
+          <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+            Drag a block onto the canvas to position it, or click to edit. Grayed-out blocks are hidden.
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {sectionOrder
+              // Dynamic rich blocks are created via the Elements-tab drag
+              // path (or the canvas "+" popup), not re-added from this
+              // fixed-sections palette — they're managed entirely on the
+              // canvas via their own floating toolbar.
+              .filter((key) => key !== "richContent" && !isRichBlockKey(key))
+              .map((key) => {
+                const isVisible = getSectionVisibility(data, key);
+                return (
+                  <div
+                    key={key}
+                    draggable
+                    onDragStart={handleGripDragStart(key)}
+                    onDragEnd={cleanupDrag}
+                    onClick={() => onSelectSection?.(key)}
+                    title={`${SECTION_LABELS[key] || key} — drag to canvas or click to edit`}
+                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium cursor-grab active:cursor-grabbing select-none [-webkit-user-drag:element] transition ${
+                      isVisible
+                        ? "border-gray-200 bg-gray-50 text-gray-700 hover:border-violet-300 hover:bg-violet-50"
+                        : "border-dashed border-gray-300 bg-white text-gray-400 hover:border-violet-300"
+                    }`}
+                  >
+                    <GripVertical className="h-3 w-3 text-gray-300 flex-shrink-0" />
+                    <span className="truncate flex-1">{SECTION_LABELS[key] || key}</span>
+                    {!isVisible && <EyeOff className="h-3 w-3 flex-shrink-0" />}
+                  </div>
+                );
+              })}
+            <div
+              draggable
+              onDragStart={newContentBlockDragStart}
+              onDragEnd={cleanupDrag}
+              onClick={() => {
+                const blocks = [...(data.contentBlocks || [])];
+                blocks.push({
+                  enabled: true,
+                  layout: "media-left" as const,
+                  mediaType: "image" as const,
+                  mediaUrl: "",
+                  textFormat: "plain" as const,
+                  heading: "New Content Block",
+                  content: "Write your content here...",
+                });
+                onChange({ ...data, contentBlocks: blocks });
+                onSelectSection?.("contentBlocks");
+              }}
+              title="New content block — drag to canvas or click to add"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-semibold cursor-grab active:cursor-grabbing select-none [-webkit-user-drag:element] hover:bg-violet-100 transition"
+            >
+              <Plus className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">Content Block</span>
+            </div>
+          </div>
+        </div>
+
+        {sectionComponents.colors}
+        {sectionComponents.floatingButton}
+        {sectionOrder
+          .filter((key) => !(key === "richContent" && hideLegacyRichContent))
+          .map(key => sectionComponents[key])
+          .filter(Boolean)}
+      </div>
+    </TemplateEditorCtx.Provider>
   );
 }
