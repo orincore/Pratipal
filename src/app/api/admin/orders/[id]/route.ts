@@ -3,6 +3,8 @@ import { getUserFromRequest } from "@/lib/auth";
 import type { TrackingStatus } from "@/lib/ecommerce-types";
 import getDB from "@/lib/db";
 import { sendMail, trackingUpdateHtml } from "@/lib/mailer";
+import { sendWhatsappNotification } from "@/lib/whatsapp";
+import { resolveOrderWhatsappNumber } from "@/lib/customer-phone";
 
 const TRACKING_STATUSES: TrackingStatus[] = [
   "order_received", "processing", "packed", "shipped",
@@ -148,6 +150,22 @@ export async function PATCH(
           trackingMessage: updatedOrder.tracking_message ?? body.tracking_message ?? null,
           total: updatedOrder.total,
         }),
+      }).catch(() => {});
+
+      // WhatsApp notification (additive alongside the email above)
+      resolveOrderWhatsappNumber({
+        shipping_address: (updatedOrder as any).shipping_address,
+        customer_id: (updatedOrder as any).customer_id,
+      }).then((customerWhatsappNumber) => {
+        sendWhatsappNotification({
+          event: "order_status_update_customer",
+          to: customerWhatsappNumber,
+          data: {
+            customerName: updatedOrder.customer_name,
+            orderNumber: updatedOrder.order_number,
+            trackingStatusLabel: updatedOrder.tracking_status || body.tracking_status,
+          },
+        });
       }).catch(() => {});
     }
 

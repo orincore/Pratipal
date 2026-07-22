@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import getDB from "@/lib/db";
 import { sendMail, orderConfirmationHtml, ebookDeliveryHtml } from "@/lib/mailer";
 import { BRAND, renderEmailLayout, emailInfoCard } from "@/lib/email-template";
+import { sendWhatsappNotification, formatOrderItemsForWhatsapp } from "@/lib/whatsapp";
+import { resolveOrderWhatsappNumber } from "@/lib/customer-phone";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,9 +27,17 @@ export async function POST(req: NextRequest) {
     const { Order, OrderItem, Product, Customer, CartItem } = await getDB();
 
     if (isValid) {
+      // Payment confirmed — this is the moment the order is actually
+      // "placed" from the customer's perspective (the pending Order record
+      // created in /api/razorpay/create-order isn't final until payment
+      // succeeds), so kick off the tracking timeline here.
+      const orderReceivedAt = new Date().toISOString();
       await Order.findByIdAndUpdate(order_id, {
         payment_status: "paid",
         status: "processing",
+        tracking_status: "order_received",
+        tracking_updated_at: orderReceivedAt,
+        $push: { tracking_history: { status: "order_received", timestamp: orderReceivedAt } },
       });
 
       const order = await Order.findById(order_id).lean();
@@ -68,6 +78,33 @@ export async function POST(req: NextRequest) {
               ebook_delivery_status: "delivered",
               ebook_delivered_at: new Date(),
             });
+
+            const ebookWhatsappNumber = await resolveOrderWhatsappNumber({
+              shipping_address: order.shipping_address,
+              customer_id: order.customer_id,
+            });
+            sendWhatsappNotification({
+              event: "ebook_delivered_customer",
+              to: ebookWhatsappNumber,
+              data: {
+                customerName: order.customer_name,
+                productName: item.product_name,
+                orderNumber: order.order_number,
+                orderItemId: item._id.toString(),
+              },
+            }).catch(() => {});
+
+            if (process.env.ADMIN_WHATSAPP_NUMBER) {
+              sendWhatsappNotification({
+                event: "ebook_sold_admin",
+                to: process.env.ADMIN_WHATSAPP_NUMBER,
+                data: {
+                  orderSummary: `${item.product_name} — Order ${order.order_number}`,
+                  buyerSummary: `${order.customer_name} (${order.customer_email})`,
+                  amount: item.subtotal,
+                },
+              }).catch(() => {});
+            }
           } catch (mailErr: any) {
             console.error(`Ebook delivery email failed for order item ${item._id}:`, mailErr?.message || mailErr);
             await OrderItem.findByIdAndUpdate(item._id, {
@@ -162,6 +199,38 @@ export async function POST(req: NextRequest) {
             }),
           }).catch(() => {});
         }
+
+        // WhatsApp notifications (additive alongside the emails above)
+        resolveOrderWhatsappNumber({
+          shipping_address: order.shipping_address,
+          customer_id: order.customer_id,
+        }).then((customerWhatsappNumber) => {
+          const itemsSummary = formatOrderItemsForWhatsapp(orderItems);
+          sendWhatsappNotification({
+            event: "order_confirmed_customer",
+            to: customerWhatsappNumber,
+            data: {
+              customerName: order.customer_name,
+              orderNumber: order.order_number,
+              itemsSummary,
+              total: order.total,
+            },
+          });
+
+          if (process.env.ADMIN_WHATSAPP_NUMBER) {
+            sendWhatsappNotification({
+              event: "order_confirmed_admin",
+              to: process.env.ADMIN_WHATSAPP_NUMBER,
+              data: {
+                orderNumber: order.order_number,
+                customerName: order.customer_name,
+                customerPhone: customerWhatsappNumber,
+                itemsSummary,
+                total: order.total,
+              },
+            });
+          }
+        }).catch(() => {});
       } else {
         console.warn("Skipping confirmation email — order not found for id:", order_id);
       }

@@ -4,6 +4,7 @@ import getDB from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { BRAND, renderEmailLayout, emailInfoCard, emailNote, emailButton } from "@/lib/email-template";
 import { siteConfig } from "@/config/site.config";
+import { sendWhatsappNotification } from "@/lib/whatsapp";
 
 export async function POST(req: NextRequest) {
   try {
@@ -128,6 +129,33 @@ Please confirm my booking. Thank you!`;
             `<div style="text-align:center;">${emailButton("Contact Customer on WhatsApp", whatsappUrl, "#25D366", "messageCircle")}</div>`,
           footerNote: "Internal notification — sent to the admin mailbox.",
         }),
+      }).catch(() => {});
+    }
+
+    // WhatsApp notifications (additive alongside the emails above)
+    const bookingWhatsappNumber = booking.customer_whatsapp || booking.customer_phone;
+    const bookingSummary = `Booking #${booking.booking_number} — ${booking.service_name} (${booking.frequency_label} plan)`;
+    sendWhatsappNotification({
+      event: "booking_confirmed_customer",
+      to: bookingWhatsappNumber,
+      data: {
+        customerName: booking.customer_name,
+        sessionTypeLabel: bookingType,
+        bookingSummary,
+        amount: booking.amount,
+      },
+    }).catch(() => {});
+
+    if (process.env.ADMIN_WHATSAPP_NUMBER) {
+      sendWhatsappNotification({
+        event: "booking_confirmed_admin",
+        to: process.env.ADMIN_WHATSAPP_NUMBER,
+        data: {
+          sessionTypeLabel: bookingType,
+          bookingSummary,
+          customerSummary: `${booking.customer_name} (${bookingWhatsappNumber})`,
+          amount: booking.amount,
+        },
       }).catch(() => {});
     }
 

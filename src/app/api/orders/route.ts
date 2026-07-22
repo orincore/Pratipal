@@ -5,6 +5,8 @@ import getDB from "@/lib/db";
 import { IWeightTier } from "@/models/ShippingSettings";
 import { sendMail, orderConfirmationHtml } from "@/lib/mailer";
 import { BRAND, renderEmailLayout, emailInfoCard } from "@/lib/email-template";
+import { sendWhatsappNotification, formatOrderItemsForWhatsapp } from "@/lib/whatsapp";
+import { resolveOrderWhatsappNumber } from "@/lib/customer-phone";
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
@@ -306,6 +308,37 @@ export async function POST(req: NextRequest) {
               </div>` : ""),
             footerNote: `Received at ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST — sent to the admin mailbox.`,
           }),
+        }).catch(() => {});
+      }
+
+      // WhatsApp notifications (additive alongside the emails above)
+      const customerWhatsappNumber = await resolveOrderWhatsappNumber({
+        shipping_address,
+        customer_id: resolvedCustomerId,
+      });
+      const itemsSummary = formatOrderItemsForWhatsapp(orderItems);
+      sendWhatsappNotification({
+        event: "order_confirmed_customer",
+        to: customerWhatsappNumber,
+        data: {
+          customerName: customer_name,
+          orderNumber,
+          itemsSummary,
+          total,
+        },
+      }).catch(() => {});
+
+      if (process.env.ADMIN_WHATSAPP_NUMBER) {
+        sendWhatsappNotification({
+          event: "order_confirmed_admin",
+          to: process.env.ADMIN_WHATSAPP_NUMBER,
+          data: {
+            orderNumber,
+            customerName: customer_name,
+            customerPhone: customerWhatsappNumber,
+            itemsSummary,
+            total,
+          },
         }).catch(() => {});
       }
     }

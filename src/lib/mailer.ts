@@ -1,17 +1,28 @@
-import nodemailer from "nodemailer";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { BRAND, renderEmailLayout, emailInfoCard, emailNote, emailStatusPill, type IconName } from "./email-template";
 import { siteConfig } from "@/config/site.config";
 import { SITE_URL } from "./seo";
 
-export const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.EMAIL_PORT || "465"),
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+// Explicit SES_* credentials win; otherwise the SDK's default chain
+// (AWS_* env vars, shared config, instance role) is used.
+const sesAccessKeyId = process.env.SES_ACCESS_KEY_ID;
+const sesSecretAccessKey = process.env.SES_SECRET_ACCESS_KEY;
+
+export const sesClient = new SESv2Client({
+  region: process.env.SES_REGION || process.env.AWS_REGION || "ap-south-1",
+  ...(sesAccessKeyId && sesSecretAccessKey
+    ? { credentials: { accessKeyId: sesAccessKeyId, secretAccessKey: sesSecretAccessKey } }
+    : {}),
 });
+
+function fromAddress() {
+  const address = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  if (!address) {
+    throw new Error("EMAIL_FROM is not configured — set it to an SES-verified sender address");
+  }
+  // Allow EMAIL_FROM to carry its own display name ("Name <addr>"); otherwise add the brand name.
+  return address.includes("<") ? address : `"${siteConfig.email.fromName}" <${address}>`;
+}
 
 export async function sendMail(options: {
   to: string | string[];
@@ -19,10 +30,24 @@ export async function sendMail(options: {
   html: string;
   text?: string;
 }) {
-  return transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-    ...options,
-  });
+  const result = await sesClient.send(
+    new SendEmailCommand({
+      FromEmailAddress: fromAddress(),
+      Destination: {
+        ToAddresses: Array.isArray(options.to) ? options.to : [options.to],
+      },
+      Content: {
+        Simple: {
+          Subject: { Data: options.subject, Charset: "UTF-8" },
+          Body: {
+            Html: { Data: options.html, Charset: "UTF-8" },
+            ...(options.text ? { Text: { Data: options.text, Charset: "UTF-8" } } : {}),
+          },
+        },
+      },
+    })
+  );
+  return { messageId: result.MessageId };
 }
 
 export function loginNotificationHtml({

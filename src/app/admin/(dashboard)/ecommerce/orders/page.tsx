@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Search, Eye, Loader2, Truck, Copy, Check } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Search, Eye, Loader2, Truck, Copy, Check, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { Order, TrackingStatus } from "@/lib/ecommerce-types";
 import { AdminLoader } from "@/components/admin/admin-loader";
@@ -47,6 +48,32 @@ const TRACKING_META: Record<string, { label: string; color: string; dot: string 
   cancelled:        { label: "Cancelled",          color: "text-rose-700",    dot: "bg-rose-500" },
 };
 
+const ORDER_STATUS_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Processing", value: "processing" },
+  { label: "Completed", value: "completed" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Refunded", value: "refunded" },
+  { label: "Failed", value: "failed" },
+];
+
+const PAYMENT_STATUS_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Paid", value: "paid" },
+  { label: "Failed", value: "failed" },
+  { label: "Refunded", value: "refunded" },
+];
+
+const TRACKING_STATUS_OPTIONS = [
+  { label: "Order Received", value: "order_received" },
+  { label: "Processing", value: "processing" },
+  { label: "Packed", value: "packed" },
+  { label: "Shipped", value: "shipped" },
+  { label: "Out for Delivery", value: "out_for_delivery" },
+  { label: "Delivered", value: "delivered" },
+  { label: "Cancelled", value: "cancelled" },
+];
+
 function TrackingTimeline({ history }: { history: Array<{ status: string; message?: string | null; timestamp: string }> }) {
   if (!history || history.length === 0) return <p className="text-xs text-muted-foreground">No tracking history yet.</p>;
   return (
@@ -74,6 +101,11 @@ function TrackingTimeline({ history }: { history: Array<{ status: string; messag
 export default function EcommerceOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [trackingStatusFilter, setTrackingStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [trackingInputs, setTrackingInputs] = useState({
@@ -97,6 +129,31 @@ export default function EcommerceOrdersPage() {
     } catch { toast.error("Failed to load orders"); }
     finally { setLoading(false); }
   }
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const from = dateFrom ? new Date(dateFrom + "T00:00:00") : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
+
+    return orders.filter((o) => {
+      if (q) {
+        const phone = (o as any).customer_phone || o.shipping_address?.phone || "";
+        const matchesSearch =
+          o.order_number.toLowerCase().includes(q) ||
+          o.customer_email.toLowerCase().includes(q) ||
+          o.customer_name.toLowerCase().includes(q) ||
+          phone.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
+      if (statusFilter !== "all" && o.status !== statusFilter) return false;
+      if (paymentStatusFilter !== "all" && o.payment_status !== paymentStatusFilter) return false;
+      if (trackingStatusFilter !== "all" && (o.tracking_status || "order_received") !== trackingStatusFilter) return false;
+      const createdAt = new Date(o.created_at);
+      if (from && createdAt < from) return false;
+      if (to && createdAt > to) return false;
+      return true;
+    });
+  }, [orders, search, statusFilter, paymentStatusFilter, trackingStatusFilter, dateFrom, dateTo]);
 
   if (loading) return <AdminLoader />;
 
@@ -141,11 +198,17 @@ export default function EcommerceOrdersPage() {
     finally { setSrLoading(false); }
   }
 
-  const filtered = orders.filter((o) =>
-    o.order_number.toLowerCase().includes(search.toLowerCase()) ||
-    o.customer_email.toLowerCase().includes(search.toLowerCase()) ||
-    o.customer_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtersActive =
+    !!search || statusFilter !== "all" || paymentStatusFilter !== "all" || trackingStatusFilter !== "all" || !!dateFrom || !!dateTo;
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setPaymentStatusFilter("all");
+    setTrackingStatusFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  }
 
   function viewOrder(order: Order) {
     setSelectedOrder(order);
@@ -163,15 +226,7 @@ export default function EcommerceOrdersPage() {
       .catch(() => {});
   }
 
-  const trackingOptions: { label: string; value: TrackingStatus }[] = [
-    { label: "Order Received", value: "order_received" },
-    { label: "Processing", value: "processing" },
-    { label: "Packed", value: "packed" },
-    { label: "Shipped", value: "shipped" },
-    { label: "Out for Delivery", value: "out_for_delivery" },
-    { label: "Delivered", value: "delivered" },
-    { label: "Cancelled", value: "cancelled" },
-  ];
+  const trackingOptions = TRACKING_STATUS_OPTIONS as { label: string; value: TrackingStatus }[];
 
   async function handleTrackingSave() {
     if (!selectedOrder) return;
@@ -219,9 +274,76 @@ export default function EcommerceOrdersPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search orders..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Input
+                placeholder="Search by order #, name, email, or phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[170px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Order Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Order Status</SelectItem>
+                  {ORDER_STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[170px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Payment Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Payments</SelectItem>
+                  {PAYMENT_STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={trackingStatusFilter} onValueChange={setTrackingStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[190px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Tracking Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tracking Status</SelectItem>
+                  {TRACKING_STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[150px]" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[150px]" />
+              </div>
+
+              {filtersActive && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+                  <X className="h-4 w-4 mr-1" /> Clear filters
+                </Button>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Showing {filtered.length} of {orders.length} order{orders.length === 1 ? "" : "s"}
+            </p>
           </div>
         </CardHeader>
         <CardContent>

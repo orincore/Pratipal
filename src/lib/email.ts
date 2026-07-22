@@ -1,6 +1,6 @@
-import nodemailer from "nodemailer";
 import { BRAND, renderEmailLayout, emailInfoCard, emailNote } from "./email-template";
 import { siteConfig } from "@/config/site.config";
+import { sendMail } from "./mailer";
 
 export interface EmailOptions {
   to: string;
@@ -9,24 +9,8 @@ export interface EmailOptions {
 }
 
 export async function sendEmail({ to, subject, html }: EmailOptions) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
-    },
-  });
-
   try {
-    const info = await transporter.sendMail({
-      from: `"${siteConfig.email.fromName}" <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      html,
-    });
-
+    const info = await sendMail({ to, subject, html });
     console.log("Email sent:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
