@@ -407,7 +407,7 @@ export function BlogEditor({ content, onChange }: BlogEditorProps) {
     editorProps: {
       attributes: {
         dir: "ltr",
-        class: "blog-editor-content prose prose-sm sm:prose max-w-none min-h-[400px] px-5 py-4 focus:outline-none text-left",
+        class: "blog-editor-content prose prose-sm sm:prose !max-w-none min-h-[400px] px-5 py-4 focus:outline-none text-left",
       },
       // Links must never navigate/open inside the editor — clicking one should
       // only place the cursor so editing flow isn't disturbed.
