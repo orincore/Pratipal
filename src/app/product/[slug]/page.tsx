@@ -196,6 +196,7 @@ export default async function ProductPage({ params }: ProductParams) {
                     compareAtPrice={product.price}
                     stockStatus={product.stock_status}
                     variants={product.variants}
+                    isEbook={!!product.is_ebook}
                     productMeta={{
                       id: product.id,
                       name: product.name,

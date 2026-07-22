@@ -14,6 +14,7 @@ export interface CartItemForShipping {
     weight?: number;
     price: number;
     sale_price?: number;
+    is_ebook?: boolean;
   };
   quantity: number;
 }
@@ -44,6 +45,21 @@ export async function calculateShipping(
 
     totalWeight += weight * quantity;
     subtotal += price * quantity;
+  }
+
+  // Digital goods (ebooks) have nothing to ship — an order made up entirely
+  // of ebooks is never charged shipping, regardless of subtotal or weight.
+  const isEbookOnlyOrder =
+    cartItems.length > 0 && cartItems.every((item) => item.product.is_ebook);
+
+  if (isEbookOnlyOrder) {
+    return {
+      shipping_cost: 0,
+      shipping_method: "digital_no_shipping",
+      total_weight: totalWeight,
+      free_shipping_threshold: freeShippingThreshold,
+      is_free_shipping: true,
+    };
   }
 
   // Calculate shipping cost
@@ -91,15 +107,16 @@ export async function calculateShippingFromProducts(
   
   for (const item of items) {
     const product = await Product.findById(item.product_id)
-      .select("price sale_price weight")
+      .select("price sale_price weight is_ebook")
       .lean();
-      
+
     if (product) {
       cartItems.push({
         product: {
           price: product.price,
           sale_price: product.sale_price,
           weight: product.weight,
+          is_ebook: product.is_ebook,
         },
         quantity: item.quantity,
       });

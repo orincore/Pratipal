@@ -33,12 +33,21 @@ export async function PATCH(
       );
     }
 
-    const { CartItem } = await getDB();
+    const { CartItem, Product } = await getDB();
     const { id } = await context.params;
-    
+
+    const existing = await CartItem.findById(id).lean();
+    if (!existing) {
+      return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
+    }
+
+    // Ebooks are a digital download — cap at one copy per order.
+    const product = await Product.findById(existing.product_id).select('is_ebook').lean();
+    const clampedQuantity = product?.is_ebook ? 1 : quantity;
+
     const cartItem = await CartItem.findByIdAndUpdate(
       id,
-      { quantity },
+      { quantity: clampedQuantity },
       { new: true }
     ).lean();
 

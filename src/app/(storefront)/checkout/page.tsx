@@ -259,6 +259,8 @@ function CheckoutPageInner() {
             sale_price: p.sale_price,
             featured_image: p.featured_image || p.images?.[0] || "",
             sku: p.sku,
+            is_ebook: p.is_ebook,
+            weight: p.weight,
           } as any,
           quantity: 1,
           price: p.sale_price || p.price,
@@ -444,8 +446,13 @@ function CheckoutPageInner() {
     return sum + price * item.quantity;
   }, 0);
 
-  const tax = subtotal * 0.18;
-  const shipping = shippingInfo.shippingCost;
+  // Ebooks are delivered digitally — an order made up entirely of ebooks
+  // is never charged GST or shipping.
+  const isEbookOnlyOrder =
+    cartItems.length > 0 && cartItems.every((item) => item.product?.is_ebook);
+
+  const tax = isEbookOnlyOrder ? 0 : subtotal * 0.18;
+  const shipping = isEbookOnlyOrder ? 0 : shippingInfo.shippingCost;
   const total = subtotal + tax + shipping;
 
   async function handlePlaceOrder() {
@@ -1232,17 +1239,24 @@ function CheckoutPageInner() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      Shipping ({shippingInfo.totalWeight.toFixed(2)} kg)
+                      {isEbookOnlyOrder
+                        ? "Shipping"
+                        : `Shipping (${shippingInfo.totalWeight.toFixed(2)} kg)`}
                     </span>
                     <span>
-                      {shippingInfo.isFreeShipping ? (
+                      {isEbookOnlyOrder || shippingInfo.isFreeShipping ? (
                         <span className="text-green-600 font-semibold">FREE</span>
                       ) : (
                         `₹${shipping.toFixed(2)}`
                       )}
                     </span>
                   </div>
-                  {shippingInfo.isFreeShipping && (
+                  {isEbookOnlyOrder && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-700">
+                      📖 Digital delivery — no shipping or tax charged on ebooks!
+                    </div>
+                  )}
+                  {!isEbookOnlyOrder && shippingInfo.isFreeShipping && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-700">
                       🎉 You've qualified for FREE shipping!
                     </div>

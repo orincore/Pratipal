@@ -484,16 +484,19 @@ export default function CreateProductPage() {
         sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
         cost_price: formData.cost_price ? parseFloat(formData.cost_price) : undefined,
         sku: formData.sku,
-        stock_quantity: parseInt(formData.stock_quantity) || 0,
-        stock_status: formData.stock_status,
-        manage_stock: formData.manage_stock,
+        // Ebooks are downloadable, not stocked or shipped — force sane
+        // defaults so nothing downstream (stock checks, shipping calc)
+        // blocks a purchase over fields the admin never sees for this type.
+        stock_quantity: formData.is_ebook ? 999999 : parseInt(formData.stock_quantity) || 0,
+        stock_status: formData.is_ebook ? "in_stock" : formData.stock_status,
+        manage_stock: formData.is_ebook ? false : formData.manage_stock,
         category_id: formData.category_id || undefined,
         images: mediaFiles.map((m) => m.url),
         featured_image: formData.featured_image,
         is_featured: formData.is_featured,
         is_active: formData.is_active,
-        weight: formData.weight ? parseFloat(formData.weight) : undefined,
-        dimensions: {
+        weight: formData.is_ebook ? undefined : (formData.weight ? parseFloat(formData.weight) : undefined),
+        dimensions: formData.is_ebook ? {} : {
           length: formData.dimensions.length ? parseFloat(formData.dimensions.length) : undefined,
           width: formData.dimensions.width ? parseFloat(formData.dimensions.width) : undefined,
           height: formData.dimensions.height ? parseFloat(formData.dimensions.height) : undefined,
@@ -816,106 +819,114 @@ export default function CreateProductPage() {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="stock_quantity">Stock Quantity</Label>
-                    <Input
-                      id="stock_quantity"
-                      type="number"
-                      value={formData.stock_quantity}
-                      onChange={(e) => handleChange("stock_quantity", e.target.value)}
-                      placeholder="100"
-                    />
-                  </div>
+                  {!formData.is_ebook && (
+                    <div>
+                      <Label htmlFor="stock_quantity">Stock Quantity</Label>
+                      <Input
+                        id="stock_quantity"
+                        type="number"
+                        value={formData.stock_quantity}
+                        onChange={(e) => handleChange("stock_quantity", e.target.value)}
+                        placeholder="100"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <Label htmlFor="stock_status">Stock Status</Label>
-                  <Select
-                    value={formData.stock_status}
-                    onValueChange={(v) => handleChange("stock_status", v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="in_stock">In Stock</SelectItem>
-                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                      <SelectItem value="on_backorder">On Backorder</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!formData.is_ebook && (
+                  <>
+                    <div>
+                      <Label htmlFor="stock_status">Stock Status</Label>
+                      <Select
+                        value={formData.stock_status}
+                        onValueChange={(v) => handleChange("stock_status", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in_stock">In Stock</SelectItem>
+                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                          <SelectItem value="on_backorder">On Backorder</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="manage_stock"
-                    checked={formData.manage_stock}
-                    onChange={(e) => handleChange("manage_stock", e.target.checked)}
-                    className="rounded"
-                  />
-                  <Label htmlFor="manage_stock" className="cursor-pointer">
-                    Enable stock management
-                  </Label>
-                </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="manage_stock"
+                        checked={formData.manage_stock}
+                        onChange={(e) => handleChange("manage_stock", e.target.checked)}
+                        className="rounded"
+                      />
+                      <Label htmlFor="manage_stock" className="cursor-pointer">
+                        Enable stock management
+                      </Label>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Shipping</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <Label htmlFor="weight">Weight (kg)</Label>
-                    <Input
-                      id="weight"
-                      type="number"
-                      step="0.01"
-                      value={formData.weight}
-                      onChange={(e) => handleChange("weight", e.target.value)}
-                      placeholder="0.5"
-                    />
-                  </div>
+            {!formData.is_ebook && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Shipping</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor="weight">Weight (kg)</Label>
+                      <Input
+                        id="weight"
+                        type="number"
+                        step="0.01"
+                        value={formData.weight}
+                        onChange={(e) => handleChange("weight", e.target.value)}
+                        placeholder="0.5"
+                      />
+                    </div>
 
-                  <div>
-                    <Label htmlFor="length">Length (cm)</Label>
-                    <Input
-                      id="length"
-                      type="number"
-                      step="0.01"
-                      value={formData.dimensions.length}
-                      onChange={(e) => handleDimensionChange("length", e.target.value)}
-                      placeholder="10"
-                    />
-                  </div>
+                    <div>
+                      <Label htmlFor="length">Length (cm)</Label>
+                      <Input
+                        id="length"
+                        type="number"
+                        step="0.01"
+                        value={formData.dimensions.length}
+                        onChange={(e) => handleDimensionChange("length", e.target.value)}
+                        placeholder="10"
+                      />
+                    </div>
 
-                  <div>
-                    <Label htmlFor="width">Width (cm)</Label>
-                    <Input
-                      id="width"
-                      type="number"
-                      step="0.01"
-                      value={formData.dimensions.width}
-                      onChange={(e) => handleDimensionChange("width", e.target.value)}
-                      placeholder="10"
-                    />
-                  </div>
+                    <div>
+                      <Label htmlFor="width">Width (cm)</Label>
+                      <Input
+                        id="width"
+                        type="number"
+                        step="0.01"
+                        value={formData.dimensions.width}
+                        onChange={(e) => handleDimensionChange("width", e.target.value)}
+                        placeholder="10"
+                      />
+                    </div>
 
-                  <div>
-                    <Label htmlFor="height">Height (cm)</Label>
-                    <Input
-                      id="height"
-                      type="number"
-                      step="0.01"
-                      value={formData.dimensions.height}
-                      onChange={(e) => handleDimensionChange("height", e.target.value)}
-                      placeholder="15"
-                    />
+                    <div>
+                      <Label htmlFor="height">Height (cm)</Label>
+                      <Input
+                        id="height"
+                        type="number"
+                        step="0.01"
+                        value={formData.dimensions.height}
+                        onChange={(e) => handleDimensionChange("height", e.target.value)}
+                        placeholder="15"
+                      />
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

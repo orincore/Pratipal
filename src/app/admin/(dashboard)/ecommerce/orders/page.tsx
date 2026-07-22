@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Eye, Loader2, Truck, Copy, Check, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { Order, TrackingStatus } from "@/lib/ecommerce-types";
@@ -120,6 +120,50 @@ export default function EcommerceOrdersPage() {
 
   useEffect(() => { loadOrders(); }, []);
 
+  // Shiprocket doesn't assign an AWB at shipment-creation time — it lands
+  // moments later via the webhook. Poll briefly while the dialog is open on
+  // a shipment still waiting for one, so the tracking number appears on its
+  // own instead of requiring a manual page reload. Capped at 5 minutes so an
+  // order stuck without courier assignment doesn't poll forever.
+  const shipmentId = (selectedOrder as any)?.shiprocket_shipment_id;
+  const pollStartRef = useRef(0);
+  useEffect(() => {
+    if (!dialogOpen || !selectedOrder?.id || !shipmentId || selectedOrder.tracking_number) return;
+
+    pollStartRef.current = Date.now();
+    const interval = setInterval(() => {
+      if (Date.now() - pollStartRef.current > 5 * 60 * 1000) {
+        clearInterval(interval);
+        return;
+      }
+      fetch(`/api/admin/orders/${selectedOrder.id}`, { credentials: "include" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.order) {
+            setSelectedOrder(d.order);
+            setOrders((prev) => prev.map((o) => (o.id === d.order.id ? d.order : o)));
+          }
+        })
+        .catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [dialogOpen, selectedOrder?.id, shipmentId, selectedOrder?.tracking_number]);
+
+  // Orders shipped via Shiprocket get their AWB/tracking URL from Shiprocket
+  // itself (webhook-driven) — keep the form fields mirroring that live value
+  // instead of whatever was typed in on open, so admins never have to copy
+  // it in by hand. Orders without a Shiprocket shipment keep manual entry
+  // untouched (some are still fulfilled through other couriers).
+  useEffect(() => {
+    if (!shipmentId || !selectedOrder) return;
+    setTrackingInputs((p) => ({
+      ...p,
+      tracking_number: selectedOrder.tracking_number || "",
+      tracking_url: selectedOrder.tracking_url || "",
+    }));
+  }, [shipmentId, selectedOrder?.tracking_number, selectedOrder?.tracking_url]);
+
   async function loadOrders() {
     try {
       const res = await fetch("/api/admin/orders");
@@ -163,6 +207,9 @@ export default function EcommerceOrdersPage() {
     ? !lockedCustomerStatuses.has(selectedOrder.status) &&
       !(selectedOrder.tracking_status && lockedTrackingStatuses.has(selectedOrder.tracking_status))
     : false;
+  // Ebooks are a digital download — nothing to ship, so Shiprocket doesn't apply.
+  const isEbookOnlyOrder =
+    !!selectedOrder?.items?.length && selectedOrder.items.every((i) => i.is_ebook);
 
   async function handleAdminCancel() {
     if (!selectedOrder || cancelLoading || !canCancelSelected) return;
@@ -193,7 +240,17 @@ export default function EcommerceOrdersPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create shipment");
       toast.success(`Shipment created on Shiprocket (ID: ${data.shipment_id})`);
-      loadOrders();
+
+      // Pull the freshly updated order so the open dialog reflects the new
+      // shipment/tracking fields immediately — loadOrders() alone only
+      // refreshes the list behind the dialog, not selectedOrder itself.
+      const refreshed = await fetch(`/api/admin/orders/${selectedOrder.id}`, { credentials: "include" }).then((r) => r.json());
+      if (refreshed.order) {
+        setSelectedOrder(refreshed.order);
+        setOrders((prev) => prev.map((o) => (o.id === refreshed.order.id ? refreshed.order : o)));
+      } else {
+        loadOrders();
+      }
     } catch (err: any) { toast.error(err.message || "Shiprocket error"); }
     finally { setSrLoading(false); }
   }
@@ -393,9 +450,15 @@ export default function EcommerceOrdersPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Order Details</DialogTitle></DialogHeader>
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] p-0 gap-0 flex flex-col"
+          closeClassName="text-red-600 opacity-100 hover:text-red-700 hover:bg-red-50"
+        >
+          <DialogHeader className="shrink-0 border-b px-6 py-4">
+            <DialogTitle>Order Details</DialogTitle>
+          </DialogHeader>
           {selectedOrder && (
+          <div className="overflow-y-auto px-6 py-4">
             <div className="space-y-4">
 
               {/* Order number + date */}
@@ -535,12 +598,30 @@ export default function EcommerceOrdersPage() {
               <div className="border-t pt-4 space-y-3">
                 <div className="text-sm font-semibold">Update Tracking</div>
                 <div className="flex flex-col gap-3">
-                  <label className="text-sm font-medium">Tracking Number</label>
-                  <Input value={trackingInputs.tracking_number} onChange={(e) => setTrackingInputs((p) => ({ ...p, tracking_number: e.target.value }))} placeholder="E.g. AWB123456" />
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    Tracking Number
+                    {shipmentId && <Badge variant="secondary" className="text-[10px] font-normal">Auto-synced from Shiprocket</Badge>}
+                  </label>
+                  <Input
+                    value={trackingInputs.tracking_number}
+                    onChange={(e) => setTrackingInputs((p) => ({ ...p, tracking_number: e.target.value }))}
+                    placeholder={shipmentId ? "Will fill in once Shiprocket assigns an AWB" : "E.g. AWB123456"}
+                    disabled={!!shipmentId}
+                    className={shipmentId ? "bg-muted" : undefined}
+                  />
                 </div>
                 <div className="flex flex-col gap-3">
-                  <label className="text-sm font-medium">Tracking URL</label>
-                  <Input value={trackingInputs.tracking_url} onChange={(e) => setTrackingInputs((p) => ({ ...p, tracking_url: e.target.value }))} placeholder="https://courier.example.com/track/…" />
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    Tracking URL
+                    {shipmentId && <Badge variant="secondary" className="text-[10px] font-normal">Auto-synced from Shiprocket</Badge>}
+                  </label>
+                  <Input
+                    value={trackingInputs.tracking_url}
+                    onChange={(e) => setTrackingInputs((p) => ({ ...p, tracking_url: e.target.value }))}
+                    placeholder={shipmentId ? "Will fill in once Shiprocket assigns an AWB" : "https://courier.example.com/track/…"}
+                    disabled={!!shipmentId}
+                    className={shipmentId ? "bg-muted" : undefined}
+                  />
                 </div>
                 <div className="flex flex-col gap-3">
                   <label className="text-sm font-medium">Tracking Status</label>
@@ -569,7 +650,9 @@ export default function EcommerceOrdersPage() {
                     <Badge variant="secondary" className="text-xs">Shipment #{(selectedOrder as any).shiprocket_shipment_id}</Badge>
                   )}
                 </div>
-                {!(selectedOrder as any).shiprocket_order_id ? (
+                {isEbookOnlyOrder ? (
+                  <p className="text-xs text-muted-foreground">This order is e-books only — nothing to ship, so no Shiprocket shipment is needed.</p>
+                ) : !(selectedOrder as any).shiprocket_order_id ? (
                   <>
                     <p className="text-xs text-muted-foreground">Create a shipment on Shiprocket to get AWB, auto-tracking, and courier assignment.</p>
                     <div className="grid grid-cols-4 gap-2">
@@ -595,13 +678,24 @@ export default function EcommerceOrdersPage() {
                 )}
               </div>
 
+            </div>
+          </div>
+          )}
+          {selectedOrder && (
+            <div className="shrink-0 border-t px-6 py-4 flex items-center gap-3">
               {canCancelSelected && (
-                <div className="flex justify-end pt-2">
-                  <Button variant="destructive" onClick={handleAdminCancel} disabled={cancelLoading}>
-                    {cancelLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cancelling</> : "Cancel Order"}
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                  onClick={handleAdminCancel}
+                  disabled={cancelLoading}
+                >
+                  {cancelLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cancelling</> : "Cancel Order"}
+                </Button>
               )}
+              <DialogClose asChild>
+                <Button variant="outline" className="ml-auto">Close</Button>
+              </DialogClose>
             </div>
           )}
         </DialogContent>

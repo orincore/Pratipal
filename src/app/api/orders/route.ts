@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     // Calculate subtotal and total weight
     for (const item of items) {
       const product = await Product.findById(item.product_id)
-        .select('name sku price sale_price stock_quantity weight')
+        .select('name sku price sale_price stock_quantity weight is_ebook')
         .lean();
 
       if (!product) {
@@ -133,7 +133,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (product.stock_quantity < item.quantity) {
+      // Ebooks are a digital download — cap at one copy per order no matter
+      // what quantity slipped through from the client/cart.
+      const quantity = product.is_ebook ? 1 : item.quantity;
+
+      if (!product.is_ebook && product.stock_quantity < quantity) {
         return NextResponse.json(
           { error: `Insufficient stock for ${product.name}` },
           { status: 400 }
@@ -142,9 +146,9 @@ export async function POST(req: NextRequest) {
 
       const price = product.sale_price || product.price;
       const weight = product.weight || 0;
-      const itemSubtotal = price * item.quantity;
-      const itemWeight = weight * item.quantity;
-      
+      const itemSubtotal = price * quantity;
+      const itemWeight = weight * quantity;
+
       subtotal += itemSubtotal;
       totalWeight += itemWeight;
 
@@ -154,11 +158,17 @@ export async function POST(req: NextRequest) {
         product_sku: product.sku,
         variant_id: item.variant_id || null,
         variant_name: item.variant_name || null,
-        quantity: item.quantity,
+        quantity,
         price,
         subtotal: itemSubtotal,
+        is_ebook: !!product.is_ebook,
       });
     }
+
+    // Ebooks are delivered digitally — an order made up entirely of ebooks
+    // is never charged GST or shipping.
+    const isEbookOnlyOrder =
+      orderItems.length > 0 && orderItems.every((item) => item.is_ebook);
 
     // Calculate shipping cost using the same logic as the shipping API
     const settings = await ShippingSettings.findOne()
@@ -173,16 +183,19 @@ export async function POST(req: NextRequest) {
     let shipping_cost = 0;
     let shippingMethod = "flat_rate";
 
-    // Check if free shipping applies
-    if (subtotal >= freeShippingThreshold) {
+    if (isEbookOnlyOrder) {
+      shipping_cost = 0;
+      shippingMethod = "digital_no_shipping";
+    } else if (subtotal >= freeShippingThreshold) {
+      // Check if free shipping applies
       shipping_cost = 0;
       shippingMethod = "free_shipping";
     } else if (weightBasedEnabled && weightTiers.length > 0 && totalWeight > 0) {
       // Use weight-based shipping
-      const applicableTier = weightTiers.find((tier: IWeightTier) => 
+      const applicableTier = weightTiers.find((tier: IWeightTier) =>
         totalWeight >= tier.min_weight && totalWeight <= tier.max_weight
       );
-      
+
       if (applicableTier) {
         shipping_cost = applicableTier.rate;
         shippingMethod = "weight_based";
@@ -196,7 +209,7 @@ export async function POST(req: NextRequest) {
       shipping_cost = flatRate;
     }
 
-    const tax = subtotal * 0.18;
+    const tax = isEbookOnlyOrder ? 0 : subtotal * 0.18;
     const total = subtotal + tax + shipping_cost;
 
     const orderNumber = generateOrderNumber();
@@ -231,8 +244,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
-    // Update product stock
-    for (const item of items) {
+    // Update product stock (skip ebooks — they have no real inventory)
+    for (const item of orderItems) {
+      if (item.is_ebook) continue;
       await Product.findByIdAndUpdate(item.product_id, {
         $inc: { stock_quantity: -item.quantity }
       });

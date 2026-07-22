@@ -37,13 +37,18 @@ export async function POST(
       product: {
         price: item.price || 0,
         weight: 0, // We don't have weight in order items, so use 0
+        is_ebook: !!item.is_ebook,
       },
       quantity: item.quantity || 0,
     }));
 
+    // Ebooks are delivered digitally — an order made up entirely of ebooks
+    // is never charged GST or shipping.
+    const isEbookOnlyOrder = items.length > 0 && items.every(item => item.is_ebook);
+
     const shippingResult = await calculateShipping(cartItemsForShipping);
-    const tax = subtotal * 0.18;
-    const shipping = shippingResult.shipping_cost;
+    const tax = isEbookOnlyOrder ? 0 : subtotal * 0.18;
+    const shipping = isEbookOnlyOrder ? 0 : shippingResult.shipping_cost;
     const total = subtotal + tax + shipping;
 
     console.log('Recalculating order totals:', {

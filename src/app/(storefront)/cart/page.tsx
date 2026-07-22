@@ -111,8 +111,13 @@ export default function CartPage() {
     return sum + price * item.quantity;
   }, 0);
 
-  const tax = subtotal * 0.18;
-  const shipping = shippingInfo.shippingCost;
+  // Ebooks are delivered digitally — an order made up entirely of ebooks
+  // is never charged GST or shipping.
+  const isEbookOnlyOrder =
+    cartItems.length > 0 && cartItems.every((item) => item.product?.is_ebook);
+
+  const tax = isEbookOnlyOrder ? 0 : subtotal * 0.18;
+  const shipping = isEbookOnlyOrder ? 0 : shippingInfo.shippingCost;
   const total = subtotal + tax + shipping;
 
   if (loading) {
@@ -217,31 +222,37 @@ export default function CartPage() {
                         </div>
 
                         <div className="flex items-center gap-2 mt-4">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1 || updating === item.id}
-                            className="h-8 w-8"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-12 text-center font-medium">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            disabled={
-                              updating === item.id ||
-                              item.quantity >= (product.stock_quantity || 0)
-                            }
-                            className="h-8 w-8"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          {product.stock_quantity && product.stock_quantity < 10 && (
+                          {product.is_ebook ? (
+                            <span className="text-xs text-muted-foreground">Qty: 1 (digital download)</span>
+                          ) : (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                disabled={item.quantity <= 1 || updating === item.id}
+                                className="h-8 w-8"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <span className="w-12 text-center font-medium">
+                                {item.quantity}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                disabled={
+                                  updating === item.id ||
+                                  item.quantity >= (product.stock_quantity || 0)
+                                }
+                                className="h-8 w-8"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                          {!product.is_ebook && product.stock_quantity && product.stock_quantity < 10 && (
                             <span className="text-xs text-orange-600 ml-2">
                               Only {product.stock_quantity} left
                             </span>
@@ -271,24 +282,33 @@ export default function CartPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      Shipping ({shippingInfo.totalWeight.toFixed(2)} kg)
+                      {isEbookOnlyOrder
+                        ? "Shipping"
+                        : `Shipping (${shippingInfo.totalWeight.toFixed(2)} kg)`}
                     </span>
                     <span className="font-medium">
-                      {shippingInfo.isFreeShipping ? (
+                      {isEbookOnlyOrder || shippingInfo.isFreeShipping ? (
                         <span className="text-green-600 font-semibold">FREE</span>
                       ) : (
                         `₹${shipping.toFixed(2)}`
                       )}
                     </span>
                   </div>
-                  {!shippingInfo.isFreeShipping && subtotal < shippingInfo.freeShippingThreshold && (
+                  {isEbookOnlyOrder && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-xs text-green-700 font-medium">
+                        📖 Digital delivery — no shipping or tax charged on ebooks!
+                      </p>
+                    </div>
+                  )}
+                  {!isEbookOnlyOrder && !shippingInfo.isFreeShipping && subtotal < shippingInfo.freeShippingThreshold && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <p className="text-xs text-green-700 font-medium">
                         Add ₹{(shippingInfo.freeShippingThreshold - subtotal).toFixed(2)} more for FREE shipping!
                       </p>
                     </div>
                   )}
-                  {shippingInfo.isFreeShipping && (
+                  {!isEbookOnlyOrder && shippingInfo.isFreeShipping && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <p className="text-xs text-green-700 font-medium">
                         🎉 You've qualified for FREE shipping!

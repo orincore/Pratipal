@@ -25,6 +25,15 @@ export async function POST(req: NextRequest, context: Context) {
     }
 
     const items = await OrderItem.find({ order_id: order._id }).lean();
+
+    // Ebooks are a digital download — nothing to ship, so Shiprocket doesn't apply.
+    if (items.length > 0 && items.every((i) => i.is_ebook)) {
+      return NextResponse.json(
+        { error: "This order is e-books only — no shipment is needed" },
+        { status: 400 }
+      );
+    }
+
     const addr = order.shipping_address as Record<string, any>;
 
     const payload = {

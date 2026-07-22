@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       : { session_id: sessionId };
 
     let cartItems = await CartItem.find(filter)
-      .populate('product_id', 'id name slug price sale_price featured_image stock_quantity stock_status')
+      .populate('product_id', 'id name slug price sale_price featured_image stock_quantity stock_status is_ebook weight')
       .populate('variant_id', 'id name price sale_price stock_quantity')
       .lean();
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         );
         // Re-fetch after migration
         cartItems = await CartItem.find({ customer_id: customerId })
-          .populate('product_id', 'id name slug price sale_price featured_image stock_quantity stock_status')
+          .populate('product_id', 'id name slug price sale_price featured_image stock_quantity stock_status is_ebook weight')
           .populate('variant_id', 'id name price sale_price stock_quantity')
           .lean();
       }
@@ -73,6 +73,8 @@ export async function GET(req: NextRequest) {
         featured_image: (item.product_id as any).featured_image,
         stock_quantity: (item.product_id as any).stock_quantity,
         stock_status: (item.product_id as any).stock_status,
+        is_ebook: (item.product_id as any).is_ebook,
+        weight: (item.product_id as any).weight,
       } : null,
       variant: item.variant_id ? {
         id: (item.variant_id as any)._id?.toString() || item.variant_id,
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
     const sessionId = await getSessionId();
 
     const product = await Product.findById(product_id)
-      .select('price sale_price')
+      .select('price sale_price is_ebook')
       .lean();
 
     if (!product) {
@@ -127,6 +129,9 @@ export async function POST(req: NextRequest) {
     }
 
     const price = product.sale_price || product.price;
+    // Ebooks are a digital download — cap at one copy per order, no matter
+    // what quantity the client asked to add.
+    const requestedQuantity = product.is_ebook ? 1 : quantity;
 
     // If logged-in user adds to cart, migrate any existing session items first
     if (customerId && sessionId) {
@@ -157,7 +162,7 @@ export async function POST(req: NextRequest) {
     if (existing) {
       const updated = await CartItem.findByIdAndUpdate(
         existing._id,
-        { quantity: existing.quantity + quantity },
+        { quantity: product.is_ebook ? 1 : existing.quantity + requestedQuantity },
         { new: true }
       ).lean();
       result = { ...updated, id: updated!._id.toString(), _id: undefined };
@@ -167,7 +172,7 @@ export async function POST(req: NextRequest) {
         session_id: customerId ? null : sessionId,
         product_id,
         variant_id,
-        quantity,
+        quantity: requestedQuantity,
         price,
       });
       result = newItem.toJSON();

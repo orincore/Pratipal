@@ -38,6 +38,26 @@ export async function POST(req: NextRequest) {
       subtotal += price * quantity;
     }
 
+    // Digital goods (ebooks) have nothing to ship — an order made up
+    // entirely of ebooks is never charged shipping.
+    const isEbookOnlyOrder =
+      cartItems.length > 0 && cartItems.every((item: any) => item.product?.is_ebook);
+
+    if (isEbookOnlyOrder) {
+      return NextResponse.json({
+        totalWeight,
+        shippingCost: 0,
+        shippingMethod: "digital_no_shipping",
+        flatRate,
+        freeShippingThreshold,
+        weightBasedEnabled,
+        weightTiers,
+        subtotal,
+        isFreeShipping: true,
+        isEbookOnlyOrder: true,
+      });
+    }
+
     // Calculate shipping cost
     let shippingCost = 0;
     let shippingMethod = "flat_rate";
@@ -75,6 +95,7 @@ export async function POST(req: NextRequest) {
       weightTiers,
       subtotal,
       isFreeShipping: subtotal >= freeShippingThreshold,
+      isEbookOnlyOrder: false,
     });
   } catch (error) {
     console.error("Calculate shipping error:", error);

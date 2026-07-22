@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import getDB from "@/lib/db";
 import { mapShiprocketStatus } from "@/lib/shiprocket";
 import { sendMail, trackingUpdateHtml, orderCancelledHtml } from "@/lib/mailer";
+import { sendWhatsappNotification } from "@/lib/whatsapp";
+import { resolveOrderWhatsappNumber } from "@/lib/customer-phone";
 
 /**
  * Shipping status webhook (Shiprocket)
@@ -78,15 +80,14 @@ export async function POST(req: NextRequest) {
       updateData.tracking_url = `https://shiprocket.co/tracking/${awb}`;
     }
 
-    // Auto-mark COD as paid on delivery
-    if (
-      ourStatus === "delivered" &&
-      order.payment_method?.toLowerCase() === "cod" &&
-      order.payment_status !== "paid"
-    ) {
-      updateData.payment_status = "paid";
+    // Delivery completes the order regardless of payment method; COD also
+    // gets auto-marked paid since cash changes hands at the door.
+    if (ourStatus === "delivered") {
       updateData.status = "completed";
       updateData.completed_at = new Date();
+      if (order.payment_method?.toLowerCase() === "cod" && order.payment_status !== "paid") {
+        updateData.payment_status = "paid";
+      }
     }
 
     if (ourStatus === "cancelled") {
@@ -140,6 +141,22 @@ export async function POST(req: NextRequest) {
         }),
       }).catch(() => {});
     }
+
+    // ── Send WhatsApp notification (additive alongside the email above) ─────
+    resolveOrderWhatsappNumber({
+      shipping_address: (updated as any).shipping_address,
+      customer_id: (updated as any).customer_id,
+    }).then((customerWhatsappNumber) => {
+      sendWhatsappNotification({
+        event: "order_status_update_customer",
+        to: customerWhatsappNumber,
+        data: {
+          customerName: updated.customer_name,
+          orderNumber: updated.order_number,
+          trackingStatusLabel: updated.tracking_status || ourStatus,
+        },
+      });
+    }).catch(() => {});
 
     return NextResponse.json({ received: true, status: ourStatus });
   } catch (err: any) {

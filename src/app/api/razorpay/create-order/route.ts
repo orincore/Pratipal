@@ -57,8 +57,13 @@ export async function POST(req: NextRequest) {
         .lean();
 
       if (product) {
+        // Ebooks are a digital download — cap at one copy per order no
+        // matter what quantity slipped through from the client/cart.
+        const isEbook = !!product.is_ebook;
+        const quantity = isEbook ? 1 : item.quantity;
+
         const price = product.sale_price || product.price;
-        const itemSubtotal = price * item.quantity;
+        const itemSubtotal = price * quantity;
         calculatedSubtotal += itemSubtotal;
 
         // Snapshot the ebook download target at order time (not looked up
@@ -66,7 +71,6 @@ export async function POST(req: NextRequest) {
         // file never breaks a download link already emailed to a buyer.
         // An uploaded file wins over an external link if a product somehow
         // has both.
-        const isEbook = !!product.is_ebook;
         const ebookDownloadUrl = isEbook ? (product.ebook_file_url || product.ebook_link || undefined) : undefined;
 
         orderItems.push({
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
           variant_id: item.variant_id || null,
           product_name: product.name,
           product_sku: product.sku,
-          quantity: item.quantity,
+          quantity,
           price,
           subtotal: itemSubtotal,
           is_ebook: isEbook,
@@ -84,9 +88,14 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    // Ebooks are delivered digitally — an order made up entirely of ebooks
+    // is never charged GST or shipping.
+    const isEbookOnlyOrder =
+      orderItems.length > 0 && orderItems.every((item) => item.is_ebook);
+
     // Calculate totals using proper shipping calculation
-    const tax = calculatedSubtotal * 0.18;
-    const shipping = shippingResult.shipping_cost;
+    const tax = isEbookOnlyOrder ? 0 : calculatedSubtotal * 0.18;
+    const shipping = isEbookOnlyOrder ? 0 : shippingResult.shipping_cost;
     const total = calculatedSubtotal + tax + shipping;
     
     console.log('Order totals:', { 

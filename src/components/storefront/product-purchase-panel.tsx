@@ -21,6 +21,7 @@ interface ProductPurchasePanelProps {
   compareAtPrice?: number;
   stockStatus?: string;
   variants?: ProductVariant[];
+  isEbook?: boolean;
   productMeta: {
     id: string;
     name: string;
@@ -40,6 +41,7 @@ export function ProductPurchasePanel({
   compareAtPrice,
   stockStatus,
   variants,
+  isEbook,
   productMeta,
   shareUrl,
 }: ProductPurchasePanelProps) {
@@ -52,12 +54,15 @@ export function ProductPurchasePanel({
   const variantPrice = selectedVariant?.sale_price ?? selectedVariant?.price;
   const displayPrice = variantPrice ?? basePrice;
   const resolvedShareUrl = shareUrl || "";
+  const effectiveQuantity = isEbook ? 1 : quantity;
   const checkoutParams = new URLSearchParams({ buyNow: productId });
   if (selectedVariantId) checkoutParams.set("variant", selectedVariantId);
-  if (quantity > 1) checkoutParams.set("quantity", quantity.toString());
+  if (effectiveQuantity > 1) checkoutParams.set("quantity", effectiveQuantity.toString());
   const checkoutUrl = `/checkout?${checkoutParams.toString()}`;
 
+  // Ebooks are a digital download — one copy per order, no quantity choice.
   function increment() {
+    if (isEbook) return;
     setQuantity((prev) => Math.min(prev + 1, 99));
   }
 
@@ -109,32 +114,34 @@ export function ProductPurchasePanel({
         </div>
       )}
 
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="flex items-center rounded-full border border-gray-200 bg-white">
-          <button
-            type="button"
-            onClick={decrement}
-            className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-          <span className="w-10 sm:w-12 text-center font-semibold text-gray-900">{quantity}</span>
-          <button
-            type="button"
-            onClick={increment}
-            className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+      {!isEbook && (
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center rounded-full border border-gray-200 bg-white">
+            <button
+              type="button"
+              onClick={decrement}
+              className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <span className="w-10 sm:w-12 text-center font-semibold text-gray-900">{quantity}</span>
+            <button
+              type="button"
+              onClick={increment}
+              className="h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-gray-600 hover:text-gray-900"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-sm text-gray-500">Quantity</p>
         </div>
-        <p className="text-sm text-gray-500">Quantity</p>
-      </div>
+      )}
 
       <div className="grid gap-2 sm:gap-3">
         <AddToCartButton
           productId={productId}
           variantId={selectedVariantId}
-          quantity={quantity}
+          quantity={effectiveQuantity}
           product={{
             id: productMeta.id,
             name: productMeta.name,
