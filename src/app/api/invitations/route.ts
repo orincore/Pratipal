@@ -63,24 +63,29 @@ export async function POST(req: NextRequest) {
 
     await InvitationRequest.create(invitationData);
 
-    // Emails are best-effort: a mail/SMTP failure must NOT make the sign-up
-    // appear to fail, since the request has already been saved successfully.
-    try {
-    const landingPageMeta = await getLandingPageMeta(invitationData.landing_page_id, invitationData.landing_page_slug);
+    // Email and WhatsApp are both best-effort and independent: a failure in
+    // one must not prevent the other from sending, and neither may make the
+    // sign-up appear to fail since the request has already been saved.
+    const landingPageMeta = await getLandingPageMeta(invitationData.landing_page_id, invitationData.landing_page_slug).catch(
+      () => ({} as LandingPageMeta)
+    );
 
-    // Send confirmation email to user
-    const confirmationEmail = buildInvitationConfirmationEmail({
-      firstName,
-      email,
-      whatsappNumber,
-      location,
-      whatsappGroupLink: landingPageMeta.whatsappGroupLink,
-    });
-    await sendMail({
-      to: email,
-      subject: confirmationEmail.subject,
-      html: confirmationEmail.html,
-    });
+    try {
+      const confirmationEmail = buildInvitationConfirmationEmail({
+        firstName,
+        email,
+        whatsappNumber,
+        location,
+        whatsappGroupLink: landingPageMeta.whatsappGroupLink,
+      });
+      await sendMail({
+        to: email,
+        subject: confirmationEmail.subject,
+        html: confirmationEmail.html,
+      });
+    } catch (mailErr) {
+      console.error("Invitation email send failed (sign-up still saved)", mailErr);
+    }
 
     // Instant WhatsApp confirmation to the registrant, replacing the admin
     // email notice (submissions are visible in the admin dashboard instead).
@@ -90,10 +95,6 @@ export async function POST(req: NextRequest) {
         to: whatsappNumber,
         data: { firstName, topicTitle: landingPageMeta.title },
       }).catch(() => {});
-    }
-    } catch (mailErr) {
-      // Log but don't fail the request — the sign-up was already saved.
-      console.error("Invitation email send failed (sign-up still saved)", mailErr);
     }
 
     return NextResponse.json({ success: true });
