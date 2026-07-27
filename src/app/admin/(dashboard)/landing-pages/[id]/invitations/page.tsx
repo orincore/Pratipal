@@ -17,6 +17,7 @@ import {
   Users,
   X,
   Video,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,17 @@ function fmt(iso?: string) {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+// Splits an ISO timestamp into the local date/time strings the <input type="date"/"time">
+// pickers expect, so an edit modal can be pre-filled with a window's existing values.
+function splitLocalDateTime(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
 export default function LandingPageInvitationsPage() {
   const params = useParams();
   const router = useRouter();
@@ -100,6 +112,20 @@ export default function LandingPageInvitationsPage() {
   const [regEndTime, setRegEndTime] = useState("09:00");
   const [webinarDate, setWebinarDate] = useState("");
   const [webinarTime, setWebinarTime] = useState("09:00");
+
+  const [editingDetails, setEditingDetails] = useState<InvitationWindow | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editTimezone, setEditTimezone] = useState("Asia/Kolkata");
+  const [editRegStart, setEditRegStart] = useState("");
+  const [editRegStartDate, setEditRegStartDate] = useState("");
+  const [editRegStartTime, setEditRegStartTime] = useState("09:00");
+  const [editRegEnd, setEditRegEnd] = useState("");
+  const [editRegEndDate, setEditRegEndDate] = useState("");
+  const [editRegEndTime, setEditRegEndTime] = useState("09:00");
+  const [editWebinarAt, setEditWebinarAt] = useState("");
+  const [editWebinarDate, setEditWebinarDate] = useState("");
+  const [editWebinarTime, setEditWebinarTime] = useState("09:00");
 
   const fetchWindows = useCallback(async () => {
     if (!landingPageId) return;
@@ -212,6 +238,60 @@ export default function LandingPageInvitationsPage() {
       setSavingJoinLink(false);
     }
   }, [landingPageId, editingWindow, editJoinLink, editJoinPlatform, fetchWindows]);
+
+  const openEditDetails = useCallback((w: InvitationWindow, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingDetails(w);
+    setEditName(w.name);
+    setEditTimezone(w.webinar_timezone || "Asia/Kolkata");
+
+    const rs = splitLocalDateTime(w.registration_start);
+    setEditRegStartDate(rs.date);
+    setEditRegStartTime(rs.time);
+    setEditRegStart(`${rs.date}T${rs.time}`);
+
+    const re = splitLocalDateTime(w.registration_end);
+    setEditRegEndDate(re.date);
+    setEditRegEndTime(re.time);
+    setEditRegEnd(`${re.date}T${re.time}`);
+
+    const wt = splitLocalDateTime(w.webinar_starts_at);
+    setEditWebinarDate(wt.date);
+    setEditWebinarTime(wt.time);
+    setEditWebinarAt(`${wt.date}T${wt.time}`);
+  }, []);
+
+  const handleSaveDetails = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDetails || !editName.trim() || !editRegStart || !editRegEnd || !editWebinarAt) return;
+    setSavingDetails(true);
+    try {
+      const res = await fetch(`/api/landing-pages/${landingPageId}/invitation-windows/${editingDetails.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName.trim(),
+          registration_start: new Date(editRegStart).toISOString(),
+          registration_end: new Date(editRegEnd).toISOString(),
+          webinar_starts_at: new Date(editWebinarAt).toISOString(),
+          webinar_timezone: editTimezone,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save window details");
+      }
+      const data = await res.json();
+      setEditingDetails(null);
+      // Keep the open registrants view's header in sync if this is the selected window.
+      setSelectedWindow((prev) => (prev && prev.id === editingDetails.id ? { ...prev, ...data.window } : prev));
+      await fetchWindows();
+    } catch (err: any) {
+      alert(err.message || "Failed to save window details");
+    } finally {
+      setSavingDetails(false);
+    }
+  }, [landingPageId, editingDetails, editName, editRegStart, editRegEnd, editWebinarAt, editTimezone, fetchWindows]);
 
   const handleDeleteWindow = useCallback(async (w: InvitationWindow) => {
     if (!confirm(`Delete window "${w.name}"? This only removes the window, not the invitation submissions themselves.`)) return;
@@ -338,15 +418,25 @@ export default function LandingPageInvitationsPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-semibold text-gray-900">{w.name}</p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteWindow(w);
-                        }}
-                        className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={(e) => openEditDetails(w, e)}
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-gray-300 hover:text-violet-600 hover:bg-violet-50"
+                          title="Edit window details"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteWindow(w);
+                          }}
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50"
+                          title="Delete window"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="text-xs text-gray-500 space-y-1">
                       <div className="flex items-center gap-1.5">
@@ -746,6 +836,212 @@ export default function LandingPageInvitationsPage() {
               </p>
               <Button type="submit" disabled={savingJoinLink} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 rounded-lg">
                 {savingJoinLink ? "Saving..." : "Save Join Link"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingDetails && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col text-left">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
+              <h3 className="font-bold text-slate-800 text-base">Edit Window — {editingDetails.name}</h3>
+              <button onClick={() => setEditingDetails(null)} className="p-1 hover:bg-slate-100 text-slate-400 rounded-lg">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveDetails} className="p-6 space-y-4 overflow-y-auto min-h-0">
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Window Name *</Label>
+                <Input
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. July 2026 Batch"
+                  className="mt-1 text-slate-900 placeholder:text-slate-400"
+                />
+              </div>
+
+              {/* Registration Start */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Registration Start *</Label>
+                <div className="mt-1 space-y-2">
+                  {editRegStart ? (
+                    <div className="flex items-center justify-between bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-violet-700">
+                        {new Date(`${editRegStartDate}T${editRegStartTime}`).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditRegStart("")}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-semibold cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Date</span>
+                          <input
+                            type="date"
+                            value={editRegStartDate}
+                            onChange={(e) => setEditRegStartDate(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Time</span>
+                          <input
+                            type="time"
+                            value={editRegStartTime}
+                            onChange={(e) => setEditRegStartTime(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!editRegStartDate || !editRegStartTime}
+                        onClick={() => setEditRegStart(`${editRegStartDate}T${editRegStartTime}`)}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                      >
+                        ✓ Confirm Start
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Registration End */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Registration End *</Label>
+                <div className="mt-1 space-y-2">
+                  {editRegEnd ? (
+                    <div className="flex items-center justify-between bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-violet-700">
+                        {new Date(`${editRegEndDate}T${editRegEndTime}`).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditRegEnd("")}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-semibold cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Date</span>
+                          <input
+                            type="date"
+                            value={editRegEndDate}
+                            onChange={(e) => setEditRegEndDate(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Time</span>
+                          <input
+                            type="time"
+                            value={editRegEndTime}
+                            onChange={(e) => setEditRegEndTime(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!editRegEndDate || !editRegEndTime}
+                        onClick={() => setEditRegEnd(`${editRegEndDate}T${editRegEndTime}`)}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                      >
+                        ✓ Confirm End
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Webinar Date & Time */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Webinar Date &amp; Time *</Label>
+                <div className="mt-1 space-y-2">
+                  {editWebinarAt ? (
+                    <div className="flex items-center justify-between bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                      <span className="text-sm font-medium text-violet-700">
+                        {new Date(`${editWebinarDate}T${editWebinarTime}`).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditWebinarAt("")}
+                        className="text-xs text-violet-600 hover:text-violet-800 font-semibold cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Date</span>
+                          <input
+                            type="date"
+                            value={editWebinarDate}
+                            onChange={(e) => setEditWebinarDate(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Time</span>
+                          <input
+                            type="time"
+                            value={editWebinarTime}
+                            onChange={(e) => setEditWebinarTime(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!editWebinarDate || !editWebinarTime}
+                        onClick={() => setEditWebinarAt(`${editWebinarDate}T${editWebinarTime}`)}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                      >
+                        ✓ Confirm Webinar Time
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Timezone */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-500">Timezone</Label>
+                <Select value={editTimezone} onValueChange={setEditTimezone}>
+                  <SelectTrigger className="mt-1 w-full bg-white text-slate-900 border-slate-200 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[100000]">
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz} value={tz}>
+                        {tz}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Changing the registration window dates changes which invitation submissions count as
+                registrants for this occurrence.
+              </p>
+              <Button type="submit" disabled={savingDetails} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 rounded-lg">
+                {savingDetails ? "Saving..." : "Save Changes"}
               </Button>
             </form>
           </div>
