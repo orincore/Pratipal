@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import getDB from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
@@ -132,31 +132,38 @@ Please confirm my booking. Thank you!`;
       }).catch(() => {});
     }
 
-    // WhatsApp notifications (additive alongside the emails above)
+    // WhatsApp notifications (additive alongside the emails above).
+    // after() keeps the serverless function alive until this finishes — an
+    // un-awaited fire-and-forget call is frozen by Vercel the instant the
+    // response is sent, so it never completes in production.
     const bookingWhatsappNumber = booking.customer_whatsapp || booking.customer_phone;
     const bookingSummary = `Booking #${booking.booking_number} — ${booking.service_name} (${booking.frequency_label} plan)`;
-    sendWhatsappNotification({
-      event: "booking_confirmed_customer",
-      to: bookingWhatsappNumber,
-      data: {
-        customerName: booking.customer_name,
-        sessionTypeLabel: bookingType,
-        bookingSummary,
-        amount: booking.amount,
-      },
-    }).catch(() => {});
-
-    if (process.env.ADMIN_WHATSAPP_NUMBER) {
+    after(() =>
       sendWhatsappNotification({
-        event: "booking_confirmed_admin",
-        to: process.env.ADMIN_WHATSAPP_NUMBER,
+        event: "booking_confirmed_customer",
+        to: bookingWhatsappNumber,
         data: {
+          customerName: booking.customer_name,
           sessionTypeLabel: bookingType,
           bookingSummary,
-          customerSummary: `${booking.customer_name} (${bookingWhatsappNumber})`,
           amount: booking.amount,
         },
-      }).catch(() => {});
+      }).catch(() => {})
+    );
+
+    if (process.env.ADMIN_WHATSAPP_NUMBER) {
+      after(() =>
+        sendWhatsappNotification({
+          event: "booking_confirmed_admin",
+          to: process.env.ADMIN_WHATSAPP_NUMBER,
+          data: {
+            sessionTypeLabel: bookingType,
+            bookingSummary,
+            customerSummary: `${booking.customer_name} (${bookingWhatsappNumber})`,
+            amount: booking.amount,
+          },
+        }).catch(() => {})
+      );
     }
 
     return NextResponse.json({

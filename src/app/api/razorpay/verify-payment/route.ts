@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import getDB from "@/lib/db";
@@ -83,27 +83,34 @@ export async function POST(req: NextRequest) {
               shipping_address: order.shipping_address,
               customer_id: order.customer_id,
             });
-            sendWhatsappNotification({
-              event: "ebook_delivered_customer",
-              to: ebookWhatsappNumber,
-              data: {
-                customerName: order.customer_name,
-                productName: item.product_name,
-                orderNumber: order.order_number,
-                orderItemId: item._id.toString(),
-              },
-            }).catch(() => {});
+            // after() keeps the serverless function alive until this finishes
+            // — an un-awaited fire-and-forget call is frozen by Vercel the
+            // instant the response is sent, so it never completes in production.
+            after(() =>
+              sendWhatsappNotification({
+                event: "ebook_delivered_customer",
+                to: ebookWhatsappNumber,
+                data: {
+                  customerName: order.customer_name,
+                  productName: item.product_name,
+                  orderNumber: order.order_number,
+                  orderItemId: item._id.toString(),
+                },
+              }).catch(() => {})
+            );
 
             if (process.env.ADMIN_WHATSAPP_NUMBER) {
-              sendWhatsappNotification({
-                event: "ebook_sold_admin",
-                to: process.env.ADMIN_WHATSAPP_NUMBER,
-                data: {
-                  orderSummary: `${item.product_name} — Order ${order.order_number}`,
-                  buyerSummary: `${order.customer_name} (${order.customer_email})`,
-                  amount: item.subtotal,
-                },
-              }).catch(() => {});
+              after(() =>
+                sendWhatsappNotification({
+                  event: "ebook_sold_admin",
+                  to: process.env.ADMIN_WHATSAPP_NUMBER,
+                  data: {
+                    orderSummary: `${item.product_name} — Order ${order.order_number}`,
+                    buyerSummary: `${order.customer_name} (${order.customer_email})`,
+                    amount: item.subtotal,
+                  },
+                }).catch(() => {})
+              );
             }
           } catch (mailErr: any) {
             console.error(`Ebook delivery email failed for order item ${item._id}:`, mailErr?.message || mailErr);
@@ -200,37 +207,48 @@ export async function POST(req: NextRequest) {
           }).catch(() => {});
         }
 
-        // WhatsApp notifications (additive alongside the emails above)
-        resolveOrderWhatsappNumber({
-          shipping_address: order.shipping_address,
-          customer_id: order.customer_id,
-        }).then((customerWhatsappNumber) => {
-          const itemsSummary = formatOrderItemsForWhatsapp(orderItems);
-          sendWhatsappNotification({
-            event: "order_confirmed_customer",
-            to: customerWhatsappNumber,
-            data: {
-              customerName: order.customer_name,
-              orderNumber: order.order_number,
-              itemsSummary,
-              total: order.total,
-            },
-          });
+        // WhatsApp notifications (additive alongside the emails above).
+        // after() keeps the serverless function alive until this finishes —
+        // an un-awaited fire-and-forget call is frozen by Vercel the instant
+        // the response is sent, so it never completes in production.
+        after(() =>
+          resolveOrderWhatsappNumber({
+            shipping_address: order.shipping_address,
+            customer_id: order.customer_id,
+          }).then((customerWhatsappNumber) => {
+            const itemsSummary = formatOrderItemsForWhatsapp(orderItems);
+            const sends = [
+              sendWhatsappNotification({
+                event: "order_confirmed_customer",
+                to: customerWhatsappNumber,
+                data: {
+                  customerName: order.customer_name,
+                  orderNumber: order.order_number,
+                  itemsSummary,
+                  total: order.total,
+                },
+              }),
+            ];
 
-          if (process.env.ADMIN_WHATSAPP_NUMBER) {
-            sendWhatsappNotification({
-              event: "order_confirmed_admin",
-              to: process.env.ADMIN_WHATSAPP_NUMBER,
-              data: {
-                orderNumber: order.order_number,
-                customerName: order.customer_name,
-                customerPhone: customerWhatsappNumber,
-                itemsSummary,
-                total: order.total,
-              },
-            });
-          }
-        }).catch(() => {});
+            if (process.env.ADMIN_WHATSAPP_NUMBER) {
+              sends.push(
+                sendWhatsappNotification({
+                  event: "order_confirmed_admin",
+                  to: process.env.ADMIN_WHATSAPP_NUMBER,
+                  data: {
+                    orderNumber: order.order_number,
+                    customerName: order.customer_name,
+                    customerPhone: customerWhatsappNumber,
+                    itemsSummary,
+                    total: order.total,
+                  },
+                })
+              );
+            }
+
+            return Promise.all(sends);
+          }).catch(() => {})
+        );
       } else {
         console.warn("Skipping confirmation email — order not found for id:", order_id);
       }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import getDB from "@/lib/db";
@@ -331,29 +331,36 @@ export async function POST(req: NextRequest) {
         customer_id: resolvedCustomerId,
       });
       const itemsSummary = formatOrderItemsForWhatsapp(orderItems);
-      sendWhatsappNotification({
-        event: "order_confirmed_customer",
-        to: customerWhatsappNumber,
-        data: {
-          customerName: customer_name,
-          orderNumber,
-          itemsSummary,
-          total,
-        },
-      }).catch(() => {});
-
-      if (process.env.ADMIN_WHATSAPP_NUMBER) {
+      // after() keeps the serverless function alive until this finishes —
+      // an un-awaited fire-and-forget call is frozen by Vercel the instant
+      // the response is sent, so it never completes in production.
+      after(() =>
         sendWhatsappNotification({
-          event: "order_confirmed_admin",
-          to: process.env.ADMIN_WHATSAPP_NUMBER,
+          event: "order_confirmed_customer",
+          to: customerWhatsappNumber,
           data: {
-            orderNumber,
             customerName: customer_name,
-            customerPhone: customerWhatsappNumber,
+            orderNumber,
             itemsSummary,
             total,
           },
-        }).catch(() => {});
+        }).catch(() => {})
+      );
+
+      if (process.env.ADMIN_WHATSAPP_NUMBER) {
+        after(() =>
+          sendWhatsappNotification({
+            event: "order_confirmed_admin",
+            to: process.env.ADMIN_WHATSAPP_NUMBER,
+            data: {
+              orderNumber,
+              customerName: customer_name,
+              customerPhone: customerWhatsappNumber,
+              itemsSummary,
+              total,
+            },
+          }).catch(() => {})
+        );
       }
     }
 

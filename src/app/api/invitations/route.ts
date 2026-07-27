@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import getDB from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
@@ -89,12 +89,18 @@ export async function POST(req: NextRequest) {
 
     // Instant WhatsApp confirmation to the registrant, replacing the admin
     // email notice (submissions are visible in the admin dashboard instead).
+    // Wrapped in after() because on Vercel the serverless function is frozen
+    // as soon as the response is sent — an un-awaited fetch left running in
+    // the background never completes there (it only worked on localhost
+    // because the dev server process stays alive).
     if (whatsappNumber) {
-      sendWhatsappNotification({
-        event: "invitation_registration_confirmed",
-        to: whatsappNumber,
-        data: { firstName, topicTitle: landingPageMeta.title },
-      }).catch(() => {});
+      after(() =>
+        sendWhatsappNotification({
+          event: "invitation_registration_confirmed",
+          to: whatsappNumber,
+          data: { firstName, topicTitle: landingPageMeta.title },
+        }).catch(() => {})
+      );
     }
 
     return NextResponse.json({ success: true });
