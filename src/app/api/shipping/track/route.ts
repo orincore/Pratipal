@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import getDB from "@/lib/db";
 import { mapShiprocketStatus } from "@/lib/shiprocket";
 import { sendMail, trackingUpdateHtml, orderCancelledHtml } from "@/lib/mailer";
@@ -143,20 +143,25 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Send WhatsApp notification (additive alongside the email above) ─────
-    resolveOrderWhatsappNumber({
-      shipping_address: (updated as any).shipping_address,
-      customer_id: (updated as any).customer_id,
-    }).then((customerWhatsappNumber) => {
-      sendWhatsappNotification({
-        event: "order_status_update_customer",
-        to: customerWhatsappNumber,
-        data: {
-          customerName: updated.customer_name,
-          orderNumber: updated.order_number,
-          trackingStatusLabel: updated.tracking_status || ourStatus,
-        },
-      });
-    }).catch(() => {});
+    // after() keeps the serverless function alive until this finishes — an
+    // un-awaited fire-and-forget call is frozen by Vercel the instant the
+    // response is sent, so it never completes in production.
+    after(() =>
+      resolveOrderWhatsappNumber({
+        shipping_address: (updated as any).shipping_address,
+        customer_id: (updated as any).customer_id,
+      }).then((customerWhatsappNumber) =>
+        sendWhatsappNotification({
+          event: "order_status_update_customer",
+          to: customerWhatsappNumber,
+          data: {
+            customerName: updated.customer_name,
+            orderNumber: updated.order_number,
+            trackingStatusLabel: updated.tracking_status || ourStatus,
+          },
+        })
+      ).catch(() => {})
+    );
 
     return NextResponse.json({ received: true, status: ourStatus });
   } catch (err: any) {

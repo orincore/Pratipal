@@ -77,7 +77,6 @@ const OrderSchema = new Schema<IOrder>(
   }
 );
 
-OrderSchema.index({ order_number: 1 });
 OrderSchema.index({ customer_id: 1 });
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ customer_email: 1 });

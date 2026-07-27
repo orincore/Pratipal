@@ -59,7 +59,6 @@ const ServiceSchema = new Schema<IService>(
   }
 );
 
-ServiceSchema.index({ slug: 1 }, { unique: true });
 ServiceSchema.index({ is_active: 1, display_order: 1 });
 
 export default mongoose.models.Service || mongoose.model<IService>("Service", ServiceSchema);

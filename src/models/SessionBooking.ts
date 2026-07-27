@@ -71,7 +71,6 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
   }
 );
 
-SessionBookingSchema.index({ booking_number: 1 });
 SessionBookingSchema.index({ customer_email: 1 });
 SessionBookingSchema.index({ payment_status: 1 });
 SessionBookingSchema.index({ order_type: 1 });

@@ -54,7 +54,6 @@ const BlogSchema = new Schema<IBlog>(
 );
 
 BlogSchema.index({ status: 1 });
-BlogSchema.index({ slug: 1 });
 BlogSchema.index({ featured: 1 });
 
 export default mongoose.models.Blog || mongoose.model<IBlog>("Blog", BlogSchema);

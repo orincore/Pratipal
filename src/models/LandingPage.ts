@@ -48,7 +48,6 @@ const LandingPageSchema = new Schema<ILandingPage>(
   }
 );
 
-LandingPageSchema.index({ slug: 1 });
 LandingPageSchema.index({ status: 1 });
 
 // Force re-register on every module load so a schema change always takes effect

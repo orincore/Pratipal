@@ -44,6 +44,4 @@ const CustomerSchema = new Schema<ICustomer>(
   }
 );
 
-CustomerSchema.index({ email: 1 });
-
 export default mongoose.models.Customer || mongoose.model<ICustomer>("Customer", CustomerSchema);

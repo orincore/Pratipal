@@ -84,8 +84,6 @@ const ProductSchema = new Schema<IProduct>(
   }
 );
 
-ProductSchema.index({ slug: 1 });
-ProductSchema.index({ sku: 1 });
 ProductSchema.index({ category_id: 1 });
 ProductSchema.index({ is_active: 1 });
 ProductSchema.index({ homepage_section: 1 });

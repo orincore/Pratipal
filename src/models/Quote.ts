@@ -29,7 +29,6 @@ const QuoteSchema = new Schema<IQuote>(
   }
 );
 
-QuoteSchema.index({ date: 1 });
 QuoteSchema.index({ status: 1 });
 
 export default mongoose.models.Quote || mongoose.model<IQuote>("Quote", QuoteSchema);

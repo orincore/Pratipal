@@ -31,6 +31,4 @@ const AuthUserSchema = new Schema<IAuthUser>(
   }
 );
 
-AuthUserSchema.index({ email: 1 });
-
 export default mongoose.models.AuthUser || mongoose.model<IAuthUser>("AuthUser", AuthUserSchema);

@@ -35,7 +35,6 @@ const CategorySchema = new Schema<ICategory>(
   }
 );
 
-CategorySchema.index({ slug: 1 });
 CategorySchema.index({ parent_id: 1 });
 
 export default mongoose.models.Category || mongoose.model<ICategory>("Category", CategorySchema);
