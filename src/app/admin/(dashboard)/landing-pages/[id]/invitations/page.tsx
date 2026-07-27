@@ -18,6 +18,7 @@ import {
   X,
   Video,
   Pencil,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -373,6 +374,11 @@ export default function LandingPageInvitationsPage() {
           </h1>
           <span className="text-[11px] text-gray-400 font-mono hidden sm:inline">Page ID: {landingPageId}</span>
         </div>
+        <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+          <a href="https://crm.pratipal.in/webinars" target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5 mr-1" /> Manage Reminders (Mail CRM)
+          </a>
+        </Button>
         <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
           <Link href={`/admin/landing-pages/${landingPageId}/edit`}>
             <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Back to Editor

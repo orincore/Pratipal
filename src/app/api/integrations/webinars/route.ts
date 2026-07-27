@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     .map((w: any) => ({
       id: w._id.toString(),
       slug: w.landing_page_slug,
-      title: `${titleBySlug.get(w.landing_page_slug)} — ${w.name}`,
+      title: titleBySlug.get(w.landing_page_slug) as string,
       webinar_starts_at: w.webinar_starts_at,
       webinar_timezone: w.webinar_timezone,
       registration_start: w.registration_start,
