@@ -2605,13 +2605,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                 )}
                 <div className="lt-rise" style={{ ["--lt-i" as string]: 3 }}>
                   {t.hero.ctaButtonAction === "url" ? (
-                    <a href={resolveLink(t.hero.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                    <a href={resolveLink(t.hero.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                       <span className="lt-cta-sheen" aria-hidden="true" />
                       {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
                       <CtaArrow />
                     </a>
                   ) : (
-                    <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                    <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                       <span className="lt-cta-sheen" aria-hidden="true" />
                       {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
                       <CtaArrow />
@@ -2732,13 +2732,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
 
                 <div className="lt-rise mt-11 flex flex-col items-center gap-8" style={{ ["--lt-i" as string]: 5 }}>
                   {t.hero.ctaButtonAction === "url" ? (
-                    <a href={resolveLink(t.hero.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                    <a href={resolveLink(t.hero.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                       <span className="lt-cta-sheen" aria-hidden="true" />
                       {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
                       <CtaArrow />
                     </a>
                   ) : (
-                    <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                    <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                       <span className="lt-cta-sheen" aria-hidden="true" />
                       {hasContent(t.hero.ctaButtonText) ? t.hero.ctaButtonText : "Get Started"}
                       <CtaArrow />
@@ -3156,13 +3156,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
             {hasContent(t.stats.ctaButtonText) && (
               <div className="lt-reveal mt-8 text-center">
                 {t.stats.ctaButtonAction === "url" ? (
-                  <a href={resolveLink(t.stats.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                  <a href={resolveLink(t.stats.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                     <span className="lt-cta-sheen" aria-hidden="true" />
                     {t.stats.ctaButtonText}
                     <CtaArrow />
                   </a>
                 ) : (
-                  <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                  <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                     <span className="lt-cta-sheen" aria-hidden="true" />
                     {t.stats.ctaButtonText}
                     <CtaArrow />
@@ -3426,13 +3426,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
           {hasContent(t.program.ctaButtonText) && (
             <div className="lt-reveal text-center mt-10">
               {t.program.ctaButtonAction === "url" ? (
-                <a href={resolveLink(t.program.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                <a href={resolveLink(t.program.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                   <span className="lt-cta-sheen" aria-hidden="true" />
                   {t.program.ctaButtonText}
                   <CtaArrow />
                 </a>
               ) : (
-                <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                   <span className="lt-cta-sheen" aria-hidden="true" />
                   {t.program.ctaButtonText}
                   <CtaArrow />
@@ -3598,7 +3598,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`${ctaClass("lg")} w-full sm:w-auto`}
-                      style={{ ...ctaStyle(c.primary, c.accent), ...(t.invitation.buttonTextColor ? { color: t.invitation.buttonTextColor } : {}) }}
+                      style={{ ...ctaStyle(c.primary, c.ctaAccent || c.accent), ...(t.invitation.buttonTextColor ? { color: t.invitation.buttonTextColor } : {}) }}
                     >
                       <span className="lt-cta-sheen" aria-hidden="true" />
                       {t.invitation.buttonText}
@@ -3608,7 +3608,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                     <button
                       type="button"
                       className={`${ctaClass("lg")} w-full sm:w-auto`}
-                      style={{ ...ctaStyle(c.primary, c.accent), ...(t.invitation.buttonTextColor ? { color: t.invitation.buttonTextColor } : {}) }}
+                      style={{ ...ctaStyle(c.primary, c.ctaAccent || c.accent), ...(t.invitation.buttonTextColor ? { color: t.invitation.buttonTextColor } : {}) }}
                       onClick={() => setInvitationDialogOpen(true)}
                     >
                       <span className="lt-cta-sheen" aria-hidden="true" />
@@ -3868,7 +3868,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
           <div
             id="announcementBar"
             className={`${sticky ? "sticky top-0" : "relative"} z-40 w-full`}
-            style={t.sectionBg?.['announcementBar'] ? { backgroundColor: t.sectionBg['announcementBar'] } : { backgroundImage: `linear-gradient(90deg, ${c.accent} 0%, ${c.primary} 100%)` }}
+            style={t.sectionBg?.['announcementBar'] ? { backgroundColor: t.sectionBg['announcementBar'] } : { backgroundImage: `linear-gradient(90deg, ${c.ctaAccent || c.accent} 0%, ${c.primary} 100%)` }}
           >
             <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-3 py-2 text-center sm:px-6 sm:py-2.5">
               {hasContent(bar.text) && (
@@ -3878,7 +3878,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
               )}
               {hasContent(bar.countdownTo) && (
                 <span className="text-white">
-                  <Countdown target={bar.countdownTo} label={bar.countdownLabel} variant="inline" accent={c.accent} />
+                  <Countdown target={bar.countdownTo} label={bar.countdownLabel} variant="inline" accent={c.ctaAccent || c.accent} />
                 </span>
               )}
               {hasContent(bar.ctaText) && (
@@ -3991,13 +3991,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                       )}
                       {hasContent(ev.ctaButtonText) && (
                         ev.ctaButtonAction === "url" ? (
-                          <a href={resolveLink(ev.ctaButtonLink)} className={`${ctaClass("lg")} w-full sm:w-auto`} style={ctaStyle(c.primary, c.accent)}>
+                          <a href={resolveLink(ev.ctaButtonLink)} className={`${ctaClass("lg")} w-full sm:w-auto`} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                             <span className="lt-cta-sheen" aria-hidden="true" />
                             {ev.ctaButtonText}
                             <CtaArrow />
                           </a>
                         ) : (
-                          <button type="button" onClick={() => setInvitationDialogOpen(true)} className={`${ctaClass("lg")} w-full sm:w-auto`} style={ctaStyle(c.primary, c.accent)}>
+                          <button type="button" onClick={() => setInvitationDialogOpen(true)} className={`${ctaClass("lg")} w-full sm:w-auto`} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                             <span className="lt-cta-sheen" aria-hidden="true" />
                             {ev.ctaButtonText}
                             <CtaArrow />
@@ -4185,13 +4185,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
               {hasContent(cur.ctaButtonText) && (
                 <div className="lt-reveal mt-7 text-center">
                   {cur.ctaButtonAction === "url" ? (
-                    <a href={resolveLink(cur.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                    <a href={resolveLink(cur.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                       <span className="lt-cta-sheen" aria-hidden="true" />
                       {cur.ctaButtonText}
                       <CtaArrow />
                     </a>
                   ) : (
-                    <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                    <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                       <span className="lt-cta-sheen" aria-hidden="true" />
                       {cur.ctaButtonText}
                       <CtaArrow />
@@ -4294,7 +4294,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                             <a
                               href={resolveLink(tier.ctaLink)}
                               className={`${ctaClass("md")} w-full`}
-                              style={hot ? ctaStyle(c.primary, c.accent) : { backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.28)" }}
+                              style={hot ? ctaStyle(c.primary, c.ctaAccent || c.accent) : { backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.28)" }}
                             >
                               <span className="lt-cta-sheen" aria-hidden="true" />
                               {tier.ctaText}
@@ -4305,7 +4305,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                               type="button"
                               onClick={() => setInvitationDialogOpen(true)}
                               className={`${ctaClass("md")} w-full`}
-                              style={hot ? ctaStyle(c.primary, c.accent) : { backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.28)" }}
+                              style={hot ? ctaStyle(c.primary, c.ctaAccent || c.accent) : { backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.28)" }}
                             >
                               <span className="lt-cta-sheen" aria-hidden="true" />
                               {tier.ctaText}
@@ -4488,13 +4488,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
             {(t.footer.cta.showCtaButton ?? true) && hasContent(t.footer.cta.ctaButtonText) && (
               <div className="lt-reveal mt-10" style={{ ["--lt-i" as string]: 3 }}>
                 {t.footer.cta.ctaButtonAction === "url" ? (
-                  <a href={resolveLink(t.footer.cta.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                  <a href={resolveLink(t.footer.cta.ctaButtonLink)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                     <span className="lt-cta-sheen" aria-hidden="true" />
                     {t.footer.cta.ctaButtonText}
                     <CtaArrow />
                   </a>
                 ) : (
-                  <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.accent)}>
+                  <button type="button" onClick={() => setInvitationDialogOpen(true)} className={ctaClass("lg")} style={ctaStyle(c.primary, c.ctaAccent || c.accent)}>
                     <span className="lt-cta-sheen" aria-hidden="true" />
                     {t.footer.cta.ctaButtonText}
                     <CtaArrow />
@@ -4909,7 +4909,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                   <DockedCountdown
                     target={t.floatingButton.countdownTo}
                     label={t.floatingButton.countdownLabel}
-                    accent={c.accent}
+                    accent={c.ctaAccent || c.accent}
                   />
                 )}
                 {hasContent(t.floatingButton.priceText) && (
@@ -4938,13 +4938,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
               <span
                 aria-hidden="true"
                 className="lt-dock-glow pointer-events-none absolute -inset-1.5 rounded-full blur-md"
-                style={{ background: `linear-gradient(90deg, ${hexToRgba(c.primary, 0.85)}, ${hexToRgba(c.accent, 0.95)})` }}
+                style={{ background: `linear-gradient(90deg, ${hexToRgba(c.primary, 0.85)}, ${hexToRgba(c.ctaAccent || c.accent, 0.95)})` }}
               />
               {"href" in floatingButtonProps ? (
                 <a
                   href={floatingButtonProps.href}
                   className="lt-cta lt-focus group/cta relative inline-flex h-12 items-center justify-center rounded-full px-5 text-sm font-semibold text-white shadow-lg sm:px-8 sm:text-base"
-                  style={ctaStyle(c.primary, c.accent)}
+                  style={ctaStyle(c.primary, c.ctaAccent || c.accent)}
                 >
                   <span className="lt-cta-sheen" aria-hidden="true" />
                   {floatingCtaLabel}
@@ -4955,7 +4955,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                   type="button"
                   onClick={floatingButtonProps.action}
                   className="lt-cta lt-focus group/cta relative inline-flex h-12 items-center justify-center rounded-full px-5 text-sm font-semibold text-white shadow-lg sm:px-8 sm:text-base"
-                  style={ctaStyle(c.primary, c.accent)}
+                  style={ctaStyle(c.primary, c.ctaAccent || c.accent)}
                 >
                   <span className="lt-cta-sheen" aria-hidden="true" />
                   {floatingCtaLabel}
@@ -4973,7 +4973,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
           <div className="relative w-full max-w-sm pointer-events-auto">
             <div
               className="absolute inset-0 rounded-full blur-2xl opacity-80 animate-pulse"
-              style={{ backgroundImage: `linear-gradient(90deg, ${hexToRgba(c.primary, 0.6)}, ${hexToRgba(c.accent, 0.5)}, ${hexToRgba(c.secondary, 0.6)})` }}
+              style={{ backgroundImage: `linear-gradient(90deg, ${hexToRgba(c.primary, 0.6)}, ${hexToRgba(c.ctaAccent || c.accent, 0.5)}, ${hexToRgba(c.secondary, 0.6)})` }}
             />
             <span className="floating-cta-ring absolute inset-0 rounded-full border border-white/70" style={{ animation: "floating-cta-ring 2.5s ease-out infinite" }} />
             <span className="floating-cta-ring absolute inset-0 rounded-full border border-white/60" style={{ animation: "floating-cta-ring 2.5s ease-out infinite 1.25s" }} />

@@ -12,6 +12,7 @@ export interface TemplateColors {
   heroBg: string;        // Hero section background
   darkBg: string;        // Dark sections background
   bodyBg: string;        // Page body background
+  ctaAccent?: string;    // CTA button + bar accent override — falls back to `accent` when unset
 }
 
 export interface HeroMediaItem {
