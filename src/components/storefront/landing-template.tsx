@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight, Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles, Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe, Camera, Smile, Coffee, Rocket, Award, MessageSquare, Lock, GripVertical, ArrowUp, ArrowDown, Eye, EyeOff, Settings2, Plus, Copy, Trash2 } from "lucide-react";
+import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight, Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles, Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe, Camera, Smile, Coffee, Rocket, Award, MessageSquare, Lock, GripVertical, ArrowUp, ArrowDown, Eye, EyeOff, Settings2, Plus, Copy, Trash2, Hourglass, Languages, TrendingUp, BadgeCheck, X, Check } from "lucide-react";
 import { DynamicPageRenderer } from "@/components/storefront/dynamic-page-renderer";
 
 // Icon resolver for why-section cards
@@ -33,6 +33,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles,
   Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe,
   Camera, Smile, Coffee, Rocket, Award, CheckCircle2, CalendarDays, Clock3,
+  Hourglass, Languages, TrendingUp, BadgeCheck,
 };
 function ProgramIcon({ name, className, style }: { name?: string; className?: string; style?: React.CSSProperties }) {
   const Icon = name ? (ICON_MAP[name] ?? Sparkles) : Sparkles;
@@ -47,6 +48,92 @@ function hexToRgba(hex: string, alpha: number): string {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ---------------------------------------------------------------------------
+// Countdown — live timer to an ISO instant, used by announcementBar.
+// Renders nothing until mounted, so the server-rendered HTML and the first
+// client render always agree (the remaining time differs between them by
+// definition, which would otherwise be a hydration mismatch).
+// ---------------------------------------------------------------------------
+function useCountdown(target?: string) {
+  const [remaining, setRemaining] = useState<number | null>(null);
+  useEffect(() => {
+    if (!target) return;
+    const end = new Date(target).getTime();
+    if (Number.isNaN(end)) return;
+    const tick = () => setRemaining(Math.max(0, end - Date.now()));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [target]);
+  if (remaining === null) return null;
+  const totalSeconds = Math.floor(remaining / 1000);
+  return {
+    days: Math.floor(totalSeconds / 86400),
+    hours: Math.floor((totalSeconds % 86400) / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  };
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// Rotating corner toast of recent-signup notifications (liveProof section).
+// Fixed position, cycles through items on an interval — purely client-side
+// decoration, so it renders nothing until mounted (avoids a hydration
+// mismatch on which item is "current").
+function LiveProofToast({ items, intervalMs, accent }: { items: { text: string; meta?: string; image?: string }[]; intervalMs: number; accent: string }) {
+  const [index, setIndex] = useState<number | null>(null);
+  useEffect(() => {
+    if (items.length === 0) return;
+    setIndex(0);
+    const timer = setInterval(() => setIndex((i) => ((i ?? 0) + 1) % items.length), intervalMs);
+    return () => clearInterval(timer);
+  }, [items.length, intervalMs]);
+  if (index === null || !items[index]) return null;
+  const item = items[index];
+  return (
+    <div className="fixed bottom-4 left-4 z-30 max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-xl border border-gray-100">
+        {item.image ? (
+          <img src={item.image} alt="" className="h-9 w-9 rounded-full object-cover flex-shrink-0" />
+        ) : (
+          <span className="h-9 w-9 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: hexToRgba(accent, 0.12) }}>
+            <CheckCircle2 className="h-4 w-4" style={{ color: accent }} />
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-gray-900 font-body leading-snug truncate">{item.text}</p>
+          {item.meta && <p className="text-[11px] text-gray-400 font-body">{item.meta}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InlineCountdown({ target, label }: { target?: string; label?: string }) {
+  const time = useCountdown(target);
+  if (!time) return null;
+  const parts = [
+    ...(time.days > 0 ? [{ value: time.days, unit: "d" }] : []),
+    { value: time.hours, unit: "h" },
+    { value: time.minutes, unit: "m" },
+    { value: time.seconds, unit: "s" },
+  ];
+  return (
+    <span className="inline-flex items-center gap-1.5 font-body text-xs font-semibold tabular-nums text-white sm:text-sm">
+      {label && <span className="opacity-80">{label}</span>}
+      <span className="inline-flex items-center gap-1">
+        {parts.map((p, i) => (
+          <React.Fragment key={p.unit}>
+            {i > 0 && <span className="opacity-60">:</span>}
+            <span className="rounded-md bg-black/20 px-1.5 py-0.5">{pad2(p.value)}{p.unit}</span>
+          </React.Fragment>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 const VIDEO_REGEX = /\.(mp4|webm|ogg)$/i;
@@ -2500,6 +2587,423 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
       </footer>
       );
       
+      case 'announcementBar': {
+        const bar = t.announcementBar;
+        if (!bar?.visible) return null;
+        if (!hasContent(bar.text) && !hasContent(bar.countdownTo)) return null;
+        const sticky = bar.sticky ?? true;
+        return (
+          <div className={`${sticky ? "sticky top-0" : "relative"} z-40 w-full`} style={{ backgroundColor: c.primary }}>
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-3 py-2 text-center sm:px-6 sm:py-2.5">
+              {hasContent(bar.text) && (
+                <span className="font-body text-[11.5px] font-semibold leading-snug text-white sm:text-sm">{bar.text}</span>
+              )}
+              {hasContent(bar.countdownTo) && <InlineCountdown target={bar.countdownTo} label={bar.countdownLabel} />}
+              {hasContent(bar.ctaText) && (
+                bar.ctaAction === "url" ? (
+                  <a href={resolveLink(bar.ctaLink)} className="inline-flex flex-shrink-0 items-center rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors hover:bg-white/90 sm:px-3 sm:py-1 sm:text-xs" style={{ color: c.primary }}>
+                    {bar.ctaText}
+                  </a>
+                ) : (
+                  <button type="button" onClick={() => setInvitationDialogOpen(true)} className="inline-flex flex-shrink-0 items-center rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors hover:bg-white/90 sm:px-3 sm:py-1 sm:text-xs" style={{ color: c.primary }}>
+                    {bar.ctaText}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      case 'eventDetails': {
+        const ev = t.eventDetails;
+        if (!ev?.visible) return null;
+        const seats = Math.max(0, Math.min(100, ev.seatsFilledPercent || 0));
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('eventDetails', c.bodyBg) }}>
+            <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-6 lg:mb-10">
+                <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">{ev.title}</h2>
+                <p className="text-lg text-gray-600 font-body">{ev.subtitle}</p>
+              </div>
+              <div className="rounded-2xl bg-white shadow-md border border-gray-100 overflow-hidden">
+                {(ev.pills || []).filter(hasContent).length > 0 && (
+                  <div className="flex flex-wrap gap-2 border-b border-gray-100 px-5 py-4 sm:px-8 sm:py-5">
+                    {(ev.pills || []).filter(hasContent).map((pill, i) => (
+                      <span key={i} className="font-body inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold sm:text-xs" style={{ backgroundColor: hexToRgba(c.primary, 0.1), color: c.secondary }}>
+                        {pill}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {(ev.items || []).length > 0 && (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-5 py-6 sm:grid-cols-4 sm:px-8 sm:py-8">
+                    {(ev.items || []).map((item, i) => (
+                      <div key={i} className="flex flex-col items-center gap-2 text-center sm:items-start sm:text-left">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: hexToRgba(c.primary, 0.1) }}>
+                          <ProgramIcon name={item.icon} className="h-4 w-4" style={{ color: c.primary }} />
+                        </span>
+                        <span className="font-body text-[10px] font-semibold uppercase tracking-wider text-gray-400">{item.label}</span>
+                        <span className="font-body -mt-1 text-sm font-semibold leading-snug text-gray-900 sm:text-[15px]">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(hasContent(ev.price) || hasContent(ev.ctaButtonText) || hasContent(ev.seatsNote) || seats > 0) && (
+                  <div className="border-t border-gray-100 px-5 py-6 sm:px-8 sm:py-7" style={{ backgroundColor: hexToRgba(c.primary, 0.04) }}>
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                      {hasContent(ev.price) && (
+                        <div>
+                          {hasContent(ev.priceLabel) && <span className="font-body block text-[10px] font-semibold uppercase tracking-wider text-gray-400">{ev.priceLabel}</span>}
+                          <span className="mt-1 flex flex-wrap items-baseline gap-2">
+                            <span className="font-display text-3xl font-bold leading-none text-gray-900 sm:text-4xl">{ev.price}</span>
+                            {hasContent(ev.originalPrice) && <span className="font-body text-base line-through text-gray-400 sm:text-lg">{ev.originalPrice}</span>}
+                          </span>
+                          {hasContent(ev.savingsNote) && (
+                            <span className="font-body mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ backgroundColor: hexToRgba(c.primary, 0.12), color: c.primary }}>
+                              {ev.savingsNote}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {hasContent(ev.ctaButtonText) && (
+                        ev.ctaButtonAction === "url" ? (
+                          <a href={resolveLink(ev.ctaButtonLink)} className="inline-flex items-center justify-center px-8 py-3.5 rounded-full text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto" style={{ backgroundColor: c.primary }}>
+                            {ev.ctaButtonText}
+                          </a>
+                        ) : (
+                          <button type="button" onClick={() => setInvitationDialogOpen(true)} className="inline-flex items-center justify-center px-8 py-3.5 rounded-full text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto" style={{ backgroundColor: c.primary }}>
+                            {ev.ctaButtonText}
+                          </button>
+                        )
+                      )}
+                    </div>
+                    {(seats > 0 || hasContent(ev.seatsNote)) && (
+                      <div className="mt-5">
+                        {seats > 0 && (
+                          <div className="relative h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: hexToRgba(c.secondary, 0.12) }}>
+                            <div className="h-full rounded-full" style={{ width: `${seats}%`, backgroundColor: c.primary }} />
+                          </div>
+                        )}
+                        {hasContent(ev.seatsNote) && (
+                          <p className="font-body mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{ color: c.primary }}>
+                            <span className="relative flex h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: c.primary }} />
+                            {ev.seatsNote}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      case 'problems': {
+        const pr = t.problems;
+        if (!pr?.visible) return null;
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('problems', c.bodyBg) }}>
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-10">
+                <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">{pr.title}</h2>
+                <p className="text-lg text-gray-600 font-body">{pr.subtitle}</p>
+              </div>
+              {(pr.items || []).length > 0 && (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {pr.items.map((item, i) => (
+                    <div key={i} className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 p-6 text-center">
+                      <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: hexToRgba(c.primary, 0.1) }}>
+                        <ProgramIcon name={item.icon} className="h-5 w-5" style={{ color: c.primary }} />
+                      </span>
+                      <h3 className="font-display text-base font-bold text-gray-900 mb-1.5">{item.title}</h3>
+                      {hasContent(item.description) && <p className="text-sm text-gray-600 font-body leading-relaxed">{item.description}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {hasContent(pr.impactTitle) && (pr.impacts || []).length > 0 && (
+                <div className="mt-10 rounded-2xl p-6 sm:p-8" style={{ backgroundColor: hexToRgba(c.secondary, 0.06) }}>
+                  <h3 className="font-display text-lg font-bold text-gray-900 mb-4">{pr.impactTitle}</h3>
+                  <ul className="space-y-2.5">
+                    {pr.impacts!.map((impact, i) => (
+                      <li key={i} className="flex items-start gap-3 text-gray-700 font-body">
+                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.primary }} />
+                        {impact}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      }
+
+      case 'guidesRail': {
+        const rail = t.guidesRail;
+        if (!rail?.visible || (rail.items || []).length === 0) return null;
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('guidesRail', c.bodyBg) }}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-8">
+                <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3">{rail.title}</h2>
+                <p className="text-lg text-gray-600 font-body">{rail.subtitle}</p>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                {rail.items.map((item, i) => (
+                  <a
+                    key={i}
+                    href={item.link || undefined}
+                    className="group relative flex-shrink-0 w-48 sm:w-56 aspect-[3/4] rounded-2xl overflow-hidden shadow-md"
+                  >
+                    {renderMedia(item.image, mediaKey("guidesRail", "items", i, "image"), { className: "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" })}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <p className="font-display text-white font-bold text-base">{item.name}</p>
+                      <p className="text-white/75 text-xs font-body">{item.role}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      case 'curriculum': {
+        const cur = t.curriculum;
+        if (!cur?.visible || (cur.modules || []).length === 0) return null;
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('curriculum', c.bodyBg) }}>
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-10">
+                <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">{cur.title}</h2>
+                <p className="text-lg text-gray-600 font-body">{cur.subtitle}</p>
+              </div>
+              <div className="space-y-4">
+                {cur.modules.map((mod, i) => (
+                  <div key={i} className="rounded-2xl bg-white shadow-md border border-gray-100 p-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="inline-flex items-center justify-center h-8 px-3 rounded-full text-xs font-bold text-white font-body" style={{ backgroundColor: c.primary }}>
+                        {mod.label}
+                      </span>
+                      <h3 className="font-display text-lg font-bold text-gray-900">{mod.title}</h3>
+                    </div>
+                    {hasContent(mod.description) && <p className="text-gray-600 font-body mb-3">{mod.description}</p>}
+                    {(mod.bullets || []).length > 0 && (
+                      <ul className="space-y-1.5">
+                        {mod.bullets.map((b, bi) => (
+                          <li key={bi} className="flex items-start gap-2.5 text-sm text-gray-700 font-body">
+                            <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: c.primary }} />
+                            {b}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {hasContent(cur.ctaButtonText) && (
+                <div className="text-center mt-8">
+                  {cur.ctaButtonAction === "url" ? (
+                    <a href={resolveLink(cur.ctaButtonLink)} className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5" style={{ backgroundColor: c.primary }}>
+                      {cur.ctaButtonText}
+                    </a>
+                  ) : (
+                    <button type="button" onClick={() => setInvitationDialogOpen(true)} className="inline-flex items-center px-10 py-4 rounded-full text-white font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5" style={{ backgroundColor: c.primary }}>
+                      {cur.ctaButtonText}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      }
+
+      case 'formats': {
+        const fmt = t.formats;
+        if (!fmt?.visible || (fmt.slides || []).length === 0) return null;
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('formats', c.bodyBg) }}>
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-8">
+                <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3">{fmt.title}</h2>
+                <p className="text-lg text-gray-600 font-body">{fmt.subtitle}</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {fmt.slides.map((slide, i) => (
+                  <div key={i} className="rounded-2xl overflow-hidden shadow-md border border-gray-100 relative aspect-[4/3]">
+                    {renderMedia(slide.image, mediaKey("formats", "slides", i, "image"), { className: "w-full h-full object-cover" })}
+                    {hasContent(slide.label) && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                        <p className="text-white font-display font-bold">{slide.label}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      case 'pricing': {
+        const pricing = t.pricing;
+        if (!pricing?.visible || (pricing.tiers || []).length === 0) return null;
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('pricing', c.bodyBg) }}>
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-10">
+                <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">{pricing.title}</h2>
+                <p className="text-lg text-gray-600 font-body">{pricing.subtitle}</p>
+              </div>
+              <div className={`grid gap-6 ${pricing.tiers.length === 1 ? "max-w-sm mx-auto" : pricing.tiers.length === 2 ? "sm:grid-cols-2 max-w-2xl mx-auto" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+                {pricing.tiers.map((tier, i) => (
+                  <div
+                    key={i}
+                    className={`relative rounded-2xl p-7 flex flex-col ${tier.highlighted ? "shadow-2xl scale-[1.03] border-2" : "shadow-md border border-gray-100"} bg-white transition-all duration-300`}
+                    style={tier.highlighted ? { borderColor: c.primary } : undefined}
+                  >
+                    {hasContent(tier.badge) && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[11px] font-bold text-white font-body" style={{ backgroundColor: c.primary }}>
+                        {tier.badge}
+                      </span>
+                    )}
+                    <h3 className="font-display text-xl font-bold text-gray-900 mb-1">{tier.name}</h3>
+                    {hasContent(tier.description) && <p className="text-sm text-gray-500 font-body mb-4">{tier.description}</p>}
+                    <div className="mb-5 flex items-baseline gap-2 flex-wrap">
+                      <span className="font-display text-4xl font-bold text-gray-900">{tier.price}</span>
+                      {hasContent(tier.originalPrice) && <span className="text-base text-gray-400 line-through font-body">{tier.originalPrice}</span>}
+                      {hasContent(tier.period) && <span className="text-sm text-gray-500 font-body">{tier.period}</span>}
+                    </div>
+                    {(tier.features || []).length > 0 && (
+                      <ul className="space-y-2.5 mb-7 flex-1">
+                        {tier.features.map((f, fi) => (
+                          <li key={fi} className="flex items-start gap-2.5 text-sm text-gray-700 font-body">
+                            <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: c.primary }} />
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {tier.ctaAction === "url" ? (
+                      <a href={resolveLink(tier.ctaLink)} className={`text-center inline-flex items-center justify-center px-6 py-3 rounded-full font-semibold transition-all duration-300 ${tier.highlighted ? "text-white shadow-lg hover:shadow-xl" : "text-gray-900 border border-gray-200 hover:border-gray-300"}`} style={tier.highlighted ? { backgroundColor: c.primary } : undefined}>
+                        {tier.ctaText}
+                      </a>
+                    ) : (
+                      <button type="button" onClick={() => setInvitationDialogOpen(true)} className={`text-center inline-flex items-center justify-center px-6 py-3 rounded-full font-semibold transition-all duration-300 ${tier.highlighted ? "text-white shadow-lg hover:shadow-xl" : "text-gray-900 border border-gray-200 hover:border-gray-300"}`} style={tier.highlighted ? { backgroundColor: c.primary } : undefined}>
+                        {tier.ctaText}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {hasContent(pricing.footnote) && <p className="text-center text-sm text-gray-500 font-body mt-6">{pricing.footnote}</p>}
+            </div>
+          </section>
+        );
+      }
+
+      case 'comparison': {
+        const comp = t.comparison;
+        if (!comp?.visible || (comp.rows || []).length === 0) return null;
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('comparison', c.bodyBg) }}>
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-8">
+                <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3">{comp.title}</h2>
+                {hasContent(comp.subtitle) && <p className="text-lg text-gray-600 font-body">{comp.subtitle}</p>}
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-md">
+                <table className="w-full text-sm font-body">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left px-5 py-3.5 font-display font-bold text-gray-900">Feature</th>
+                      {comp.columns.map((col, i) => (
+                        <th key={i} className="px-5 py-3.5 font-display font-bold text-center" style={i === comp.highlightColumn ? { color: c.primary } : { color: "#111827" }}>
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {comp.rows.map((row, ri) => (
+                      <tr key={ri}>
+                        <td className="px-5 py-3.5 text-gray-700 font-medium">{row.feature}</td>
+                        {row.values.map((val, vi) => (
+                          <td key={vi} className="px-5 py-3.5 text-center" style={vi === comp.highlightColumn ? { backgroundColor: hexToRgba(c.primary, 0.05) } : undefined}>
+                            {val.toLowerCase() === "yes" ? (
+                              <Check className="h-4 w-4 mx-auto" style={{ color: c.primary }} />
+                            ) : val.toLowerCase() === "no" ? (
+                              <X className="h-4 w-4 mx-auto text-gray-300" />
+                            ) : (
+                              <span className="text-gray-700">{val}</span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      case 'guarantee': {
+        const guar = t.guarantee;
+        if (!guar?.visible || (guar.items || []).length === 0) return null;
+        return (
+          <section className="py-8 lg:py-14" style={{ backgroundColor: sbg('guarantee', hexToRgba(c.primary, 0.04)) }}>
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-2xl mx-auto mb-10">
+                <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3">{guar.title}</h2>
+                {hasContent(guar.subtitle) && <p className="text-lg text-gray-600 font-body">{guar.subtitle}</p>}
+              </div>
+              <div className="grid gap-6 sm:grid-cols-3">
+                {guar.items.map((item, i) => (
+                  <div key={i} className="text-center">
+                    <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-md">
+                      <ProgramIcon name={item.icon} className="h-6 w-6" style={{ color: c.primary }} />
+                    </span>
+                    <h3 className="font-display text-lg font-bold text-gray-900 mb-1.5">{item.title}</h3>
+                    <p className="text-sm text-gray-600 font-body">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      case 'appBanner': {
+        const banner = t.appBanner;
+        if (!banner?.visible || !hasContent(banner.image)) return null;
+        const content = renderMedia(banner.image, mediaKey("appBanner", "image"), { className: "w-full h-auto block", alt: banner.alt || "" });
+        return (
+          <section className="py-6 lg:py-10" style={{ backgroundColor: sbg('appBanner', c.bodyBg) }}>
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+              {hasContent(banner.link) ? (
+                <a href={resolveLink(banner.link)} className="block rounded-2xl overflow-hidden shadow-md">{content}</a>
+              ) : (
+                <div className="rounded-2xl overflow-hidden shadow-md">{content}</div>
+              )}
+            </div>
+          </section>
+        );
+      }
+
+      case 'liveProof': {
+        const proof = t.liveProof;
+        if (!proof?.visible || (proof.items || []).length === 0) return null;
+        return <LiveProofToast items={proof.items} intervalMs={proof.intervalMs || 5000} accent={c.primary} />;
+      }
+
       default:
         return null;
     }
