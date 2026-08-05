@@ -1718,6 +1718,47 @@ function InvitationDialog({
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
 
+  // Set by the scroll-lock effect below while it holds the body pinned, and
+  // cleared by unlockScroll(). Paid checkout reads this to force the unlock
+  // synchronously instead of waiting on React's effect-cleanup timing — see
+  // unlockScroll for why that race matters specifically on mobile.
+  const scrollLockRef = React.useRef<{
+    scrollY: number;
+    prev: { position: string; top: string; width: string; overflow: string };
+  } | null>(null);
+
+  // Restores the body styles the scroll-lock effect applied, if it's still
+  // holding them. Idempotent, so it's safe to call from both the effect
+  // cleanup (dialog closed normally) and imperatively right before handing
+  // off to Razorpay (see handleSubmit) — whichever runs first wins and the
+  // other becomes a no-op.
+  //
+  // That imperative call matters: on mobile, tapping a UPI option inside
+  // Razorpay's sheet hands off to an Android Intent (GPay/PhonePe/etc.) —
+  // something desktop never does, it just shows a QR code, which is why this
+  // only ever broke on phones. The previous code just closed the dialog and
+  // slept 280ms, trusting React to have run the cleanup below (which lifts
+  // the body's position:fixed/overflow:hidden) before Razorpay opened. That's
+  // a race, not a guarantee — this page runs several concurrent timers
+  // (countdown tick, live-proof-toast rotation, marquee) plus a video embed,
+  // any of which can delay the effect flush past 280ms on a loaded or
+  // low-powered phone. When the intent fires while body is still pinned
+  // fixed, the hand-off/return-from-app navigation breaks: Chrome tries to
+  // open the raw upi:// URL as a normal page, can't, and shows "Can't open
+  // this page" — with the body left stuck fixed/hidden, which is why only
+  // Incognito or a restart cleared it.
+  const unlockScroll = () => {
+    const lock = scrollLockRef.current;
+    if (!lock) return;
+    scrollLockRef.current = null;
+    const body = document.body;
+    body.style.position = lock.prev.position;
+    body.style.top = lock.prev.top;
+    body.style.width = lock.prev.width;
+    body.style.overflow = lock.prev.overflow;
+    window.scrollTo(0, lock.scrollY);
+  };
+
   // Lock background scroll while the dialog is open. iOS Safari (and Radix's
   // default lock) let touch drags fall through to the page behind the form, so
   // we (1) pin the body with position:fixed and (2) intercept touchmove at the
@@ -1738,6 +1779,7 @@ function InvitationDialog({
     body.style.top = `-${scrollY}px`;
     body.style.width = "100%";
     body.style.overflow = "hidden";
+    scrollLockRef.current = { scrollY, prev };
 
     let startY = 0;
     // Movement (px) below which a gesture is treated as a tap, not a scroll.
@@ -1790,11 +1832,7 @@ function InvitationDialog({
     }
 
     return () => {
-      body.style.position = prev.position;
-      body.style.top = prev.top;
-      body.style.width = prev.width;
-      body.style.overflow = prev.overflow;
-      window.scrollTo(0, scrollY);
+      unlockScroll();
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchmove", onTouchMove);
       if (vv) {
@@ -1900,7 +1938,14 @@ function InvitationDialog({
         //    onOpenChange, not handleOpenChange, so the details they typed
         //    survive for a retry.
         onOpenChange(false);
-        // Let Radix unmount and undo its body styles before the sheet mounts.
+        // Force the scroll-lock's body styles back to normal right now rather
+        // than trusting React to have flushed the effect cleanup during this
+        // wait — on mobile, Razorpay's UPI options hand off to an Android
+        // Intent, and that hand-off breaks (Chrome shows "Can't open this
+        // page") if body is still pinned position:fixed when it fires. See
+        // unlockScroll's comment for the full race this closes.
+        unlockScroll();
+        // Let Radix finish unmounting before the sheet mounts.
         await new Promise((r) => setTimeout(r, 280));
         if (typeof document !== "undefined") {
           // Belt and braces: if an exit animation is still in flight the body
