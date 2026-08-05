@@ -66,6 +66,22 @@
     @apply text-foreground;
     background: linear-gradient(135deg, rgba(16,185,129,0.03) 0%, rgba(20,184,166,0.03) 50%, rgba(59,130,246,0.03) 100%);
     font-family: 'Poppins', sans-serif;
+    /* Next.js's own SSR output leaves whitespace text nodes as the last
+       children of <body> (between its injected hydration <script> tags),
+       which per spec should collapse to nothing — but in practice still
+       generates one line box at body's own line-height, showing up as a
+       ~24px blank strip below every page's real content, after the last
+       visible element. Zeroing body's own type size collapses that phantom
+       line to 0; the direct wrapper div around all real page content (every
+       page's storefront/landing-template/dynamic-page-renderer root) restores
+       normal sizing immediately, so this has no visible effect on any
+       rendered text — only on whitespace that belongs to no element. */
+    font-size: 0;
+    line-height: 0;
+  }
+  body > div {
+    font-size: 1rem;
+    line-height: 1.5rem;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Playfair Display', serif;
