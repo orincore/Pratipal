@@ -79,7 +79,16 @@ function isDarkColor(hex: string): boolean {
 
 // The "stage" backdrop: a saturated base with aura blooms layered over it, so
 // dark sections read as lit atmosphere rather than a flat block of color.
+//
+// The layers are intentionally static, not drifting. An infinite
+// background-position/-size animation across 3 oversized gradient layers
+// forces the browser to keep repainting a large region for as long as the
+// page stays open — stacked with the aura blur and grain blend-mode next to
+// it, that's exactly the sustained CPU/GPU load that shows up as page
+// slowness and a hot device on mid/low-end phones. `animated` is kept as a
+// param for call-site compatibility but no longer adds motion.
 function stageBackground(base: string, glow: string, flare: string, animated = true): React.CSSProperties {
+  void animated;
   return {
     backgroundColor: base,
     backgroundImage: [
@@ -87,16 +96,9 @@ function stageBackground(base: string, glow: string, flare: string, animated = t
       `radial-gradient(52% 46% at 88% 16%, ${hexToRgba(flare, 0.34)} 0%, transparent 66%)`,
       `radial-gradient(74% 60% at 50% 112%, ${hexToRgba(glow, 0.36)} 0%, transparent 62%)`,
     ].join(", "),
-    // Oversized, non-repeating layers leave room for the blooms to travel; the
-    // keyframes move AND resize each one on its own path, so the light visibly
-    // swells and wanders instead of sliding as one flat sheet. Declared inline
-    // (not via a class) because every stage surface consumes this object as
-    // `style={stage}` — the animation is dropped at the call site when
-    // prefers-reduced-motion is set.
     backgroundRepeat: "no-repeat",
     backgroundSize: "150% 150%, 140% 140%, 160% 160%",
     backgroundPosition: "0% 0%, 100% 0%, 50% 100%",
-    ...(animated ? { animation: "lt-stage-drift 18s ease-in-out infinite" } : {}),
   };
 }
 
@@ -4713,10 +4715,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
         @keyframes lt-dock-pulse { 0%, 86%, 100% { transform: none; } 93% { transform: scale(1.035); } }
         @keyframes lt-dock-sheen { 0% { transform: translateX(-130%) skewX(-18deg); } 22%, 100% { transform: translateX(320%) skewX(-18deg); } }
         @keyframes lt-dock-arrow { 0%, 80%, 100% { transform: none; } 90% { transform: translateX(3px); } }
-        .lt-dock-glow { animation: lt-dock-glow 2.6s ease-in-out infinite; }
-        .lt-dock-cta { animation: lt-dock-pulse 3.4s ease-in-out infinite; }
-        .lt-dock-cta .lt-cta-sheen { animation: lt-dock-sheen 3.4s ease-out infinite; }
-        .lt-dock-arrow { animation: lt-dock-arrow 3.4s ease-in-out infinite; }
+        /* Static, not looping: this bar is fixed and mounted for the whole
+           session, so four overlapping infinite animations here (one with
+           its own blur filter) meant continuous repaint for as long as the
+           page stayed open — a real source of the reported slowness/heat on
+           lower-end phones. The glow, sheen and arrow now hold their resting
+           frame instead of animating forever. */
+        .lt-dock-glow { opacity: .65; }
         .lt-anim .lt-reveal .lt-seat-fill { width: 0 !important; }
         .lt-anim .lt-reveal.is-in .lt-seat-fill {
           width: var(--lt-seat, 0%) !important;
@@ -4751,7 +4756,12 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
         }
         .lt-anim .lt-rise { animation: lt-rise .95s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--lt-i, 0) * 90ms); }
 
-        .lt-aura { animation: lt-aura 9s ease-in-out infinite; }
+        /* Static, not animated: an infinite scale+opacity loop on a blur-3xl
+           circle forces continuous GPU compositing of a large region for as
+           long as the page is open, which on mid/low-end phones shows up as
+           sustained CPU/GPU load and device heat. The still glow reads just
+           as rich without that cost. */
+        .lt-aura { opacity: .85; }
         .lt-grain-layer {
           position: absolute; inset: 0; pointer-events: none; opacity: .35; mix-blend-mode: soft-light;
           background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.55'/></svg>");
@@ -4895,9 +4905,13 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
         // the right — the pattern every reference landing page uses on mobile.
         // Sits above the home-indicator via env(safe-area-inset-bottom).
         <div
-          className={`fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-md ${floatingOnDesktop ? "" : "md:hidden"}`}
+          className={`fixed inset-x-0 bottom-0 z-40 border-t ${floatingOnDesktop ? "" : "md:hidden"}`}
           style={{
-            backgroundColor: hexToRgba(c.darkBg, 0.92),
+            // Backdrop-blur dropped: at 92% opacity it added negligible visual
+            // softening, but backdrop-filter forces continuous GPU
+            // recomposition of a fixed, always-mounted element on every
+            // scroll frame — a real contributor to sustained device heat.
+            backgroundColor: hexToRgba(c.darkBg, 0.96),
             borderColor: "rgba(255,255,255,0.12)",
             paddingBottom: "env(safe-area-inset-bottom)",
             boxShadow: "0 -12px 34px -18px rgba(0,0,0,.8)",
