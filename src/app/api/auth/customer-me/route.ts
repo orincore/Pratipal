@@ -7,20 +7,24 @@ export const revalidate = 0;
 
 const CUSTOMER_COOKIE_NAME = "customer_session";
 
+// Every page mounts CustomerAuthProvider, which calls this on load to check
+// for a signed-in customer — so "not authenticated" is the common, expected
+// result for anonymous visitors, not an error. It resolves with 200 and
+// `customer: null` rather than 401 so an anonymous pageview doesn't show up
+// as a red "401 Unauthorized" network error in the browser console (a real
+// 401 status is logged there by the browser itself, independent of any app
+// code, no matter how the response body is handled).
 export async function GET(req: NextRequest) {
   try {
-    console.log("customer-me: incoming cookies", req.headers.get("cookie"));
     const sessionCookie = req.cookies.get(CUSTOMER_COOKIE_NAME);
 
     if (!sessionCookie?.value) {
-      console.warn("customer-me: missing session cookie");
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ customer: null });
     }
 
     const decoded = verifyToken(sessionCookie.value);
     if (!decoded) {
-      console.warn("customer-me: invalid token");
-      const response = NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      const response = NextResponse.json({ customer: null });
       const cookieOpts = getSessionCookieOptions();
       response.cookies.set(CUSTOMER_COOKIE_NAME, "", {
         ...cookieOpts,
@@ -35,8 +39,7 @@ export async function GET(req: NextRequest) {
       .lean();
 
     if (!customer) {
-      console.warn("customer-me: customer not found", decoded.sub);
-      const response = NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      const response = NextResponse.json({ customer: null });
       const cookieOpts = getSessionCookieOptions();
       response.cookies.set(CUSTOMER_COOKIE_NAME, "", {
         ...cookieOpts,
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ customer });
   } catch (err: any) {
     console.error("customer-me error", err);
-    const response = NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    const response = NextResponse.json({ customer: null });
     const cookieOpts = getSessionCookieOptions();
     response.cookies.set(CUSTOMER_COOKIE_NAME, "", {
       ...cookieOpts,

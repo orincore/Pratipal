@@ -34,10 +34,7 @@ export async function connectDB(): Promise<typeof mongoose> {
       socketTimeoutMS: 45000,
     };
 
-    console.log("MongoDB: Attempting to connect to:", MONGODB_URI?.replace(/\/\/.*@/, '//***:***@'));
-    
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      console.log("MongoDB: Connected successfully");
       return mongoose;
     }).catch((error) => {
       console.error("MongoDB: Connection failed:", error.message);

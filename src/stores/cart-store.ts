@@ -53,50 +53,31 @@ export const useCartStore = create<CartStore>()(
       items: [],
       addItem: (product, id) => {
         try {
-          console.log('Adding item to cart:', product);
           const sanitized = sanitizeProduct(product);
-          console.log('Sanitized product:', sanitized);
-          
+
           set((state) => {
             const existing = state.items.find(
               (item) => item.product.id === sanitized.id
             );
-            
+
             if (existing) {
-              console.log('Item exists, incrementing quantity');
               const newItems = state.items.map((item) =>
                 item.product.id === sanitized.id
                   ? { ...item, quantity: item.quantity + 1 }
                   : item
               );
-              console.log('Updated cart items:', newItems);
               return { items: newItems };
             }
-            
-            console.log('Adding new item to cart');
+
             const newItems = [...state.items, { id: id || sanitized.id, product: sanitized, quantity: 1 }];
-            console.log('New cart items:', newItems);
             return { items: newItems };
           });
-          
-          // Log cart state after update
-          setTimeout(() => {
-            const currentState = get();
-            console.log('Cart state after add:', currentState.items);
-            console.log('Total items:', currentState.getItemCount());
-            console.log('Total price:', currentState.getTotal());
-            
-            // Force a re-render by checking localStorage
-            const stored = localStorage.getItem('pratipal-cart');
-            console.log('LocalStorage cart:', stored);
-          }, 100);
         } catch (error) {
           console.error('Error adding item to cart:', error);
         }
       },
       removeItem: (identifier) => {
         try {
-          console.log('Removing item:', identifier);
           set((state) => ({
             items: state.items.filter(
               (item) => item.id !== identifier && item.product.id !== identifier
@@ -125,26 +106,25 @@ export const useCartStore = create<CartStore>()(
       },
       clearCart: () => {
         try {
-          console.log('Clearing cart');
           set({ items: [] });
-          
-          // Force immediate localStorage update
+
+          // zustand's persist middleware writes to localStorage on the next
+          // microtask, not synchronously — a caller that reads localStorage
+          // right after clearCart() can still see the old items. Double-check
+          // shortly after and force it in sync if it didn't take.
           setTimeout(() => {
-            const stored = localStorage.getItem('pratipal-cart');
-            console.log('LocalStorage after clear:', stored);
-            if (stored) {
-              try {
-                const parsed = JSON.parse(stored);
-                if (parsed.state && parsed.state.items && parsed.state.items.length > 0) {
-                  console.log('Force clearing localStorage');
-                  localStorage.setItem('pratipal-cart', JSON.stringify({
-                    ...parsed,
-                    state: { items: [] }
-                  }));
-                }
-              } catch (e) {
-                console.error('Error force clearing localStorage:', e);
+            try {
+              const stored = localStorage.getItem('pratipal-cart');
+              if (!stored) return;
+              const parsed = JSON.parse(stored);
+              if (parsed?.state?.items?.length > 0) {
+                localStorage.setItem('pratipal-cart', JSON.stringify({
+                  ...parsed,
+                  state: { items: [] },
+                }));
               }
+            } catch (e) {
+              console.error('Error force clearing localStorage:', e);
             }
           }, 100);
         } catch (error) {
@@ -153,7 +133,6 @@ export const useCartStore = create<CartStore>()(
       },
       setItems: (items) => {
         try {
-          console.log('Setting cart items:', items);
           const sanitizedItems = items.map(item => ({
             ...item,
             product: sanitizeProduct(item.product)
@@ -188,14 +167,12 @@ export const useCartStore = create<CartStore>()(
       storage: createJSONStorage(() => localStorage),
       version: 2,
       migrate: (persistedState: any, version: number) => {
-        console.log('Migrating cart from version:', version);
         try {
           if (version < 2) {
             const items = (persistedState?.items || []).map((item: any) => ({
               ...item,
               product: sanitizeProduct(item.product)
             }));
-            console.log('Migrated items:', items);
             return { items };
           }
           return persistedState;
@@ -205,13 +182,9 @@ export const useCartStore = create<CartStore>()(
         }
       },
       onRehydrateStorage: () => {
-        console.log('Rehydrating cart from localStorage');
         return (state, error) => {
           if (error) {
             console.error('Error rehydrating cart:', error);
-          } else {
-            console.log('Cart rehydrated successfully:', state?.items);
-            
           }
         };
       },

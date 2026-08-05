@@ -77,37 +77,30 @@ function mapEcomCategoryToCategory(ecomCategory: EcomCategory): Category {
 export async function getProducts(): Promise<Product[]> {
   try {
     const url = buildApiUrl(`/api/products?limit=100`);
-    console.log("Fetching products from:", url);
-    
+
     const res = await fetch(url, {
       next: { revalidate: 300 },
       // Add timeout to prevent hanging during build
       signal: AbortSignal.timeout(10000), // 10 second timeout
     });
-    
-    console.log("Products API response status:", res.status);
-    
+
     if (!res.ok) {
       const errorText = await res.text();
-      console.error("Failed to fetch products:", res.status, errorText);
-      console.error("Request URL was:", url);
       throw new Error(`Failed to fetch products: ${res.status} ${errorText}`);
     }
-    
+
     const data = await res.json();
-    console.log(`Received ${data.products?.length || 0} products from API`);
-    
+
     if (!data.products || !Array.isArray(data.products)) {
       console.error("Invalid products data structure:", data);
       return [];
     }
-    
+
     const mappedProducts = data.products.map(mapEcomProductToProduct);
-    
+
     return mappedProducts;
   } catch (err) {
     console.error("Error fetching products:", err);
-    console.error("This error occurred while fetching products for homepage");
     // Return empty array instead of throwing to prevent build failures
     return [];
   }
