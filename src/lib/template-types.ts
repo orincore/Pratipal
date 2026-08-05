@@ -33,6 +33,9 @@ export interface HeroSection {
   carouselAutoplay: boolean;     // Auto-advance slides
   carouselInterval: number;      // Duration between slides (ms)
   floatingStats: { label: string; value: string }[]; // Floating stat badges
+  layout?: "boxed" | "fullBleed"; // "boxed" (default) = current centered layout; "fullBleed" = full-viewport with bottom-anchored image
+  scrollIndicatorText?: string;   // e.g. "Scroll down" — only shown in fullBleed layout
+  scrollIndicatorTarget?: string; // anchor id (e.g. "#stats") the scroll indicator links to
   visible: boolean;
 }
 
@@ -45,6 +48,8 @@ export interface WhySection {
   title: string;                 // e.g. "Why Effort Isn't Working Anymore"
   subtitle: string;
   points: { title: string; description: string; image: string; imageFit?: "contain" | "cover" | "natural" }[];
+  layoutVariant?: "cards" | "splitAlternating"; // "cards" (default) = current 3-card grid; "splitAlternating" = image grid + heading
+  imageSide?: "left" | "right"; // only used by "splitAlternating" — which side the image grid sits on (default "left")
   visible: boolean;
 }
 
@@ -73,11 +78,12 @@ export interface GallerySection {
 export interface StatsSection {
   title: string;
   subtitle: string;
-  stats: { value: string; label: string }[];
+  stats: { value: string; label: string; icon?: string }[];
   ctaButtonText: string;
   ctaButtonLink: string;
   ctaButtonAction: "invitation" | "url"; // CTA button action type
   backgroundImage: string;
+  cardStyle?: "glass" | "lightOnDark"; // "glass" (default) = current dark glassy cards; "lightOnDark" = trust-rail: light card w/ icon-in-circle
   visible: boolean;
 }
 
@@ -92,353 +98,9 @@ export interface TestimonialsSection {
   title: string;
   subtitle: string;
   items: TestimonialItem[];
+  displayMode?: "grid" | "marquee"; // "grid" (default) = current static grid; "marquee" = dual-direction auto-scrolling rows
   visible: boolean;
 }
-
-export interface VideoTestimonialItem {
-  url: string;       // uploaded video URL or YouTube link
-  name: string;
-  role: string;
-}
-
-export interface VideoTestimonialsSection {
-  title: string;
-  subtitle: string;
-  items: VideoTestimonialItem[];
-  visible: boolean;
-}
-
-export interface ProgramPoint {
-  title: string;
-  description: string;
-  icon: string;                  // emoji or icon name
-}
-
-export interface ProgramSection {
-  title: string;
-  subtitle: string;
-  points: ProgramPoint[];
-  ctaButtonText: string;
-  ctaButtonLink: string;
-  ctaButtonAction: "invitation" | "url"; // CTA button action type
-  visible: boolean;
-}
-
-export interface BonusItem {
-  title: string;
-  description: string;
-  image: string;
-}
-
-export interface BonusSection {
-  title: string;
-  items: BonusItem[];
-  enabled: boolean;
-}
-
-export interface ContentBlockSection {
-  enabled: boolean;
-  layout: "media-left" | "media-right";
-  mediaType: "image" | "video" | "youtube";
-  mediaUrl: string;
-  textFormat: "plain" | "bullets";
-  heading?: string;
-  content: string; // Plain text or bullet points (one per line)
-  /**
-   * Image-only. Default "contain" fits the artwork inside a fixed 16:9 well
-   * (may letterbox); "cover" fills the frame instead (crops as needed);
-   * "natural" drops the fixed well entirely and shows the image at its own
-   * aspect ratio, scaled to the column width — no crop, no letterbox. Best
-   * for a single self-contained poster/banner with copy baked into the
-   * artwork, where either fixed-box mode looks wrong.
-   */
-  imageFit?: "contain" | "cover" | "natural";
-}
-
-// A free-floating rich-content zone that can sit anywhere in `sectionOrder`
-// (key `richContent:<id>`), independent of the one legacy singleton
-// `richContent` slot. Each has its own TipTap doc and its own Style-tab
-// settings, so blocks don't have to share width/padding/background.
-export interface RichBlockEntry {
-  id: string;
-  content: LandingContent;
-  hidden?: boolean;
-}
-
-export interface ThankYouButton {
-  label: string;
-  url: string;
-  icon: "whatsapp" | "facebook" | "instagram" | "x" | "none";
-}
-
-export interface InvitationSection {
-  enabled: boolean;
-  badgeEmoji: string;
-  badgeText: string;
-  title: string;
-  subtitle: string;
-  dateLabel: string;
-  dateValue: string;
-  timeLabel: string;
-  timeValue: string;
-  venueLabel: string;
-  venueValue: string;
-  availabilityText: string;
-  buttonText: string;
-  buttonLink: string;
-  buttonAction: "invitation" | "url"; // CTA button action type
-  buttonTextColor?: string;  // text color for invitation buttons
-  formTitle: string;
-  formHighlights: string[];
-  formButtonText: string;
-  successTitle: string;
-  successDescription: string;
-  supportText: string;
-  thankYouButtons?: ThankYouButton[];
-}
-
-export interface FaqItem {
-  question: string;
-  answer: string;
-}
-
-export interface FaqSection {
-  title: string;
-  subtitle: string;
-  items: FaqItem[];
-  enabled: boolean;
-}
-
-export interface FooterCTA {
-  title: string;
-  subtitle: string;
-  ctaButtonText: string;
-  ctaButtonLink: string;
-  ctaButtonAction: "invitation" | "url"; // CTA button action type
-  showCtaButton?: boolean;
-}
-
-export interface FooterSection {
-  cta: FooterCTA;
-  copyright: string;
-  links: { label: string; url: string }[];
-  enabled: boolean;
-}
-
-export type FloatingButtonSource = "hero" | "program" | "invitation" | "footer";
-
-export interface FloatingButtonSettings {
-  enabled: boolean;
-  section: FloatingButtonSource;
-}
-
-// ---------------------------------------------------------------------------
-// Complete template data
-// ---------------------------------------------------------------------------
-export interface MediaFieldOptions {
-  autoplay: boolean;
-  mute: boolean;
-}
-
-// Per-section style overrides (Elementor-style spacing controls). Values are
-// pixels of extra outer spacing wrapped around the section.
-export interface SectionStyleOptions {
-  paddingTop?: number;
-  paddingBottom?: number;
-}
-
-// Every reorderable section key, in default order. Shared by the sidebar
-// editor, the canvas overlay, and the storefront renderer so they can never
-// drift apart.
-export const CANONICAL_SECTIONS = [
-  "announcementBar",
-  "hero",
-  "marquee",
-  "eventDetails",
-  "why",
-  "problems",
-  "about",
-  "guidesRail",
-  "logos",
-  "gallery",
-  "stats",
-  "curriculum",
-  "formats",
-  "testimonials",
-  "videoTestimonials",
-  "program",
-  "pricing",
-  "comparison",
-  "guarantee",
-  "contentBlocks",
-  "appBanner",
-  "richContent",
-  "invitation",
-  "bonus",
-  "faq",
-  "liveProof",
-  "footer",
-] as const;
-
-export const SECTION_LABELS: Record<string, string> = {
-  announcementBar: "Announcement Bar",
-  hero: "Hero",
-  marquee: "Marquee / Ticker",
-  eventDetails: "Event Details",
-  why: "Why Section",
-  problems: "Problems / Pain Points",
-  about: "About",
-  guidesRail: "People Rail",
-  logos: "Logo Bar",
-  gallery: "Gallery",
-  stats: "Stats / CTA",
-  curriculum: "Curriculum",
-  formats: "Format Carousel",
-  testimonials: "Testimonials",
-  videoTestimonials: "Video Testimonials",
-  program: "Program",
-  pricing: "Pricing Tiers",
-  comparison: "Comparison Table",
-  guarantee: "Guarantee",
-  contentBlocks: "Content Blocks",
-  appBanner: "App Banner",
-  richContent: "Rich Content",
-  invitation: "Request Invitation",
-  bonus: "Bonus",
-  faq: "FAQ",
-  liveProof: "Live Social Proof",
-  footer: "Footer",
-};
-
-// Dynamic, free-floating rich-content blocks use keys of the form
-// `richContent:<id>` — never registered in CANONICAL_SECTIONS (which is a
-// fixed compile-time list), so every place that keys off the canonical set
-// needs to recognize this pattern explicitly via these two helpers.
-export function isRichBlockKey(key: string): boolean {
-  return key.startsWith("richContent:");
-}
-
-export function richBlockId(key: string): string {
-  return key.slice("richContent:".length);
-}
-
-// Resolves a saved (possibly partial/stale) sectionOrder against the
-// canonical list: keeps saved order, appends any new sections at the end.
-// Dynamic richContent:<id> keys are preserved as-is but never auto-injected
-// (they only ever enter sectionOrder via an explicit insert).
-export function resolveSectionOrder(order?: string[]): string[] {
-  const isKnown = (k: string) => (CANONICAL_SECTIONS as readonly string[]).includes(k) || isRichBlockKey(k);
-  const base = order && order.length ? order.filter(isKnown) : [...CANONICAL_SECTIONS];
-  const missing = (CANONICAL_SECTIONS as readonly string[]).filter((k) => !base.includes(k));
-  return [...base, ...missing];
-}
-
-// Each section stores its visibility under a differently named flag
-// (visible / enabled / derived). These two helpers give the editor a single
-// uniform way to read and write it.
-export function getSectionVisibility(t: LandingTemplateData, key: string): boolean {
-  if (isRichBlockKey(key)) {
-    const block = (t.richBlocks || []).find((b) => b.id === richBlockId(key));
-    return block ? !block.hidden : true;
-  }
-  switch (key) {
-    case "announcementBar": return t.announcementBar?.visible ?? false;
-    case "hero": return t.hero.visible;
-    case "marquee": return t.marquee.enabled;
-    case "eventDetails": return t.eventDetails?.visible ?? false;
-    case "why": return t.why.visible;
-    case "problems": return t.problems?.visible ?? false;
-    case "about": return t.about.visible;
-    case "guidesRail": return t.guidesRail?.visible ?? false;
-    case "logos": return t.logos.enabled;
-    case "gallery": return t.gallery.visible;
-    case "stats": return t.stats.visible;
-    case "curriculum": return t.curriculum?.visible ?? false;
-    case "formats": return t.formats?.visible ?? false;
-    case "testimonials": return t.testimonials.visible;
-    case "videoTestimonials": return t.videoTestimonials.visible;
-    case "program": return t.program.visible;
-    case "pricing": return t.pricing?.visible ?? false;
-    case "comparison": return t.comparison?.visible ?? false;
-    case "guarantee": return t.guarantee?.visible ?? false;
-    case "contentBlocks": return (t.contentBlocks || []).some((b) => b.enabled);
-    case "appBanner": return t.appBanner?.visible ?? false;
-    case "richContent": return true;
-    case "invitation": return t.invitation.enabled;
-    case "bonus": return t.bonus.enabled;
-    case "faq": return t.faq?.enabled ?? true;
-    case "liveProof": return t.liveProof?.visible ?? false;
-    case "footer": return t.footer.enabled;
-    default: return true;
-  }
-}
-
-export function applySectionVisibility(t: LandingTemplateData, key: string, visible: boolean): LandingTemplateData {
-  if (isRichBlockKey(key)) {
-    const id = richBlockId(key);
-    return {
-      ...t,
-      richBlocks: (t.richBlocks || []).map((b) => (b.id === id ? { ...b, hidden: !visible } : b)),
-    };
-  }
-  switch (key) {
-    case "announcementBar": return { ...t, announcementBar: { ...(t.announcementBar || DEFAULT_TEMPLATE_DATA.announcementBar!), visible } };
-    case "hero": return { ...t, hero: { ...t.hero, visible } };
-    case "marquee": return { ...t, marquee: { ...t.marquee, enabled: visible } };
-    case "eventDetails": return { ...t, eventDetails: { ...(t.eventDetails || DEFAULT_TEMPLATE_DATA.eventDetails!), visible } };
-    case "why": return { ...t, why: { ...t.why, visible } };
-    case "problems": return { ...t, problems: { ...(t.problems || DEFAULT_TEMPLATE_DATA.problems!), visible } };
-    case "about": return { ...t, about: { ...t.about, visible } };
-    case "guidesRail": return { ...t, guidesRail: { ...(t.guidesRail || DEFAULT_TEMPLATE_DATA.guidesRail!), visible } };
-    case "logos": return { ...t, logos: { ...t.logos, enabled: visible } };
-    case "gallery": return { ...t, gallery: { ...t.gallery, visible } };
-    case "stats": return { ...t, stats: { ...t.stats, visible } };
-    case "curriculum": return { ...t, curriculum: { ...(t.curriculum || DEFAULT_TEMPLATE_DATA.curriculum!), visible } };
-    case "formats": return { ...t, formats: { ...(t.formats || DEFAULT_TEMPLATE_DATA.formats!), visible } };
-    case "testimonials": return { ...t, testimonials: { ...t.testimonials, visible } };
-    case "videoTestimonials": return { ...t, videoTestimonials: { ...t.videoTestimonials, visible } };
-    case "program": return { ...t, program: { ...t.program, visible } };
-    case "pricing": return { ...t, pricing: { ...(t.pricing || DEFAULT_TEMPLATE_DATA.pricing!), visible } };
-    case "comparison": return { ...t, comparison: { ...(t.comparison || DEFAULT_TEMPLATE_DATA.comparison!), visible } };
-    case "guarantee": return { ...t, guarantee: { ...(t.guarantee || DEFAULT_TEMPLATE_DATA.guarantee!), visible } };
-    case "contentBlocks": return { ...t, contentBlocks: (t.contentBlocks || []).map((b) => ({ ...b, enabled: visible })) };
-    case "appBanner": return { ...t, appBanner: { ...(t.appBanner || DEFAULT_TEMPLATE_DATA.appBanner!), visible } };
-    case "richContent": return t;
-    case "invitation": return { ...t, invitation: { ...t.invitation, enabled: visible } };
-    case "bonus": return { ...t, bonus: { ...t.bonus, enabled: visible } };
-    case "faq": return { ...t, faq: { ...(t.faq || DEFAULT_TEMPLATE_DATA.faq!), enabled: visible } };
-    case "liveProof": return { ...t, liveProof: { ...(t.liveProof || DEFAULT_TEMPLATE_DATA.liveProof!), visible } };
-    case "footer": return { ...t, footer: { ...t.footer, enabled: visible } };
-    default: return t;
-  }
-}
-
-// Centralizes the "Rich Content" fallback label for dynamic blocks (which
-// can't have a static SECTION_LABELS entry since their key includes a uuid).
-// Numbers them when more than one dynamic block exists on the page, based on
-// its position in sectionOrder, so multiple blocks stay distinguishable.
-export function getSectionLabel(key: string, order?: string[]): string {
-  if (isRichBlockKey(key)) {
-    if (order) {
-      const richKeys = order.filter(isRichBlockKey);
-      if (richKeys.length > 1) {
-        const n = richKeys.indexOf(key) + 1;
-        if (n > 0) return `Rich Content #${n}`;
-      }
-    }
-    return "Rich Content";
-  }
-  return SECTION_LABELS[key] || key;
-}
-
-export const DEFAULT_MEDIA_SETTINGS: MediaFieldOptions = {
-  autoplay: true,
-  mute: true,
-};
-
-// --- Sections ported from the Adhyatmik Sutraa deployment of this same
-// template — same data shape as there, rendered with Pratipal's own simpler
-// styling (see landing-template.tsx) rather than porting its design system.
 
 export interface GuidesRailItem {
   name: string;
@@ -447,7 +109,9 @@ export interface GuidesRailItem {
   link?: string;
 }
 
-// Horizontal-scroll rail of people/practitioner cards.
+// Horizontal-scroll rail of people/practitioner cards (portrait, gradient
+// name-overlay, hover reveals an "Explore" link). No JS carousel state —
+// relies on native touch/scroll.
 export interface GuidesRailSection {
   title: string;
   subtitle: string;
@@ -476,73 +140,12 @@ export interface AppBannerSection {
   visible: boolean;
 }
 
-export interface CurriculumModule {
-  label: string;                    // "Day 1" / "Module 01"
-  title: string;
-  description?: string;
-  bullets: string[];
-  image?: string;
-}
-
-// Day-wise or module-wise breakdown of what gets taught.
-export interface CurriculumSection {
-  title: string;
-  subtitle: string;
-  modules: CurriculumModule[];
-  displayMode?: "accordion" | "cards";
-  ctaButtonText?: string;
-  ctaButtonLink?: string;
-  ctaButtonAction?: "invitation" | "url";
-  visible: boolean;
-}
-
-export interface PricingTier {
-  name: string;
-  price: string;
-  originalPrice?: string;
-  period?: string;
-  badge?: string;
-  description?: string;
-  features: string[];
-  ctaText: string;
-  ctaLink: string;
-  ctaAction: "invitation" | "url";
-  highlighted?: boolean;
-}
-
-export interface PricingSection {
-  title: string;
-  subtitle: string;
-  tiers: PricingTier[];
-  footnote?: string;
-  visible: boolean;
-}
-
-// Feature matrix. `values[i]` aligns with `columns[i]`; "yes"/"no" render as
-// a tick/cross, anything else renders as literal text.
-export interface ComparisonSection {
-  title: string;
-  subtitle: string;
-  columns: string[];
-  rows: { feature: string; values: string[] }[];
-  highlightColumn?: number;
-  visible: boolean;
-}
-
-// Risk-reversal triad ("Pay once", "No upsells", "Full refund").
-export interface GuaranteeSection {
-  title: string;
-  subtitle: string;
-  items: { icon?: string; title: string; description: string }[];
-  visible: boolean;
-}
-
-// Rotating corner toast of recent-signup notifications.
-export interface LiveProofSection {
-  items: { text: string; meta?: string; image?: string }[];
-  intervalMs?: number;
-  visible: boolean;
-}
+// ---------------------------------------------------------------------------
+// Conversion sections
+// Distilled from the common structure of high-performing webinar/course
+// landing pages. All are additive and default to visible:false, so existing
+// pages never gain an empty placeholder section.
+// ---------------------------------------------------------------------------
 
 // Thin urgency strip pinned above the hero ("Only 7 slots left", price-rising
 // warnings). Optionally counts down to a fixed instant.
@@ -593,14 +196,468 @@ export interface ProblemsSection {
   visible: boolean;
 }
 
+export interface CurriculumModule {
+  label: string;                    // "Day 1" / "Module 01"
+  title: string;
+  description?: string;
+  bullets: string[];
+  image?: string;                   // only used by the "cards" display mode
+}
+
+// Day-wise or module-wise breakdown of what gets taught.
+export interface CurriculumSection {
+  title: string;
+  subtitle: string;
+  modules: CurriculumModule[];
+  displayMode?: "accordion" | "cards";  // default "accordion"
+  ctaButtonText?: string;
+  ctaButtonLink?: string;
+  ctaButtonAction?: "invitation" | "url";
+  visible: boolean;
+}
+
+export interface PricingTier {
+  name: string;
+  price: string;
+  originalPrice?: string;
+  period?: string;                  // e.g. "/year", "one-time"
+  badge?: string;                   // e.g. "Most Popular"
+  description?: string;
+  features: string[];
+  ctaText: string;
+  ctaLink: string;
+  ctaAction: "invitation" | "url";
+  highlighted?: boolean;
+}
+
+export interface PricingSection {
+  title: string;
+  subtitle: string;
+  tiers: PricingTier[];
+  footnote?: string;
+  visible: boolean;
+}
+
+// Feature matrix. `values[i]` aligns with `columns[i]`; the strings "yes"/"no"
+// render as a tick/cross, anything else renders as literal text.
+export interface ComparisonSection {
+  title: string;
+  subtitle: string;
+  columns: string[];
+  rows: { feature: string; values: string[] }[];
+  highlightColumn?: number;         // 0-based index of the column to emphasise
+  visible: boolean;
+}
+
+// Risk-reversal triad ("Pay once", "No upsells", "Full refund").
+export interface GuaranteeSection {
+  title: string;
+  subtitle: string;
+  items: { icon?: string; title: string; description: string }[];
+  visible: boolean;
+}
+
+// Rotating corner toast of recent-signup notifications.
+export interface LiveProofSection {
+  items: { text: string; meta?: string; image?: string }[];
+  intervalMs?: number;              // default 5000
+  visible: boolean;
+}
+
+export interface VideoTestimonialItem {
+  url: string;       // uploaded video URL or YouTube link
+  name: string;
+  role: string;
+}
+
+export interface VideoTestimonialsSection {
+  title: string;
+  subtitle: string;
+  items: VideoTestimonialItem[];
+  visible: boolean;
+}
+
+export interface ProgramPoint {
+  title: string;
+  description: string;
+  icon: string;                  // emoji or icon name
+}
+
+export interface ProgramSection {
+  title: string;
+  subtitle: string;
+  points: ProgramPoint[];
+  ctaButtonText: string;
+  ctaButtonLink: string;
+  ctaButtonAction: "invitation" | "url"; // CTA button action type
+  visible: boolean;
+}
+
+export interface BonusItem {
+  title: string;
+  description: string;
+  image: string;
+}
+
+export interface BonusSection {
+  title: string;
+  subtitle?: string;
+  items: BonusItem[];
+  enabled: boolean;
+}
+
+export interface ContentBlockSection {
+  enabled: boolean;
+  layout: "media-left" | "media-right";
+  mediaType: "image" | "video" | "youtube";
+  mediaUrl: string;
+  textFormat: "plain" | "bullets";
+  heading?: string;
+  content: string; // Plain text or bullet points (one per line)
+  /**
+   * Image-only. Default "contain" fits the artwork inside a fixed 16:9 well
+   * (may letterbox); "cover" fills the frame instead (crops as needed);
+   * "natural" drops the fixed well entirely and shows the image at its own
+   * aspect ratio, scaled to the column width — no crop, no letterbox. Best
+   * for a single self-contained poster/banner with copy baked into the
+   * artwork, where either fixed-box mode looks wrong.
+   */
+  imageFit?: "contain" | "cover" | "natural";
+}
+
+// A free-floating rich-content zone that can sit anywhere in `sectionOrder`
+// (key `richContent:<id>`), independent of the one legacy singleton
+// `richContent` slot. Each has its own TipTap doc and its own Style-tab
+// settings, so blocks don't have to share width/padding/background.
+export interface RichBlockEntry {
+  id: string;
+  content: LandingContent;
+  hidden?: boolean;
+}
+
+export interface ThankYouButton {
+  label: string;
+  url: string;
+  icon: "whatsapp" | "facebook" | "instagram" | "x" | "none";
+}
+
+export interface InvitationSection {
+  enabled: boolean;
+  // Free webinars register straight from the form. Paid ones create a Razorpay
+  // order first and only enrol the registrant once the signature verifies
+  // server-side. `amount` is in whole rupees and is ALWAYS re-read from the
+  // saved page server-side at payment time — the client's copy is display only.
+  pricingMode?: "free" | "paid";
+  amount?: number;
+  originalAmount?: number;      // struck through beside `amount` when higher
+  payButtonText?: string;       // defaults to "Pay ₹<amount>"
+  badgeEmoji: string;
+  badgeText: string;
+  title: string;
+  subtitle: string;
+  dateLabel: string;
+  dateValue: string;
+  timeLabel: string;
+  timeValue: string;
+  venueLabel: string;
+  venueValue: string;
+  availabilityText: string;
+  buttonText: string;
+  buttonLink: string;
+  buttonAction: "invitation" | "url"; // CTA button action type
+  buttonTextColor?: string;  // text color for invitation buttons
+  formTitle: string;
+  formHighlights: string[];
+  formButtonText: string;
+  successTitle: string;
+  successDescription: string;
+  supportText: string;
+  thankYouButtons?: ThankYouButton[];
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface FaqSection {
+  title: string;
+  subtitle: string;
+  items: FaqItem[];
+  enabled: boolean;
+}
+
+export interface FooterCTA {
+  title: string;
+  subtitle: string;
+  ctaButtonText: string;
+  ctaButtonLink: string;
+  ctaButtonAction: "invitation" | "url"; // CTA button action type
+  showCtaButton?: boolean;
+}
+
+export interface FooterLinkColumn {
+  heading: string;
+  links: { label: string; url: string }[];
+}
+
+export interface FooterSocialLink {
+  icon: "instagram" | "facebook" | "youtube" | "x" | "linkedin" | "whatsapp";
+  url: string;
+}
+
+export interface FooterAppDownload {
+  text: string;
+  iosUrl?: string;
+  androidUrl?: string;
+}
+
+export interface FooterSection {
+  cta: FooterCTA;
+  copyright: string;
+  links: { label: string; url: string }[];
+  logo?: string;                        // footer logo image URL (falls back to store name if empty)
+  address?: string;                     // short postal address, line breaks preserved
+  socialLinks?: FooterSocialLink[];
+  linkColumns?: FooterLinkColumn[];      // e.g. "Company" column of legal/nav links
+  popularLinks?: { label: string; url: string }[]; // SEO tag-cloud row
+  appDownload?: FooterAppDownload;
+  enabled: boolean;
+}
+
+export type FloatingButtonSource = "hero" | "program" | "invitation" | "footer";
+
+export interface FloatingButtonSettings {
+  enabled: boolean;
+  section: FloatingButtonSource;
+  // "pill" (default) = the original centered pill. "bar" = full-width docked
+  // checkout bar with price + note beside the button, which is what every
+  // reference page uses on mobile.
+  variant?: "pill" | "bar";
+  priceText?: string;
+  strikePriceText?: string;
+  noteText?: string;
+  // A docked bar has far less room than an in-page CTA, so it can carry its own
+  // shorter label without changing the source section's button text.
+  ctaTextOverride?: string;
+  // "bar" variant only — live countdown shown on the left of the strip.
+  countdownTo?: string;      // ISO datetime
+  countdownLabel?: string;
+  showOnDesktop?: boolean;   // default false — mobile-only, as before
+}
+
+// ---------------------------------------------------------------------------
+// Complete template data
+// ---------------------------------------------------------------------------
+export interface MediaFieldOptions {
+  autoplay: boolean;
+  mute: boolean;
+}
+
+// Per-section style overrides (Elementor-style spacing controls). Values are
+// pixels of extra outer spacing wrapped around the section.
+export interface SectionStyleOptions {
+  paddingTop?: number;
+  paddingBottom?: number;
+}
+
+// Every reorderable section key, in default order. Shared by the sidebar
+// editor, the canvas overlay, and the storefront renderer so they can never
+// drift apart.
+export const CANONICAL_SECTIONS = [
+  "announcementBar",
+  "hero",
+  "marquee",
+  "eventDetails",
+  "problems",
+  "why",
+  "about",
+  "guidesRail",
+  "logos",
+  "gallery",
+  "stats",
+  "curriculum",
+  "formats",
+  "testimonials",
+  "videoTestimonials",
+  "program",
+  "pricing",
+  "comparison",
+  "guarantee",
+  "contentBlocks",
+  "richContent",
+  "appBanner",
+  "invitation",
+  "bonus",
+  "faq",
+  "liveProof",
+  "footer",
+] as const;
+
+export const SECTION_LABELS: Record<string, string> = {
+  announcementBar: "Announcement Bar",
+  hero: "Hero",
+  marquee: "Marquee / Ticker",
+  eventDetails: "Event Details",
+  problems: "Problems / Pain Points",
+  why: "Why Section",
+  about: "About",
+  guidesRail: "People Rail",
+  logos: "Logo Bar",
+  gallery: "Gallery",
+  stats: "Stats / CTA",
+  curriculum: "Curriculum",
+  formats: "Format Carousel",
+  testimonials: "Testimonials",
+  videoTestimonials: "Video Testimonials",
+  program: "Program",
+  pricing: "Pricing Tiers",
+  comparison: "Comparison Table",
+  guarantee: "Guarantee",
+  contentBlocks: "Content Blocks",
+  richContent: "Rich Content",
+  appBanner: "App Banner",
+  invitation: "Request Invitation",
+  bonus: "Bonus",
+  faq: "FAQ",
+  liveProof: "Live Social Proof",
+  footer: "Footer",
+};
+
+// Dynamic, free-floating rich-content blocks use keys of the form
+// `richContent:<id>` — never registered in CANONICAL_SECTIONS (which is a
+// fixed compile-time list), so every place that keys off the canonical set
+// needs to recognize this pattern explicitly via these two helpers.
+export function isRichBlockKey(key: string): boolean {
+  return key.startsWith("richContent:");
+}
+
+export function richBlockId(key: string): string {
+  return key.slice("richContent:".length);
+}
+
+// Resolves a saved (possibly partial/stale) sectionOrder against the
+// canonical list: keeps saved order, appends any new sections at the end.
+// Dynamic richContent:<id> keys are preserved as-is but never auto-injected
+// (they only ever enter sectionOrder via an explicit insert).
+export function resolveSectionOrder(order?: string[]): string[] {
+  const isKnown = (k: string) => (CANONICAL_SECTIONS as readonly string[]).includes(k) || isRichBlockKey(k);
+  const base = order && order.length ? order.filter(isKnown) : [...CANONICAL_SECTIONS];
+  const missing = (CANONICAL_SECTIONS as readonly string[]).filter((k) => !base.includes(k));
+  return [...base, ...missing];
+}
+
+// Each section stores its visibility under a differently named flag
+// (visible / enabled / derived). These two helpers give the editor a single
+// uniform way to read and write it.
+export function getSectionVisibility(t: LandingTemplateData, key: string): boolean {
+  if (isRichBlockKey(key)) {
+    const block = (t.richBlocks || []).find((b) => b.id === richBlockId(key));
+    return block ? !block.hidden : true;
+  }
+  switch (key) {
+    case "announcementBar": return t.announcementBar?.visible ?? false;
+    case "hero": return t.hero.visible;
+    case "marquee": return t.marquee.enabled;
+    case "eventDetails": return t.eventDetails?.visible ?? false;
+    case "problems": return t.problems?.visible ?? false;
+    case "why": return t.why.visible;
+    case "about": return t.about.visible;
+    case "guidesRail": return t.guidesRail?.visible ?? true;
+    case "logos": return t.logos.enabled;
+    case "gallery": return t.gallery.visible;
+    case "stats": return t.stats.visible;
+    case "curriculum": return t.curriculum?.visible ?? false;
+    case "formats": return t.formats?.visible ?? true;
+    case "testimonials": return t.testimonials.visible;
+    case "videoTestimonials": return t.videoTestimonials.visible;
+    case "program": return t.program.visible;
+    case "pricing": return t.pricing?.visible ?? false;
+    case "comparison": return t.comparison?.visible ?? false;
+    case "guarantee": return t.guarantee?.visible ?? false;
+    case "contentBlocks": return (t.contentBlocks || []).some((b) => b.enabled);
+    case "richContent": return true;
+    case "appBanner": return t.appBanner?.visible ?? true;
+    case "invitation": return t.invitation.enabled;
+    case "bonus": return t.bonus.enabled;
+    case "faq": return t.faq?.enabled ?? true;
+    case "liveProof": return t.liveProof?.visible ?? false;
+    case "footer": return t.footer.enabled;
+    default: return true;
+  }
+}
+
+export function applySectionVisibility(t: LandingTemplateData, key: string, visible: boolean): LandingTemplateData {
+  if (isRichBlockKey(key)) {
+    const id = richBlockId(key);
+    return {
+      ...t,
+      richBlocks: (t.richBlocks || []).map((b) => (b.id === id ? { ...b, hidden: !visible } : b)),
+    };
+  }
+  switch (key) {
+    case "announcementBar": return { ...t, announcementBar: { ...(t.announcementBar || DEFAULT_TEMPLATE_DATA.announcementBar!), visible } };
+    case "hero": return { ...t, hero: { ...t.hero, visible } };
+    case "marquee": return { ...t, marquee: { ...t.marquee, enabled: visible } };
+    case "eventDetails": return { ...t, eventDetails: { ...(t.eventDetails || DEFAULT_TEMPLATE_DATA.eventDetails!), visible } };
+    case "problems": return { ...t, problems: { ...(t.problems || DEFAULT_TEMPLATE_DATA.problems!), visible } };
+    case "why": return { ...t, why: { ...t.why, visible } };
+    case "about": return { ...t, about: { ...t.about, visible } };
+    case "guidesRail": return { ...t, guidesRail: { ...(t.guidesRail || DEFAULT_TEMPLATE_DATA.guidesRail!), visible } };
+    case "logos": return { ...t, logos: { ...t.logos, enabled: visible } };
+    case "gallery": return { ...t, gallery: { ...t.gallery, visible } };
+    case "stats": return { ...t, stats: { ...t.stats, visible } };
+    case "curriculum": return { ...t, curriculum: { ...(t.curriculum || DEFAULT_TEMPLATE_DATA.curriculum!), visible } };
+    case "formats": return { ...t, formats: { ...(t.formats || DEFAULT_TEMPLATE_DATA.formats!), visible } };
+    case "testimonials": return { ...t, testimonials: { ...t.testimonials, visible } };
+    case "videoTestimonials": return { ...t, videoTestimonials: { ...t.videoTestimonials, visible } };
+    case "program": return { ...t, program: { ...t.program, visible } };
+    case "pricing": return { ...t, pricing: { ...(t.pricing || DEFAULT_TEMPLATE_DATA.pricing!), visible } };
+    case "comparison": return { ...t, comparison: { ...(t.comparison || DEFAULT_TEMPLATE_DATA.comparison!), visible } };
+    case "guarantee": return { ...t, guarantee: { ...(t.guarantee || DEFAULT_TEMPLATE_DATA.guarantee!), visible } };
+    case "contentBlocks": return { ...t, contentBlocks: (t.contentBlocks || []).map((b) => ({ ...b, enabled: visible })) };
+    case "richContent": return t;
+    case "appBanner": return { ...t, appBanner: { ...(t.appBanner || DEFAULT_TEMPLATE_DATA.appBanner!), visible } };
+    case "invitation": return { ...t, invitation: { ...t.invitation, enabled: visible } };
+    case "bonus": return { ...t, bonus: { ...t.bonus, enabled: visible } };
+    case "faq": return { ...t, faq: { ...(t.faq || DEFAULT_TEMPLATE_DATA.faq!), enabled: visible } };
+    case "liveProof": return { ...t, liveProof: { ...(t.liveProof || DEFAULT_TEMPLATE_DATA.liveProof!), visible } };
+    case "footer": return { ...t, footer: { ...t.footer, enabled: visible } };
+    default: return t;
+  }
+}
+
+// Centralizes the "Rich Content" fallback label for dynamic blocks (which
+// can't have a static SECTION_LABELS entry since their key includes a uuid).
+// Numbers them when more than one dynamic block exists on the page, based on
+// its position in sectionOrder, so multiple blocks stay distinguishable.
+export function getSectionLabel(key: string, order?: string[]): string {
+  if (isRichBlockKey(key)) {
+    if (order) {
+      const richKeys = order.filter(isRichBlockKey);
+      if (richKeys.length > 1) {
+        const n = richKeys.indexOf(key) + 1;
+        if (n > 0) return `Rich Content #${n}`;
+      }
+    }
+    return "Rich Content";
+  }
+  return SECTION_LABELS[key] || key;
+}
+
+export const DEFAULT_MEDIA_SETTINGS: MediaFieldOptions = {
+  autoplay: true,
+  mute: true,
+};
+
 export interface LandingTemplateData {
   colors: TemplateColors;
   announcementBar?: AnnouncementBarSection;
   hero: HeroSection;
   marquee: MarqueeSection;
   eventDetails?: EventDetailsSection;
-  why: WhySection;
   problems?: ProblemsSection;
+  why: WhySection;
   about: AboutSection;
   guidesRail?: GuidesRailSection;
   logos: LogoSection;
@@ -616,9 +673,9 @@ export interface LandingTemplateData {
   guarantee?: GuaranteeSection;
   bonus: BonusSection;
   contentBlocks?: ContentBlockSection[];
-  appBanner?: AppBannerSection;
   faq?: FaqSection;
   liveProof?: LiveProofSection;
+  appBanner?: AppBannerSection;
   invitation: InvitationSection;
   footer: FooterSection;
   floatingButton: FloatingButtonSettings;
@@ -637,7 +694,7 @@ export interface LandingTemplateData {
 // Default template data (placeholder content)
 // ---------------------------------------------------------------------------
 export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
-  sectionOrder: ['announcementBar', 'hero', 'marquee', 'eventDetails', 'why', 'problems', 'about', 'guidesRail', 'logos', 'gallery', 'stats', 'curriculum', 'formats', 'testimonials', 'videoTestimonials', 'program', 'pricing', 'comparison', 'guarantee', 'contentBlocks', 'appBanner', 'invitation', 'bonus', 'faq', 'liveProof', 'footer'],
+  sectionOrder: ['announcementBar', 'hero', 'marquee', 'eventDetails', 'problems', 'why', 'about', 'guidesRail', 'logos', 'gallery', 'stats', 'curriculum', 'formats', 'testimonials', 'videoTestimonials', 'program', 'pricing', 'comparison', 'guarantee', 'contentBlocks', 'appBanner', 'invitation', 'bonus', 'faq', 'liveProof', 'footer'],
   mediaSettings: {},
   colors: {
     primary: "#F5A623",
@@ -646,99 +703,6 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
     heroBg: "#FFF8E7",
     darkBg: "#1A1A2E",
     bodyBg: "#FFFFFF",
-  },
-  announcementBar: {
-    text: "Only a few seats left at this price",
-    ctaText: "Reserve now",
-    ctaLink: "#register",
-    ctaAction: "invitation",
-    countdownTo: "",
-    countdownLabel: "Offer ends in",
-    sticky: true,
-    visible: false,
-  },
-  eventDetails: {
-    title: "Everything You Need to Know",
-    subtitle: "One live session. Nothing else to buy.",
-    pills: ["Beginner Friendly", "Live on Zoom", "Recording Available"],
-    items: [
-      { icon: "CalendarDays", label: "Date", value: "Sunday, 15 Feb" },
-      { icon: "Clock3", label: "Time", value: "11:30 AM IST" },
-      { icon: "Hourglass", label: "Duration", value: "90 minutes" },
-      { icon: "Languages", label: "Language", value: "Hindi + English" },
-    ],
-    priceLabel: "Your seat today",
-    price: "",
-    originalPrice: "",
-    savingsNote: "",
-    seatsNote: "",
-    seatsFilledPercent: 0,
-    ctaButtonText: "Reserve My Seat",
-    ctaButtonLink: "#register",
-    ctaButtonAction: "invitation",
-    visible: false,
-  },
-  problems: {
-    title: "Does This Sound Familiar?",
-    subtitle: "If you nodded at even two of these, this session was built for you.",
-    items: [],
-    impactTitle: "",
-    impacts: [],
-    visible: false,
-  },
-  guidesRail: {
-    title: "Learn From Our Trusted Guides",
-    subtitle: "Experienced, vetted practitioners across every practice",
-    items: [],
-    visible: false,
-  },
-  curriculum: {
-    title: "What We'll Cover",
-    subtitle: "A clear path, broken into steps you can actually follow.",
-    modules: [],
-    displayMode: "accordion",
-    ctaButtonText: "",
-    ctaButtonLink: "#register",
-    ctaButtonAction: "invitation",
-    visible: false,
-  },
-  formats: {
-    title: "Your Healing, Your Way",
-    subtitle: "Learn, connect and heal in the format that works best for you.",
-    slides: [],
-    visible: false,
-  },
-  pricing: {
-    title: "Choose Your Path",
-    subtitle: "Pick the level of support that fits where you are right now.",
-    tiers: [],
-    footnote: "",
-    visible: false,
-  },
-  comparison: {
-    title: "Compare Your Options",
-    subtitle: "",
-    columns: [],
-    rows: [],
-    highlightColumn: 0,
-    visible: false,
-  },
-  guarantee: {
-    title: "Our Promise to You",
-    subtitle: "",
-    items: [],
-    visible: false,
-  },
-  appBanner: {
-    image: "",
-    link: "#",
-    alt: "",
-    visible: false,
-  },
-  liveProof: {
-    items: [],
-    intervalMs: 5000,
-    visible: false,
   },
   hero: {
     badge: "You're struggling because",
@@ -806,6 +770,99 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
       "Featured in Forbes & TEDx",
     ],
     visible: true,
+  },
+  guidesRail: {
+    title: "Learn From Our Trusted Guides",
+    subtitle: "Experienced, vetted practitioners across every practice",
+    items: [],
+    visible: false,
+  },
+  formats: {
+    title: "Your Healing, Your Way",
+    subtitle: "Learn, connect and heal in the format that works best for you.",
+    slides: [],
+    visible: false,
+  },
+  appBanner: {
+    image: "",
+    link: "#",
+    alt: "",
+    visible: false,
+  },
+  announcementBar: {
+    text: "Only a few seats left at this price",
+    ctaText: "Reserve now",
+    ctaLink: "#register",
+    ctaAction: "invitation",
+    countdownTo: "",
+    countdownLabel: "Offer ends in",
+    sticky: true,
+    visible: false,
+  },
+  eventDetails: {
+    title: "Everything You Need to Know",
+    subtitle: "One live session. Nothing else to buy.",
+    pills: ["Beginner Friendly", "Live on Zoom", "Recording Available"],
+    items: [
+      { icon: "CalendarDays", label: "Date", value: "Sunday, 15 Feb" },
+      { icon: "Clock3", label: "Time", value: "11:30 AM IST" },
+      { icon: "Hourglass", label: "Duration", value: "90 minutes" },
+      { icon: "Languages", label: "Language", value: "Hindi + English" },
+    ],
+    priceLabel: "Your seat today",
+    price: "",
+    originalPrice: "",
+    savingsNote: "",
+    seatsNote: "",
+    seatsFilledPercent: 0,
+    ctaButtonText: "Reserve My Seat",
+    ctaButtonLink: "#register",
+    ctaButtonAction: "invitation",
+    visible: false,
+  },
+  problems: {
+    title: "Does This Sound Familiar?",
+    subtitle: "If you nodded at even two of these, this session was built for you.",
+    items: [],
+    impactTitle: "",
+    impacts: [],
+    visible: false,
+  },
+  curriculum: {
+    title: "What We'll Cover",
+    subtitle: "A clear path, broken into steps you can actually follow.",
+    modules: [],
+    displayMode: "accordion",
+    ctaButtonText: "",
+    ctaButtonLink: "#register",
+    ctaButtonAction: "invitation",
+    visible: false,
+  },
+  pricing: {
+    title: "Choose Your Path",
+    subtitle: "Pick the level of support that fits where you are right now.",
+    tiers: [],
+    footnote: "",
+    visible: false,
+  },
+  comparison: {
+    title: "Compare Your Options",
+    subtitle: "",
+    columns: [],
+    rows: [],
+    highlightColumn: 0,
+    visible: false,
+  },
+  guarantee: {
+    title: "Our Promise to You",
+    subtitle: "",
+    items: [],
+    visible: false,
+  },
+  liveProof: {
+    items: [],
+    intervalMs: 5000,
+    visible: false,
   },
   logos: {
     title: "Featured In",
@@ -894,6 +951,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
   },
   bonus: {
     title: "Exclusive Bonuses",
+    subtitle: "",
     items: [
       { title: "Guided Meditation Pack", description: "10 custom meditations for frequency alignment", image: "" },
       { title: "Private Community Access", description: "Lifetime access to our private support group", image: "" },
@@ -913,6 +971,10 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
   },
   invitation: {
     enabled: true,
+    pricingMode: "free",
+    amount: 0,
+    originalAmount: 0,
+    payButtonText: "",
     badgeEmoji: "🔥",
     badgeText: "Filling Fast",
     title: "Request Your Invitation",
@@ -966,8 +1028,8 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     hero: { ...DEFAULT_TEMPLATE_DATA.hero, ...data.hero },
     marquee: { ...DEFAULT_TEMPLATE_DATA.marquee, ...data.marquee },
     eventDetails: { ...DEFAULT_TEMPLATE_DATA.eventDetails!, ...data.eventDetails },
-    why: { ...DEFAULT_TEMPLATE_DATA.why, ...data.why },
     problems: { ...DEFAULT_TEMPLATE_DATA.problems!, ...data.problems },
+    why: { ...DEFAULT_TEMPLATE_DATA.why, ...data.why },
     about: { ...DEFAULT_TEMPLATE_DATA.about, ...data.about },
     guidesRail: { ...DEFAULT_TEMPLATE_DATA.guidesRail!, ...data.guidesRail },
     logos: { ...DEFAULT_TEMPLATE_DATA.logos, ...data.logos },
@@ -983,9 +1045,9 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     guarantee: { ...DEFAULT_TEMPLATE_DATA.guarantee!, ...data.guarantee },
     bonus: { ...DEFAULT_TEMPLATE_DATA.bonus, ...data.bonus },
     contentBlocks: data.contentBlocks || [],
-    appBanner: { ...DEFAULT_TEMPLATE_DATA.appBanner!, ...data.appBanner },
     faq: { ...DEFAULT_TEMPLATE_DATA.faq!, ...data.faq },
     liveProof: { ...DEFAULT_TEMPLATE_DATA.liveProof!, ...data.liveProof },
+    appBanner: { ...DEFAULT_TEMPLATE_DATA.appBanner!, ...data.appBanner },
     invitation: { ...DEFAULT_TEMPLATE_DATA.invitation, ...data.invitation },
     footer: { ...DEFAULT_TEMPLATE_DATA.footer, ...data.footer },
     floatingButton: { ...DEFAULT_TEMPLATE_DATA.floatingButton, ...data.floatingButton },
