@@ -1828,8 +1828,17 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
             </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {t.why.points.map((point, i) => {
+                // Default object-cover (crops to fill the fixed h-52 well) is
+                // right for ordinary photos, but wrong for a self-contained
+                // poster/banner with copy baked into the artwork — cropping
+                // cuts the text off. "natural" (opt-in per point) skips the
+                // fixed well entirely so the card follows the image's own
+                // aspect ratio instead, same as Adhyatmik Sutraa's template.
+                const natural = point.imageFit === "natural";
                 const pointMedia = renderMedia(point.image, mediaKey("why", "points", i, "image"), {
-                  className: "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
+                  className: natural
+                    ? "w-full h-auto block"
+                    : "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
                   alt: point.title,
                 });
                 return (
@@ -1838,7 +1847,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                   className="group rounded-2xl overflow-hidden bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100"
                 >
                   {pointMedia && (
-                    <div className="h-52 overflow-hidden">
+                    <div className={natural ? "overflow-hidden" : "h-52 overflow-hidden"}>
                       {pointMedia}
                     </div>
                   )}
@@ -2506,9 +2515,14 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
       // sections/blocks feel individually scrollable instead of one
       // continuous page. The marquee ticker already clips itself locally
       // (see the Marquee component below), so this wrapper doesn't need
-      // vertical overflow visible — overflow-hidden on both axes avoids the
-      // promotion entirely.
-      className="min-h-screen font-sans w-full max-w-full overflow-hidden"
+      // vertical overflow visible — clip on both axes avoids the promotion
+      // entirely. `clip`, not `hidden`: `overflow: hidden` establishes a
+      // scroll container, which would break any `position: sticky`
+      // descendant (it would stick relative to this div instead of the
+      // viewport). `clip` still clips overflow but — unlike
+      // hidden/auto/scroll — doesn't create a scrolling context, so sticky
+      // descendants correctly look past it to the viewport.
+      className="min-h-screen font-sans w-full max-w-full overflow-clip"
       style={{ backgroundColor: c.bodyBg, ...(t.fontFamily ? { fontFamily: t.fontFamily } : {}) }}
     >
       {/* Inject marquee animation + fonts. A chosen template font overrides the

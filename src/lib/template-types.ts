@@ -44,7 +44,7 @@ export interface MarqueeSection {
 export interface WhySection {
   title: string;                 // e.g. "Why Effort Isn't Working Anymore"
   subtitle: string;
-  points: { title: string; description: string; image: string }[];
+  points: { title: string; description: string; image: string; imageFit?: "contain" | "cover" | "natural" }[];
   visible: boolean;
 }
 
@@ -144,6 +144,15 @@ export interface ContentBlockSection {
   textFormat: "plain" | "bullets";
   heading?: string;
   content: string; // Plain text or bullet points (one per line)
+  /**
+   * Image-only. Default "contain" fits the artwork inside a fixed 16:9 well
+   * (may letterbox); "cover" fills the frame instead (crops as needed);
+   * "natural" drops the fixed well entirely and shows the image at its own
+   * aspect ratio, scaled to the column width — no crop, no letterbox. Best
+   * for a single self-contained poster/banner with copy baked into the
+   * artwork, where either fixed-box mode looks wrong.
+   */
+  imageFit?: "contain" | "cover" | "natural";
 }
 
 // A free-floating rich-content zone that can sit anywhere in `sectionOrder`
