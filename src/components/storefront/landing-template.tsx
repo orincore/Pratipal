@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { CalendarDays, Clock3, MapPin, CheckCircle2, ChevronLeft, ChevronRight, Zap, Radio, FlaskConical, BookOpen, Star, Heart, Leaf, Sun, Moon, Sparkles, Target, Trophy, Users, Brain, Lightbulb, Shield, Flame, Gem, Music, Globe, Camera, Smile, Coffee, Rocket, Award, MessageSquare, Lock, GripVertical, ArrowUp, ArrowDown, Eye, EyeOff, Settings2, Plus, Copy, Trash2, Instagram, Facebook, Youtube, Linkedin, Twitter, MessageCircle, Hourglass, Languages, ShieldCheck, RefreshCcw, BadgeCheck, Wallet, TrendingUp, AlertTriangle, Video, Gift, PlayCircle, CircleDollarSign, Frown, CloudRain, Ban, Infinity as InfinityIcon, Headphones, Ticket, Check, X, Loader2 } from "lucide-react";
 import { DynamicPageRenderer } from "@/components/storefront/dynamic-page-renderer";
+import { isBlankTextNode } from "@/lib/tiptap/content";
 import { siteConfig } from "@/config/site.config";
 
 // Icon resolver for why-section cards
@@ -1037,11 +1038,7 @@ interface LandingTemplateProps {
 export function isLegacyRichContentEmpty(pageContent: any): boolean {
   const nodes = pageContent?.doc?.content;
   if (!Array.isArray(nodes) || nodes.length === 0) return true;
-  return nodes.every(
-    (n: any) =>
-      (n.type === "paragraph" || n.type === "heading") &&
-      !(Array.isArray(n.content) && n.content.length)
-  );
+  return nodes.every((n: any) => isBlankTextNode(n));
 }
 
 // Reads a section key out of a drag event, for all supported drag payloads.
@@ -4939,9 +4936,20 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
               ? hasContent(t.floatingButton.countdownTo)
                 ? "h-[88px]"
                 : "h-[68px]"
-              : "h-[88px]"
+              // Floating-pill variant: h-14 button (56px) + its bottom-4
+              // offset (16px) = 72px. This used to reserve 88px flat — the
+              // same figure as the full-width checkout bar — leaving a 16px
+              // band of true blank space between the footer and the pill.
+              : "h-[72px]"
           } ${floatingOnDesktop ? "" : "md:hidden"}`}
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          // Matches the footer's own background (falling back to the dark
+          // stage tone every theme's footer defaults to) instead of the
+          // page's light body background, so this reserved strip reads as a
+          // continuation of the footer rather than a pale seam beneath it.
+          style={{
+            backgroundColor: t.sectionBg?.["footer"] || c.darkBg,
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}
         />
       )}
 

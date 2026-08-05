@@ -36,6 +36,7 @@ import { MarqueeStrip } from "@/lib/tiptap/extensions/marquee-strip";
 import { ImageGallery } from "@/lib/tiptap/extensions/image-gallery";
 import {
   normalizeLandingContent,
+  trimTrailingBlankNodes,
   DEFAULT_CONTENT_SETTINGS,
   type LandingContentSettings,
 } from "@/lib/tiptap/content";
@@ -167,7 +168,12 @@ export function DynamicPageRenderer({
 
   const sanitizedDoc = useMemo(() => {
     if (doc && typeof doc === "object") {
-      const cleaned = sanitizeEmptyTextNodes(doc);
+      // Drop trailing blank paragraphs before the nbsp-placeholder pass below
+      // — otherwise a blank line the editor left at the end of the page
+      // renders as a visible `<p>&nbsp;</p>` and shows up as dead white
+      // space under the real content.
+      const trimmed = trimTrailingBlankNodes(doc);
+      const cleaned = sanitizeEmptyTextNodes(trimmed);
       if (cleaned?.type === "doc") {
         return cleaned;
       }
