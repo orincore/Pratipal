@@ -2144,7 +2144,10 @@ function InvitationDialog({
               )}
             </form>
           </div>
-          <div className="hidden md:flex md:w-64 bg-gradient-to-br from-[#1B1F3A] via-[#2C1F55] to-[#44106E] text-white p-8 flex-col justify-between overflow-y-auto">
+          <div
+            className="hidden md:flex md:w-64 text-white p-8 flex-col justify-between overflow-y-auto"
+            style={{ backgroundImage: `linear-gradient(to bottom right, ${primaryColor}, ${hexToRgba(primaryColor, 0.85)}, ${accentColor})` }}
+          >
             <div>
               <h3 className="text-xl font-display font-semibold">Live Masterclass</h3>
               <p className="text-sm text-white/80 mt-2">Experience a powerful energetic breakthrough session.</p>
@@ -4862,7 +4865,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
         onOpenChange={setInvitationDialogOpen}
         invitation={t.invitation}
         primaryColor={c.primary}
-        accentColor={c.accent}
+        accentColor={c.ctaAccent || c.accent}
         landingPageId={landingPageId}
         pageSlug={pageSlug}
         isPreviewMode={isPreviewMode}
