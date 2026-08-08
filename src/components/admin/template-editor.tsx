@@ -97,6 +97,23 @@ const TemplateEditorCtx = React.createContext<{
 
 const mediaKey = (...parts: (string | number)[]) => parts.join(".");
 
+// <input type="datetime-local"> speaks local wall-clock time with no zone,
+// while the stored countdown target is a full ISO instant. These convert
+// between the two without shifting the moment.
+function toDatetimeLocal(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromDatetimeLocal(value: string): string {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
 // ---------------------------------------------------------------------------
 // Icon Picker
 // ---------------------------------------------------------------------------
@@ -1102,6 +1119,73 @@ export function TemplateEditor({
             <p className="text-[10px] text-gray-400">
               Only one floating button can be active at a time. Update the source button text inside its section.
             </p>
+
+            <Label className="text-xs text-gray-500 pt-1 block">Style</Label>
+            <select
+              value={data.floatingButton.variant ?? "pill"}
+              onChange={(e) => update("floatingButton", { variant: e.target.value as "pill" | "bar" })}
+              className="w-full h-9 rounded-md border border-gray-200 bg-white px-3 text-sm"
+            >
+              <option value="pill">Floating Pill (glowing)</option>
+              <option value="bar">Docked Checkout Bar (price + button)</option>
+            </select>
+
+            <div className="flex items-center justify-between pt-1">
+              <Label className="text-xs text-gray-600">Also show on desktop</Label>
+              <Switch
+                checked={data.floatingButton.showOnDesktop ?? false}
+                onCheckedChange={(v) => update("floatingButton", { showOnDesktop: v })}
+              />
+            </div>
+
+            {data.floatingButton.variant === "bar" && (
+              <div className="space-y-2 pt-1">
+                <div className="flex gap-1">
+                  <Input
+                    value={data.floatingButton.priceText ?? ''}
+                    onChange={(e) => update("floatingButton", { priceText: e.target.value })}
+                    className="h-8 text-xs bg-gray-50 border-gray-200 flex-1"
+                    placeholder="₹99"
+                  />
+                  <Input
+                    value={data.floatingButton.strikePriceText ?? ''}
+                    onChange={(e) => update("floatingButton", { strikePriceText: e.target.value })}
+                    className="h-8 text-xs bg-gray-50 border-gray-200 flex-1"
+                    placeholder="₹2,999"
+                  />
+                </div>
+                <Input
+                  value={data.floatingButton.noteText ?? ''}
+                  onChange={(e) => update("floatingButton", { noteText: e.target.value })}
+                  className="h-8 text-xs bg-gray-50 border-gray-200"
+                  placeholder="Only 23 seats left · closes Sunday"
+                />
+                <div>
+                  <Label className="text-xs text-gray-500">Countdown ends at</Label>
+                  <Input
+                    type="datetime-local"
+                    value={toDatetimeLocal(data.floatingButton.countdownTo)}
+                    onChange={(e) => update("floatingButton", { countdownTo: fromDatetimeLocal(e.target.value) })}
+                    className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                  />
+                </div>
+                <Input
+                  value={data.floatingButton.countdownLabel ?? ''}
+                  onChange={(e) => update("floatingButton", { countdownLabel: e.target.value })}
+                  className="h-8 text-xs bg-gray-50 border-gray-200"
+                  placeholder="Countdown label — e.g. Starts in"
+                />
+                <div>
+                  <Label className="text-xs text-gray-500">Short button label (bar only)</Label>
+                  <Input
+                    value={data.floatingButton.ctaTextOverride ?? ''}
+                    onChange={(e) => update("floatingButton", { ctaTextOverride: e.target.value })}
+                    className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+                    placeholder="Register Now"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Section>
