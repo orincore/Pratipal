@@ -234,7 +234,7 @@ export default function ContactPage() {
                       </Field>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 sm:gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                       <Field label="Phone">
                         <PhoneInput id="phone" value={formData.phone}
                           onChange={(v) => setFormData((prev) => ({ ...prev, phone: v }))}

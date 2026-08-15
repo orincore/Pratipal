@@ -126,7 +126,7 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
             setDial(e.target.value);
             emit(e.target.value, local);
           }}
-          className="flex h-10 w-[104px] flex-shrink-0 rounded-md border border-input bg-background px-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 w-[78px] sm:w-[92px] flex-shrink-0 rounded-md border border-input bg-background px-1.5 sm:px-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {COUNTRY_CODES.map((c) => (
             <option key={c.code} value={c.dial}>
@@ -149,7 +149,7 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
             setLocal(e.target.value);
             emit(dial, e.target.value);
           }}
-          className="flex h-10 w-full flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 w-full min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
     );
