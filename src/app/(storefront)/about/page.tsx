@@ -349,17 +349,14 @@ export default function AboutPage() {
                 The Founder
               </div>
               <h2 className="text-3xl font-semibold text-stone-900 mb-4 handwritten-style">Dr. <span className="text-gradient-peacock">Aparnaa Singh</span></h2>
-              <p className="text-stone-600 mb-6">Integrative Healing & Consciousness Coach</p>
-              
+              <p className="text-stone-600 mb-6">Spiritual Coach & Energy Practitioner 🪷</p>
+
               <div className="space-y-4 mb-8">
                 <p className="text-stone-700 leading-relaxed">
-                  Dr. Aparnaa Singh is an Integrative Healing & Consciousness Coach and certified Naturopathy Practitioner with over 9 years of experience in holistic and energy-based healing. Her work seamlessly blends science, spirituality, and natural therapies to help individuals restore harmony across body, mind, and soul.
+                  Dr. Aparnaa Singh is an <span className="font-semibold text-emerald-700">Integrative Healing & Consciousness Coach</span> and certified Naturopathy Practitioner with over <span className="font-semibold text-teal-700">9 years of experience</span> in holistic and energy-based healing.
                 </p>
                 <p className="text-stone-700 leading-relaxed">
-                  With a doctorate in Naturopathy & Yoga, qualified practitioner & trainer of Acupressure (Ayurvedic & Chinese), Reiki Grand Master, Fertility Coach & a healer of 15 various healing techniques — she is on a mission to reform & revolutionise the costly, non-affordable wellness industry.
-                </p>
-                <p className="text-stone-700 leading-relaxed">
-                  As the founder of Reiki Magic and Pratipal, Dr. Aparnaa creates safe, nurturing spaces where clients can realign their energy, deepen self-awareness, and manifest a more empowered life.
+                  With a doctorate in Naturopathy & Yoga, she is a qualified practitioner & trainer of Acupressure, Reiki Grand Master, Fertility Coach, and a healer of <span className="font-semibold text-sky-700">15 various healing techniques</span>.
                 </p>
               </div>
 
@@ -368,23 +365,15 @@ export default function AboutPage() {
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
                     <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-stone-700">Successful assistance to women in overcoming health & infertility challenges</span>
+                    <span className="text-sm text-stone-700">Assisted women in overcoming health & infertility challenges</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-stone-700">Empowering 500+ healers in launching their spiritual businesses</span>
+                    <span className="text-sm text-stone-700">Empowered 500+ healers in launching spiritual businesses</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle className="w-4 h-4 text-sky-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-stone-700">Mentored 1000+ families towards a medicine-free life</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-stone-700">Doctorate in Naturopathy & Yoga with 15+ certified healing modalities</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-stone-700">Certified Acupressure (Ayurvedic & Chinese), Reiki Grand Master, Fertility Coach</span>
+                    <span className="text-sm text-stone-700">Mentored 1000+ families towards medicine-free life</span>
                   </div>
                 </div>
               </div>

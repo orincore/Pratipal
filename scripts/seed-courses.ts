@@ -385,6 +385,11 @@ async function main() {
     }
 
     await mongoose.connect(process.env.MONGODB_URI);
+    if (mongoose.connection.name !== "test") {
+      throw new Error(
+        `Refusing to seed: connected to database "${mongoose.connection.name}", expected "test". Check MONGODB_URI.`
+      );
+    }
     console.log("Seeding courses...\n");
 
     for (const course of courses) {

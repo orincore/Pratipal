@@ -130,6 +130,11 @@ async function main() {
   }
 
   await mongoose.connect(process.env.MONGODB_URI);
+  if (mongoose.connection.name !== "test") {
+    throw new Error(
+      `Refusing to seed: connected to database "${mongoose.connection.name}", expected "test". Check MONGODB_URI.`
+    );
+  }
   console.log("✅ Connected to MongoDB\n");
 
   let inserted = 0;
