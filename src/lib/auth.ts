@@ -65,6 +65,13 @@ export function getUserFromRequest(req: NextRequest): AuthenticatedUser | null {
   };
 }
 
+// Root domain the admin cookie is scoped to. Set (not host-only), this
+// cookie is shared across every subdomain — crm.pratipal.in included — so
+// an admin who's logged in here is automatically logged in there too, no
+// token-in-URL handoff required. Only set in production: on localhost a
+// `domain` attribute makes browsers reject the cookie outright.
+const COOKIE_DOMAIN = process.env.AUTH_COOKIE_DOMAIN || "pratipal.in";
+
 export function getSessionCookieOptions() {
   const isProduction = process.env.NODE_ENV === "production";
   return {
@@ -74,6 +81,7 @@ export function getSessionCookieOptions() {
     secure: isProduction,
     sameSite: "lax" as const,
     path: "/",
+    ...(isProduction ? { domain: COOKIE_DOMAIN } : {}),
   };
 }
 

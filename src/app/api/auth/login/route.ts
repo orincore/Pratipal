@@ -54,8 +54,6 @@ export async function POST(req: NextRequest) {
       status: user.status,
     });
 
-    const cookieOpts = getSessionCookieOptions();
-
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -65,13 +63,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set(COOKIE_NAME, token, {
-      maxAge: cookieOpts.maxAge,
-      httpOnly: cookieOpts.httpOnly,
-      secure: cookieOpts.secure,
-      sameSite: cookieOpts.sameSite,
-      path: cookieOpts.path,
-    });
+    response.cookies.set(COOKIE_NAME, token, getSessionCookieOptions());
 
     // Fire-and-forget login notification
     sendMail({

@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { COOKIE_NAME } from "@/lib/auth";
+import { COOKIE_NAME, getSessionCookieOptions } from "@/lib/auth";
 
 export async function POST() {
   const response = NextResponse.json({ success: true });
 
-  response.cookies.set(COOKIE_NAME, "", {
-    maxAge: 0,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
+  // Clearing a cookie requires the same domain/path it was set with, or the
+  // browser treats it as a different cookie and leaves the real one intact.
+  response.cookies.set(COOKIE_NAME, "", { ...getSessionCookieOptions(), maxAge: 0 });
 
   return response;
 }

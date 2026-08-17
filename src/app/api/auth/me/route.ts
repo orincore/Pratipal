@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken, COOKIE_NAME } from "@/lib/auth";
+import { verifyToken, COOKIE_NAME, getSessionCookieOptions } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value;
@@ -12,13 +12,8 @@ export async function GET(req: NextRequest) {
 
   if (!payload) {
     const response = NextResponse.json({ user: null }, { status: 401 });
-    response.cookies.set(COOKIE_NAME, "", {
-      maxAge: 0,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-    });
+    // Clearing a cookie requires the same domain/path it was set with.
+    response.cookies.set(COOKIE_NAME, "", { ...getSessionCookieOptions(), maxAge: 0 });
     return response;
   }
 

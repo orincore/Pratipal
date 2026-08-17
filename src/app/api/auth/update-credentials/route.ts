@@ -58,15 +58,8 @@ export async function POST(req: NextRequest) {
     status: userDoc.status,
   });
 
-  const cookieOpts = getSessionCookieOptions();
   const response = NextResponse.json({ success: true, email: updatedEmail });
-  response.cookies.set(COOKIE_NAME, newToken, {
-    maxAge: cookieOpts.maxAge,
-    httpOnly: cookieOpts.httpOnly,
-    secure: cookieOpts.secure,
-    sameSite: cookieOpts.sameSite,
-    path: cookieOpts.path,
-  });
+  response.cookies.set(COOKIE_NAME, newToken, getSessionCookieOptions());
 
   return response;
 }

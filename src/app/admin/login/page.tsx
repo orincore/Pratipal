@@ -11,36 +11,35 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const { login, user, loading: authLoading } = useAuth();
 
+  // The admin session cookie is domain-scoped (see getSessionCookieOptions
+  // in lib/auth.ts) — the browser sends it to crm.pratipal.in on its own,
+  // so getting there is just a plain navigation now. No token is minted or
+  // put in the URL: there's nothing left for a stray/forwarded link to leak
+  // and nothing for a flaky backend call to fail partway through, which is
+  // what the old mint-a-token-and-redirect handoff was prone to.
+  //
+  // `redirect` is still attacker-controlled input (a query param), so it's
+  // only followed when it resolves to this site or one of its subdomains —
+  // otherwise this would be an open redirect off the login page.
   const getRedirectUrl = () => {
-    if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).get("redirect");
-    }
-    return null;
-  };
-
-  const handleRedirect = async (redirectTarget: string) => {
+    if (typeof window === "undefined") return null;
+    const raw = new URLSearchParams(window.location.search).get("redirect");
+    if (!raw) return null;
     try {
-      const res = await fetch("/api/auth/token");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.token) {
-          const url = new URL(redirectTarget);
-          url.searchParams.set("token", data.token);
-          window.location.href = url.toString();
-          return;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to fetch redirect token", e);
+      const url = new URL(raw, window.location.origin);
+      const host = url.hostname.toLowerCase();
+      const isTrusted = host === "pratipal.in" || host.endsWith(".pratipal.in") || host === "localhost";
+      return isTrusted ? url.toString() : null;
+    } catch {
+      return null;
     }
-    window.location.href = redirectTarget;
   };
 
   useEffect(() => {
     if (!authLoading && user) {
       const redirect = getRedirectUrl();
       if (redirect) {
-        handleRedirect(redirect);
+        window.location.href = redirect;
       } else {
         router.replace("/admin");
       }
@@ -69,7 +68,7 @@ export default function AdminLoginPage() {
     
     const redirect = getRedirectUrl();
     if (redirect) {
-      handleRedirect(redirect);
+      window.location.href = redirect;
     } else {
       router.push("/admin");
       router.refresh();
