@@ -200,8 +200,10 @@ function ThankYouContent() {
         )}
       </div>
 
+      {/* Playfair Display + Inter (this used to @import them here — a
+          render-blocking request) are already part of the root layout's one
+          shared, deferred font stylesheet — see lib/fonts.ts. */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap');
         @keyframes ty-ping { 0% { transform: scale(1); opacity: 0.25; } 70% { transform: scale(1.9); opacity: 0; } 100% { transform: scale(1.9); opacity: 0; } }
       `}</style>
     </div>

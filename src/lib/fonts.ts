@@ -11,6 +11,10 @@ export interface FontOption {
 
 // Google Fonts families (with per-family available weights) loaded site-wide.
 const GOOGLE_FAMILIES = [
+  // Default landing-page display font (see .font-display in landing-template.tsx)
+  // — folded in here so it rides the one shared, deferred stylesheet below
+  // instead of each landing page issuing its own blocking @import for it.
+  "Marcellus",
   "Inter:wght@400;500;600;700",
   "Roboto:wght@400;500;700",
   "Open+Sans:wght@400;600;700",

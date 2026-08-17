@@ -65,6 +65,25 @@ import {
   Anchor,
   Activity,
   HelpCircle,
+  Megaphone,
+  ListChecks,
+  Tag,
+  Table2,
+  CalendarDays,
+  Hourglass,
+  Languages,
+  ShieldCheck,
+  RefreshCcw,
+  BadgeCheck,
+  Wallet,
+  CircleDollarSign,
+  AlertTriangle,
+  Frown,
+  CloudRain,
+  Ban,
+  PlayCircle,
+  Ticket,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -80,10 +99,14 @@ import {
   resolveSectionOrder,
   getSectionVisibility,
   applySectionVisibility,
-  isRichBlockKey,
+  DEFAULT_SECTION_GRADIENT,
+  sectionGradientCss,
   type LandingTemplateData,
   type MediaFieldOptions,
   type SectionStyleOptions,
+  type SectionGradient,
+  type SectionGradientType,
+  type SectionGradientAnimation,
 } from "@/lib/template-types";
 import { SECTION_DND_TYPE, NEW_BLOCK_DND_TYPE } from "@/components/storefront/landing-template";
 import { FONT_OPTIONS } from "@/lib/fonts";
@@ -158,6 +181,24 @@ const ICON_OPTIONS: { name: string; icon: LucideIcon }[] = [
   { name: "FlaskConical", icon: FlaskConical },
   { name: "Gift", icon: Gift },
   { name: "MessageSquare", icon: MessageSquare },
+  // Conversion sections (event details, problems, guarantee)
+  { name: "CalendarDays", icon: CalendarDays },
+  { name: "Clock3", icon: Clock3 },
+  { name: "Hourglass", icon: Hourglass },
+  { name: "Languages", icon: Languages },
+  { name: "MapPin", icon: MapPin },
+  { name: "Video", icon: Video },
+  { name: "PlayCircle", icon: PlayCircle },
+  { name: "Ticket", icon: Ticket },
+  { name: "ShieldCheck", icon: ShieldCheck },
+  { name: "RefreshCcw", icon: RefreshCcw },
+  { name: "BadgeCheck", icon: BadgeCheck },
+  { name: "Wallet", icon: Wallet },
+  { name: "CircleDollarSign", icon: CircleDollarSign },
+  { name: "AlertTriangle", icon: AlertTriangle },
+  { name: "Frown", icon: Frown },
+  { name: "CloudRain", icon: CloudRain },
+  { name: "Ban", icon: Ban },
 ];
 
 // Per-section style panel: background color plus Elementor-style outer
@@ -177,30 +218,67 @@ function SectionBgField({ sectionKey, value, onChange }: { sectionKey: string; v
     });
   };
 
+  const bgMode = styles.bgMode ?? "solid";
+
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5 space-y-2.5">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Section Style</p>
-      <div className="flex items-center justify-between">
-        <Label className="text-xs text-gray-500">Background color</Label>
-        <div className="flex items-center gap-1.5">
-          <input
-            type="color"
-            value={value || "#ffffff"}
-            onChange={(e) => onChange(sectionKey, e.target.value)}
-            className="h-6 w-8 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
-          />
-          {value && (
+
+      {ctx && (
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-500">Background</Label>
+          <div className="flex rounded-md border border-gray-200 bg-white p-0.5">
             <button
               type="button"
-              onClick={() => onChange(sectionKey, "")}
-              className="text-[10px] text-gray-400 hover:text-red-500 transition"
-              title="Reset to default"
+              onClick={() => setStyles({ bgMode: "solid" })}
+              className={`px-2 py-1 rounded text-[10px] font-semibold transition ${
+                bgMode === "solid" ? "bg-violet-600 text-white" : "text-gray-500 hover:text-gray-700"
+              }`}
             >
-              ✕
+              Solid
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => setStyles({ bgMode: "gradient", bgGradient: styles.bgGradient || DEFAULT_SECTION_GRADIENT })}
+              className={`px-2 py-1 rounded text-[10px] font-semibold transition ${
+                bgMode === "gradient" ? "bg-violet-600 text-white" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Gradient
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {bgMode === "gradient" && ctx ? (
+        <GradientEditorFields
+          gradient={styles.bgGradient || DEFAULT_SECTION_GRADIENT}
+          onChange={(g) => setStyles({ bgGradient: g })}
+        />
+      ) : (
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-500">Background color</Label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="color"
+              value={value || "#ffffff"}
+              onChange={(e) => onChange(sectionKey, e.target.value)}
+              className="h-6 w-8 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
+            />
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange(sectionKey, "")}
+                className="text-[10px] text-gray-400 hover:text-red-500 transition"
+                title="Reset to default"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {ctx && (
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -227,6 +305,186 @@ function SectionBgField({ sectionKey, value, onChange }: { sectionKey: string; v
           </div>
         </div>
       )}
+      {ctx && (
+        <div className="space-y-2 pt-1 border-t border-gray-200/70">
+          <SectionStyleColorRow
+            label="Heading color"
+            value={styles.headingColor}
+            onChange={(v) => setStyles({ headingColor: v || undefined })}
+          />
+          <SectionStyleColorRow
+            label="Button color"
+            value={styles.buttonColor}
+            onChange={(v) => setStyles({ buttonColor: v || undefined })}
+          />
+          <SectionStyleColorRow
+            label="Button text color"
+            value={styles.buttonTextColor}
+            onChange={(v) => setStyles({ buttonTextColor: v || undefined })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Full gradient authoring UI for a section's background: pattern (linear /
+// radial / conic), angle, any number of color stops with a 0–100% position
+// each, and an optional animation. Mirrors the CSS `sectionGradientCss`
+// builds in lib/template-types so the preview swatch always matches what
+// the live page renders.
+function GradientEditorFields({ gradient, onChange }: { gradient: SectionGradient; onChange: (g: SectionGradient) => void }) {
+  const g = gradient;
+  const patch = (p: Partial<SectionGradient>) => onChange({ ...g, ...p });
+  const setStop = (i: number, p: Partial<{ color: string; position: number }>) => {
+    const stops = g.stops.map((s, j) => (j === i ? { ...s, ...p } : s));
+    patch({ stops });
+  };
+  const addStop = () => {
+    const last = g.stops[g.stops.length - 1];
+    const pos = last ? Math.min(100, last.position + 20) : 50;
+    patch({ stops: [...g.stops, { color: "#ffffff", position: pos }] });
+  };
+  const removeStop = (i: number) => {
+    if (g.stops.length <= 2) return;
+    patch({ stops: g.stops.filter((_, j) => j !== i) });
+  };
+  const canRotate = g.type !== "radial";
+  const angleIsEditable = g.type !== "radial" && !(g.animation === "rotate" && canRotate);
+
+  return (
+    <div className="space-y-2.5">
+      <div
+        className="h-10 rounded-lg border border-gray-200"
+        style={{ backgroundImage: sectionGradientCss({ ...g, animation: "none" }) }}
+        title="Preview"
+      />
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-[10px] text-gray-400">Pattern</Label>
+          <select
+            value={g.type}
+            onChange={(e) => {
+              const type = e.target.value as SectionGradientType;
+              patch({ type, animation: type === "radial" && g.animation === "rotate" ? "none" : g.animation });
+            }}
+            className="w-full h-7 rounded-md border border-gray-200 bg-white px-1.5 text-xs mt-0.5"
+          >
+            <option value="linear">Linear</option>
+            <option value="radial">Radial</option>
+            <option value="conic">Conic</option>
+          </select>
+        </div>
+        <div>
+          <Label className="text-[10px] text-gray-400">Animation</Label>
+          <select
+            value={g.animation}
+            onChange={(e) => patch({ animation: e.target.value as SectionGradientAnimation })}
+            className="w-full h-7 rounded-md border border-gray-200 bg-white px-1.5 text-xs mt-0.5"
+          >
+            <option value="none">None</option>
+            <option value="shift">Shift (drift)</option>
+            <option value="pulse">Pulse (breathe)</option>
+            {canRotate && <option value="rotate">Rotate</option>}
+          </select>
+        </div>
+      </div>
+
+      {angleIsEditable && (
+        <div>
+          <Label className="text-[10px] text-gray-400">Angle ({g.angle}°)</Label>
+          <input
+            type="range"
+            min={0}
+            max={360}
+            value={g.angle}
+            onChange={(e) => patch({ angle: Number(e.target.value) })}
+            className="w-full mt-0.5"
+          />
+        </div>
+      )}
+
+      {g.animation !== "none" && (
+        <div>
+          <Label className="text-[10px] text-gray-400">Speed ({g.animationDuration}s)</Label>
+          <input
+            type="range"
+            min={1}
+            max={30}
+            value={g.animationDuration}
+            onChange={(e) => patch({ animationDuration: Number(e.target.value) })}
+            className="w-full mt-0.5"
+          />
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <Label className="text-[10px] text-gray-400">Colors</Label>
+        {g.stops.map((stop, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <input
+              type="color"
+              value={stop.color}
+              onChange={(e) => setStop(i, { color: e.target.value })}
+              className="h-7 w-8 flex-shrink-0 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
+            />
+            <Input
+              value={stop.color}
+              onChange={(e) => setStop(i, { color: e.target.value })}
+              className="h-7 text-[11px] font-mono bg-white border-gray-200 flex-1 min-w-0"
+            />
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={stop.position}
+              onChange={(e) => setStop(i, { position: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+              className="h-7 w-14 flex-shrink-0 text-[11px] bg-white border-gray-200"
+              title="Position %"
+            />
+            <span className="text-[10px] text-gray-400 flex-shrink-0">%</span>
+            {g.stops.length > 2 && (
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0 text-red-500" onClick={() => removeStop(i)}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        ))}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addStop}>
+          <Plus className="h-3 w-3 mr-1" /> Add Color Stop
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// One reset-able color swatch row, used for the per-section heading/button
+// color overrides above. Unlike the section background field (always has a
+// value), these three are optional — an unset value means "use the theme
+// default," which the ✕ button restores.
+function SectionStyleColorRow({ label, value, onChange }: { label: string; value?: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center justify-between">
+      <Label className="text-[10px] text-gray-400">{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="color"
+          value={value || "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-6 w-8 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-[10px] text-gray-400 hover:text-red-500 transition"
+            title="Reset to default"
+          >
+            ✕
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -273,6 +531,104 @@ function IconPicker({ value, onChange }: { value: string; onChange: (name: strin
 }
 
 // ---------------------------------------------------------------------------
+// "Add Template Element" — one button that covers both halves of "add
+// something back": brand-new repeatable blocks (Content Block, Rich Content
+// Block — the only element types a page can have more than one of) and
+// restoring any section that was deleted earlier. The Blocks palette below
+// already lets you restore a deleted section by clicking its chip; this is
+// the more discoverable, explicitly-labeled entry point for the same action
+// plus the "add another" case the palette doesn't cover.
+// ---------------------------------------------------------------------------
+function AddElementMenu({
+  deletedSections,
+  onRestoreSection,
+  onAddContentBlock,
+  onAddRichBlock,
+}: {
+  deletedSections: string[];
+  onRestoreSection: (key: string) => void;
+  onAddContentBlock: () => void;
+  onAddRichBlock?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl bg-violet-600 text-white text-[12px] font-semibold shadow-sm hover:bg-violet-700 transition"
+      >
+        <Plus className="h-4 w-4" />
+        Add Template Element
+        {deletedSections.length > 0 && (
+          <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-white/20 text-[10px] leading-none">
+            {deletedSections.length}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute z-50 top-11 left-0 right-0 rounded-xl border border-gray-200 bg-white shadow-xl p-2 max-h-96 overflow-y-auto">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-1.5 pt-1 pb-1.5">
+              New block
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                onAddContentBlock();
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition"
+            >
+              <Plus className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" /> Content Block
+            </button>
+            {onAddRichBlock && (
+              <button
+                type="button"
+                onClick={() => {
+                  onAddRichBlock();
+                  setOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition"
+              >
+                <Plus className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" /> Rich Content Block
+              </button>
+            )}
+
+            <div className="my-1.5 h-px bg-gray-100" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-1.5 pb-1.5">
+              Deleted sections
+            </p>
+            {deletedSections.length === 0 ? (
+              <p className="px-1.5 pb-1 text-[11px] text-gray-400 leading-relaxed">
+                Nothing deleted right now — sections you delete from the page will show up here to bring back.
+              </p>
+            ) : (
+              deletedSections.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    onRestoreSection(key);
+                    setOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
+                  <span className="truncate">{SECTION_LABELS[key] || key}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Collapsible Section card
 // Dragging starts ONLY from the grip handle (so the rest of the card stays
 // freely clickable/selectable), shows a slim drop-position indicator instead
@@ -303,6 +659,7 @@ function Section({
   activeNonce,
   visible,
   onToggleVisible,
+  onDelete,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -317,6 +674,7 @@ function Section({
   activeNonce?: number;
   visible?: boolean;
   onToggleVisible?: () => void;
+  onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -412,6 +770,19 @@ function Section({
             }`}
           >
             {visible === false ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            title="Delete section"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="h-6 w-6 flex items-center justify-center rounded-md flex-shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
         <button
@@ -795,6 +1166,12 @@ interface TemplateEditorProps {
   // absent from the canvas — hide its sidebar card too (see
   // isLegacyRichContentEmpty in landing-template.tsx).
   hideLegacyRichContent?: boolean;
+  // Creates a brand-new, independent rich-content block at the end of the
+  // page and focuses it on the canvas — only the canvas/rich-editor side
+  // knows how to allocate one (see insertRichBlockAt in rich-editor.tsx), so
+  // the "Add Template Element" button calls back up for it. Omitted (e.g. in
+  // contexts with no live canvas) simply hides that option from the menu.
+  onAddRichBlock?: () => void;
 }
 
 export function TemplateEditor({
@@ -805,6 +1182,7 @@ export function TemplateEditor({
   activeNonce,
   onSelectSection,
   hideLegacyRichContent,
+  onAddRichBlock,
 }: TemplateEditorProps) {
   const [draggedSection, setDraggedSection] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<{ key: string; pos: "top" | "bottom" } | null>(null);
@@ -841,7 +1219,10 @@ export function TemplateEditor({
     }
   }, [landingPageId, testEmailTo, data.invitation.thankYouButtons]);
   
-  const sectionOrder = useMemo(() => resolveSectionOrder(data.sectionOrder), [data.sectionOrder]);
+  const sectionOrder = useMemo(
+    () => resolveSectionOrder(data.sectionOrder, data.deletedSections),
+    [data.sectionOrder, data.deletedSections]
+  );
   const mediaSettings = data.mediaSettings || {};
 
   const update = useCallback(
@@ -911,6 +1292,55 @@ export function TemplateEditor({
     },
     [sectionOrder, data, onChange]
   );
+
+  // Full delete (not hide) — pulls the key out of sectionOrder and records it
+  // in deletedSections so resolveSectionOrder stops re-appending it as "new".
+  // The section's own data is left in place, so restoring it from the Blocks
+  // palette brings its old content straight back.
+  const deleteSection = useCallback(
+    (key: string) => {
+      const order = sectionOrder.filter((k) => k !== key);
+      onChange({
+        ...data,
+        sectionOrder: order,
+        deletedSections: [...new Set([...(data.deletedSections || []), key])],
+      });
+    },
+    [sectionOrder, data, onChange]
+  );
+
+  // Restores a previously-deleted canonical section: re-appends it to
+  // sectionOrder and drops it from deletedSections so resolveSectionOrder
+  // stops excluding it. Its data was never touched by delete, so this brings
+  // the section back exactly as it was left.
+  const restoreSection = useCallback(
+    (key: string) => {
+      onChange({
+        ...data,
+        sectionOrder: [...sectionOrder, key],
+        deletedSections: (data.deletedSections || []).filter((k) => k !== key),
+      });
+      onSelectSection?.(key);
+    },
+    [sectionOrder, data, onChange, onSelectSection]
+  );
+
+  // Adds a new instance to the repeatable contentBlocks list — shared by the
+  // "Add Template Element" menu and the draggable palette chip below.
+  const addContentBlock = useCallback(() => {
+    const blocks = [...(data.contentBlocks || [])];
+    blocks.push({
+      enabled: true,
+      layout: "media-left" as const,
+      mediaType: "image" as const,
+      mediaUrl: "",
+      textFormat: "plain" as const,
+      heading: "New Content Block",
+      content: "Write your content here...",
+    });
+    onChange({ ...data, contentBlocks: blocks });
+    onSelectSection?.("contentBlocks");
+  }, [data, onChange, onSelectSection]);
 
   const cleanupDrag = useCallback(() => {
     setDraggedSection(null);
@@ -1014,6 +1444,14 @@ export function TemplateEditor({
       key === "richContent"
         ? undefined
         : () => onChange(applySectionVisibility(data, key, !getSectionVisibility(data, key))),
+    onDelete:
+      key === "richContent"
+        ? undefined
+        : () => {
+            if (window.confirm(`Delete the "${SECTION_LABELS[key] || key}" section? You can add it back later from "Add Template Element" above.`)) {
+              deleteSection(key);
+            }
+          },
   });
 
   // -------------------------------------------------------------------------
@@ -1510,6 +1948,10 @@ export function TemplateEditor({
           <Input value={data.about.name} onChange={(e) => update("about", { name: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
         </div>
         <div>
+          <Label className="text-xs text-gray-500">Subheadline</Label>
+          <Input value={data.about.subtitle ?? ''} onChange={(e) => update("about", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder="Short line under the name" />
+        </div>
+        <div>
           <Label className="text-xs text-gray-500">Description</Label>
           <Textarea value={data.about.description} onChange={(e) => update("about", { description: e.target.value })} rows={3} className="text-xs mt-1 bg-gray-50 border-gray-200" />
         </div>
@@ -1541,6 +1983,755 @@ export function TemplateEditor({
         </div>
       </Section>
     ),
+    announcementBar: (
+      <Section
+        key="announcementBar"
+        title="Announcement Bar"
+        icon={<Megaphone className="h-4 w-4" />}
+        {...sectionProps('announcementBar')}
+      >
+        <SectionBgField sectionKey="announcementBar" value={data.sectionBg?.['announcementBar'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show bar</Label>
+          <Switch checked={data.announcementBar?.visible ?? false} onCheckedChange={(v) => update("announcementBar", { visible: v })} />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Stick to top on scroll</Label>
+          <Switch checked={data.announcementBar?.sticky ?? true} onCheckedChange={(v) => update("announcementBar", { sticky: v })} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Message</Label>
+          <Input value={data.announcementBar?.text ?? ''} onChange={(e) => update("announcementBar", { text: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder="Only 7 seats left at this price" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Countdown ends at</Label>
+          <Input
+            type="datetime-local"
+            value={toDatetimeLocal(data.announcementBar?.countdownTo)}
+            onChange={(e) => update("announcementBar", { countdownTo: fromDatetimeLocal(e.target.value) })}
+            className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">Leave empty to hide the timer.</p>
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Countdown label</Label>
+          <Input value={data.announcementBar?.countdownLabel ?? ''} onChange={(e) => update("announcementBar", { countdownLabel: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder="Offer ends in" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Button text</Label>
+          <Input value={data.announcementBar?.ctaText ?? ''} onChange={(e) => update("announcementBar", { ctaText: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Button action</Label>
+          <select
+            value={data.announcementBar?.ctaAction ?? "invitation"}
+            onChange={(e) => update("announcementBar", { ctaAction: e.target.value as "invitation" | "url" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open invitation form</option>
+            <option value="url">Go to URL</option>
+          </select>
+        </div>
+        {data.announcementBar?.ctaAction === "url" && (
+          <div>
+            <Label className="text-xs text-gray-500">Button link</Label>
+            <Input value={data.announcementBar?.ctaLink ?? ''} onChange={(e) => update("announcementBar", { ctaLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+          </div>
+        )}
+      </Section>
+    ),
+    eventDetails: (
+      <Section
+        key="eventDetails"
+        title="Event Details"
+        icon={<CalendarDays className="h-4 w-4" />}
+        {...sectionProps('eventDetails')}
+      >
+        <SectionBgField sectionKey="eventDetails" value={data.sectionBg?.['eventDetails'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show section</Label>
+          <Switch checked={data.eventDetails?.visible ?? false} onCheckedChange={(v) => update("eventDetails", { visible: v })} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.eventDetails?.title ?? ''} onChange={(e) => update("eventDetails", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.eventDetails?.subtitle ?? ''} onChange={(e) => update("eventDetails", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+
+        <Label className="text-xs font-semibold text-gray-600 pt-1 block">Pills</Label>
+        {(data.eventDetails?.pills ?? []).map((pill, i) => (
+          <div key={i} className="flex gap-1">
+            <Input value={pill} onChange={(e) => {
+              const arr = [...(data.eventDetails?.pills ?? [])]; arr[i] = e.target.value; update("eventDetails", { pills: arr });
+            }} className="h-8 text-xs bg-white border-gray-200 flex-1" placeholder="Recording Available" />
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-red-500" onClick={() => update("eventDetails", { pills: (data.eventDetails?.pills ?? []).filter((_, j) => j !== i) })}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("eventDetails", { pills: [...(data.eventDetails?.pills ?? []), ""] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Pill
+        </Button>
+
+        <Label className="text-xs font-semibold text-gray-600 pt-2 block">Detail rows</Label>
+        {(data.eventDetails?.items ?? []).map((item, i) => {
+          const items = data.eventDetails?.items ?? [];
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Detail {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => update("eventDetails", { items: items.filter((_, j) => j !== i) })}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <IconPicker value={item.icon ?? ''} onChange={(name) => {
+                const arr = [...items]; arr[i] = { ...arr[i], icon: name }; update("eventDetails", { items: arr });
+              }} />
+              <Input value={item.label} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], label: e.target.value }; update("eventDetails", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Label (Date)" />
+              <Input value={item.value} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], value: e.target.value }; update("eventDetails", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Value (Sunday, 15 Feb)" />
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("eventDetails", { items: [...(data.eventDetails?.items ?? []), { icon: "CalendarDays", label: "", value: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Detail
+        </Button>
+
+        <Label className="text-xs font-semibold text-gray-600 pt-2 block">Price &amp; seats</Label>
+        <div>
+          <Label className="text-xs text-gray-500">Price label</Label>
+          <Input value={data.eventDetails?.priceLabel ?? ''} onChange={(e) => update("eventDetails", { priceLabel: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div className="flex gap-1">
+          <Input value={data.eventDetails?.price ?? ''} onChange={(e) => update("eventDetails", { price: e.target.value })} className="h-8 text-xs bg-gray-50 border-gray-200 flex-1" placeholder="₹99" />
+          <Input value={data.eventDetails?.originalPrice ?? ''} onChange={(e) => update("eventDetails", { originalPrice: e.target.value })} className="h-8 text-xs bg-gray-50 border-gray-200 flex-1" placeholder="₹2,999" />
+        </div>
+        <Input value={data.eventDetails?.savingsNote ?? ''} onChange={(e) => update("eventDetails", { savingsNote: e.target.value })} className="h-8 text-xs bg-gray-50 border-gray-200" placeholder="Save 96% today" />
+        <Input value={data.eventDetails?.seatsNote ?? ''} onChange={(e) => update("eventDetails", { seatsNote: e.target.value })} className="h-8 text-xs bg-gray-50 border-gray-200" placeholder="Only 23 of 100 seats left" />
+        <div>
+          <Label className="text-xs text-gray-500">Seats filled ({data.eventDetails?.seatsFilledPercent ?? 0}%)</Label>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            value={data.eventDetails?.seatsFilledPercent ?? 0}
+            onChange={(e) => update("eventDetails", { seatsFilledPercent: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+            className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Button text</Label>
+          <Input value={data.eventDetails?.ctaButtonText ?? ''} onChange={(e) => update("eventDetails", { ctaButtonText: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Button action</Label>
+          <select
+            value={data.eventDetails?.ctaButtonAction ?? "invitation"}
+            onChange={(e) => update("eventDetails", { ctaButtonAction: e.target.value as "invitation" | "url" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open invitation form</option>
+            <option value="url">Go to URL</option>
+          </select>
+        </div>
+        {data.eventDetails?.ctaButtonAction === "url" && (
+          <Input value={data.eventDetails?.ctaButtonLink ?? ''} onChange={(e) => update("eventDetails", { ctaButtonLink: e.target.value })} className="h-8 text-xs bg-gray-50 border-gray-200" placeholder="https://..." />
+        )}
+      </Section>
+    ),
+    problems: (
+      <Section
+        key="problems"
+        title="Problems / Pain Points"
+        icon={<AlertTriangle className="h-4 w-4" />}
+        {...sectionProps('problems')}
+      >
+        <SectionBgField sectionKey="problems" value={data.sectionBg?.['problems'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show section</Label>
+          <Switch checked={data.problems?.visible ?? false} onCheckedChange={(v) => update("problems", { visible: v })} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.problems?.title ?? ''} onChange={(e) => update("problems", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.problems?.subtitle ?? ''} onChange={(e) => update("problems", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        {(data.problems?.items ?? []).map((item, i) => {
+          const items = data.problems?.items ?? [];
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Problem {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => update("problems", { items: items.filter((_, j) => j !== i) })}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <IconPicker value={item.icon ?? ''} onChange={(name) => {
+                const arr = [...items]; arr[i] = { ...arr[i], icon: name }; update("problems", { items: arr });
+              }} />
+              <Input value={item.title} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], title: e.target.value }; update("problems", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Title" />
+              <Textarea value={item.description ?? ''} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], description: e.target.value }; update("problems", { items: arr });
+              }} rows={2} className="text-xs bg-white border-gray-200" placeholder="Description" />
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("problems", { items: [...(data.problems?.items ?? []), { icon: "AlertTriangle", title: "", description: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Problem
+        </Button>
+
+        <Label className="text-xs font-semibold text-gray-600 pt-2 block">Consequence panel</Label>
+        <Input value={data.problems?.impactTitle ?? ''} onChange={(e) => update("problems", { impactTitle: e.target.value })} className="h-8 text-xs bg-gray-50 border-gray-200" placeholder="Left unaddressed, this costs you…" />
+        {(data.problems?.impacts ?? []).map((line, i) => (
+          <div key={i} className="flex gap-1">
+            <Input value={line} onChange={(e) => {
+              const arr = [...(data.problems?.impacts ?? [])]; arr[i] = e.target.value; update("problems", { impacts: arr });
+            }} className="h-8 text-xs bg-white border-gray-200 flex-1" />
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-red-500" onClick={() => update("problems", { impacts: (data.problems?.impacts ?? []).filter((_, j) => j !== i) })}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("problems", { impacts: [...(data.problems?.impacts ?? []), ""] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Consequence
+        </Button>
+      </Section>
+    ),
+    curriculum: (
+      <Section
+        key="curriculum"
+        title="Curriculum"
+        icon={<ListChecks className="h-4 w-4" />}
+        {...sectionProps('curriculum')}
+      >
+        <SectionBgField sectionKey="curriculum" value={data.sectionBg?.['curriculum'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show section</Label>
+          <Switch checked={data.curriculum?.visible ?? false} onCheckedChange={(v) => update("curriculum", { visible: v })} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.curriculum?.title ?? ''} onChange={(e) => update("curriculum", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.curriculum?.subtitle ?? ''} onChange={(e) => update("curriculum", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Display</Label>
+          <select
+            value={data.curriculum?.displayMode ?? "accordion"}
+            onChange={(e) => update("curriculum", { displayMode: e.target.value as "accordion" | "cards" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="accordion">Accordion (numbered rows)</option>
+            <option value="cards">Cards with images</option>
+          </select>
+        </div>
+        {(data.curriculum?.modules ?? []).map((m, i) => {
+          const modules = data.curriculum?.modules ?? [];
+          const moduleKey = mediaKey("curriculum", "modules", i, "image");
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Module {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
+                  clearMediaSettings(moduleKey);
+                  update("curriculum", { modules: modules.filter((_, j) => j !== i) });
+                }}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <Input value={m.label} onChange={(e) => {
+                const arr = [...modules]; arr[i] = { ...arr[i], label: e.target.value }; update("curriculum", { modules: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Day 1 / Module 01" />
+              <Input value={m.title} onChange={(e) => {
+                const arr = [...modules]; arr[i] = { ...arr[i], title: e.target.value }; update("curriculum", { modules: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Title" />
+              <Textarea value={m.description ?? ''} onChange={(e) => {
+                const arr = [...modules]; arr[i] = { ...arr[i], description: e.target.value }; update("curriculum", { modules: arr });
+              }} rows={2} className="text-xs bg-white border-gray-200" placeholder="Short description (optional)" />
+              <Textarea
+                value={(m.bullets ?? []).join("\n")}
+                onChange={(e) => {
+                  const arr = [...modules]; arr[i] = { ...arr[i], bullets: e.target.value.split("\n") }; update("curriculum", { modules: arr });
+                }}
+                rows={4}
+                className="text-xs bg-white border-gray-200"
+                placeholder="One bullet per line"
+              />
+              {data.curriculum?.displayMode === "cards" && (
+                <ImageField
+                  label="Image"
+                  value={m.image ?? ''}
+                  onChange={(v) => {
+                    const arr = [...modules]; arr[i] = { ...arr[i], image: v }; update("curriculum", { modules: arr });
+                  }}
+                  settings={mediaSettings[moduleKey]}
+                  onSettingsChange={(value) => handleMediaSettingsChange(moduleKey, value)}
+                  onClearSettings={() => clearMediaSettings(moduleKey)}
+                />
+              )}
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("curriculum", { modules: [...(data.curriculum?.modules ?? []), { label: `Module ${(data.curriculum?.modules ?? []).length + 1}`, title: "", description: "", bullets: [""], image: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Module
+        </Button>
+        <div>
+          <Label className="text-xs text-gray-500">Button text (optional)</Label>
+          <Input value={data.curriculum?.ctaButtonText ?? ''} onChange={(e) => update("curriculum", { ctaButtonText: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Button action</Label>
+          <select
+            value={data.curriculum?.ctaButtonAction ?? "invitation"}
+            onChange={(e) => update("curriculum", { ctaButtonAction: e.target.value as "invitation" | "url" })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="invitation">Open invitation form</option>
+            <option value="url">Go to URL</option>
+          </select>
+        </div>
+        {data.curriculum?.ctaButtonAction === "url" && (
+          <Input value={data.curriculum?.ctaButtonLink ?? ''} onChange={(e) => update("curriculum", { ctaButtonLink: e.target.value })} className="h-8 text-xs bg-gray-50 border-gray-200" placeholder="https://..." />
+        )}
+      </Section>
+    ),
+    pricing: (
+      <Section
+        key="pricing"
+        title="Pricing Tiers"
+        icon={<Tag className="h-4 w-4" />}
+        {...sectionProps('pricing')}
+      >
+        <SectionBgField sectionKey="pricing" value={data.sectionBg?.['pricing'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show section</Label>
+          <Switch checked={data.pricing?.visible ?? false} onCheckedChange={(v) => update("pricing", { visible: v })} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.pricing?.title ?? ''} onChange={(e) => update("pricing", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.pricing?.subtitle ?? ''} onChange={(e) => update("pricing", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        {(data.pricing?.tiers ?? []).map((tier, i) => {
+          const tiers = data.pricing?.tiers ?? [];
+          const patch = (p: Partial<typeof tier>) => {
+            const arr = [...tiers]; arr[i] = { ...arr[i], ...p }; update("pricing", { tiers: arr });
+          };
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Tier {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => update("pricing", { tiers: tiers.filter((_, j) => j !== i) })}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <Input value={tier.name} onChange={(e) => patch({ name: e.target.value })} className="h-8 text-xs bg-white border-gray-200" placeholder="Tier name" />
+              <div className="flex gap-1">
+                <Input value={tier.price} onChange={(e) => patch({ price: e.target.value })} className="h-8 text-xs bg-white border-gray-200 flex-1" placeholder="₹599" />
+                <Input value={tier.originalPrice ?? ''} onChange={(e) => patch({ originalPrice: e.target.value })} className="h-8 text-xs bg-white border-gray-200 flex-1" placeholder="₹1,999" />
+              </div>
+              <div className="flex gap-1">
+                <Input value={tier.period ?? ''} onChange={(e) => patch({ period: e.target.value })} className="h-8 text-xs bg-white border-gray-200 flex-1" placeholder="one-time" />
+                <Input value={tier.badge ?? ''} onChange={(e) => patch({ badge: e.target.value })} className="h-8 text-xs bg-white border-gray-200 flex-1" placeholder="Most Popular" />
+              </div>
+              <Textarea value={tier.description ?? ''} onChange={(e) => patch({ description: e.target.value })} rows={2} className="text-xs bg-white border-gray-200" placeholder="Short description" />
+              <Textarea
+                value={(tier.features ?? []).join("\n")}
+                onChange={(e) => patch({ features: e.target.value.split("\n") })}
+                rows={4}
+                className="text-xs bg-white border-gray-200"
+                placeholder="One feature per line"
+              />
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-600">Highlight this tier</Label>
+                <Switch checked={tier.highlighted ?? false} onCheckedChange={(v) => patch({ highlighted: v })} />
+              </div>
+              <Input value={tier.ctaText} onChange={(e) => patch({ ctaText: e.target.value })} className="h-8 text-xs bg-white border-gray-200" placeholder="Button text" />
+              <select
+                value={tier.ctaAction ?? "invitation"}
+                onChange={(e) => patch({ ctaAction: e.target.value as "invitation" | "url" })}
+                className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs"
+              >
+                <option value="invitation">Open invitation form</option>
+                <option value="url">Go to URL</option>
+              </select>
+              {tier.ctaAction === "url" && (
+                <Input value={tier.ctaLink} onChange={(e) => patch({ ctaLink: e.target.value })} className="h-8 text-xs bg-white border-gray-200" placeholder="https://..." />
+              )}
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("pricing", { tiers: [...(data.pricing?.tiers ?? []), { name: "", price: "", originalPrice: "", period: "", badge: "", description: "", features: [""], ctaText: "Get Started", ctaLink: "#register", ctaAction: "invitation" as const, highlighted: false }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Tier
+        </Button>
+        <div>
+          <Label className="text-xs text-gray-500">Footnote</Label>
+          <Input value={data.pricing?.footnote ?? ''} onChange={(e) => update("pricing", { footnote: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder="7-day refund, no questions asked." />
+        </div>
+      </Section>
+    ),
+    comparison: (
+      <Section
+        key="comparison"
+        title="Comparison Table"
+        icon={<Table2 className="h-4 w-4" />}
+        {...sectionProps('comparison')}
+      >
+        <SectionBgField sectionKey="comparison" value={data.sectionBg?.['comparison'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show section</Label>
+          <Switch checked={data.comparison?.visible ?? false} onCheckedChange={(v) => update("comparison", { visible: v })} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.comparison?.title ?? ''} onChange={(e) => update("comparison", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.comparison?.subtitle ?? ''} onChange={(e) => update("comparison", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Columns (one per line)</Label>
+          <Textarea
+            value={(data.comparison?.columns ?? []).join("\n")}
+            onChange={(e) => update("comparison", { columns: e.target.value.split("\n") })}
+            rows={3}
+            className="text-xs mt-1 bg-gray-50 border-gray-200"
+            placeholder={"This Workshop\nOther Courses"}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Highlight column</Label>
+          <select
+            value={String(data.comparison?.highlightColumn ?? 0)}
+            onChange={(e) => update("comparison", { highlightColumn: Number(e.target.value) })}
+            className="w-full h-8 rounded-md border border-gray-200 bg-white px-2 text-xs mt-1"
+          >
+            <option value="-1">None</option>
+            {(data.comparison?.columns ?? []).map((col, i) => (
+              <option key={i} value={String(i)}>{col || `Column ${i + 1}`}</option>
+            ))}
+          </select>
+        </div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">
+          In each row, type <code className="font-mono">yes</code> or <code className="font-mono">no</code> for a tick/cross — anything else shows as text.
+        </p>
+        {(data.comparison?.rows ?? []).map((row, i) => {
+          const rows = data.comparison?.rows ?? [];
+          const cols = data.comparison?.columns ?? [];
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Row {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => update("comparison", { rows: rows.filter((_, j) => j !== i) })}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <Input value={row.feature} onChange={(e) => {
+                const arr = [...rows]; arr[i] = { ...arr[i], feature: e.target.value }; update("comparison", { rows: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Feature" />
+              {cols.map((col, j) => (
+                <Input
+                  key={j}
+                  value={row.values?.[j] ?? ''}
+                  onChange={(e) => {
+                    const arr = [...rows];
+                    const values = [...(arr[i].values ?? [])];
+                    values[j] = e.target.value;
+                    arr[i] = { ...arr[i], values };
+                    update("comparison", { rows: arr });
+                  }}
+                  className="h-8 text-xs bg-white border-gray-200"
+                  placeholder={col || `Column ${j + 1}`}
+                />
+              ))}
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("comparison", { rows: [...(data.comparison?.rows ?? []), { feature: "", values: (data.comparison?.columns ?? []).map(() => "") }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Row
+        </Button>
+      </Section>
+    ),
+    guarantee: (
+      <Section
+        key="guarantee"
+        title="Guarantee"
+        icon={<ShieldCheck className="h-4 w-4" />}
+        {...sectionProps('guarantee')}
+      >
+        <SectionBgField sectionKey="guarantee" value={data.sectionBg?.['guarantee'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show section</Label>
+          <Switch checked={data.guarantee?.visible ?? false} onCheckedChange={(v) => update("guarantee", { visible: v })} />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.guarantee?.title ?? ''} onChange={(e) => update("guarantee", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.guarantee?.subtitle ?? ''} onChange={(e) => update("guarantee", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        {(data.guarantee?.items ?? []).map((item, i) => {
+          const items = data.guarantee?.items ?? [];
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Promise {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => update("guarantee", { items: items.filter((_, j) => j !== i) })}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <IconPicker value={item.icon ?? ''} onChange={(name) => {
+                const arr = [...items]; arr[i] = { ...arr[i], icon: name }; update("guarantee", { items: arr });
+              }} />
+              <Input value={item.title} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], title: e.target.value }; update("guarantee", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Title" />
+              <Textarea value={item.description} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], description: e.target.value }; update("guarantee", { items: arr });
+              }} rows={2} className="text-xs bg-white border-gray-200" placeholder="Description" />
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("guarantee", { items: [...(data.guarantee?.items ?? []), { icon: "ShieldCheck", title: "", description: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Promise
+        </Button>
+      </Section>
+    ),
+    liveProof: (
+      <Section
+        key="liveProof"
+        title="Live Social Proof"
+        icon={<BadgeCheck className="h-4 w-4" />}
+        {...sectionProps('liveProof')}
+      >
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show notifications</Label>
+          <Switch checked={data.liveProof?.visible ?? false} onCheckedChange={(v) => update("liveProof", { visible: v })} />
+        </div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">
+          A rotating toast pinned to the bottom-left of the live page. It is hidden here in the editor, so preview it on the published page.
+        </p>
+        <div>
+          <Label className="text-xs text-gray-500">Rotate every (ms)</Label>
+          <Input
+            type="number"
+            min={2500}
+            value={data.liveProof?.intervalMs ?? 5000}
+            onChange={(e) => update("liveProof", { intervalMs: Math.max(2500, Number(e.target.value) || 5000) })}
+            className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
+          />
+        </div>
+        {(data.liveProof?.items ?? []).map((item, i) => {
+          const items = data.liveProof?.items ?? [];
+          const itemKey = mediaKey("liveProof", "items", i, "image");
+          return (
+            <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase">Notice {i + 1}</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
+                  clearMediaSettings(itemKey);
+                  update("liveProof", { items: items.filter((_, j) => j !== i) });
+                }}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <Input value={item.text} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], text: e.target.value }; update("liveProof", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="Priya from Mumbai just reserved a seat" />
+              <Input value={item.meta ?? ''} onChange={(e) => {
+                const arr = [...items]; arr[i] = { ...arr[i], meta: e.target.value }; update("liveProof", { items: arr });
+              }} className="h-8 text-xs bg-white border-gray-200" placeholder="2 minutes ago" />
+              <ImageField
+                label="Avatar (optional)"
+                value={item.image ?? ''}
+                onChange={(v) => {
+                  const arr = [...items]; arr[i] = { ...arr[i], image: v }; update("liveProof", { items: arr });
+                }}
+                settings={mediaSettings[itemKey]}
+                onSettingsChange={(value) => handleMediaSettingsChange(itemKey, value)}
+                onClearSettings={() => clearMediaSettings(itemKey)}
+              />
+            </div>
+          );
+        })}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("liveProof", { items: [...(data.liveProof?.items ?? []), { text: "", meta: "", image: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Notice
+        </Button>
+      </Section>
+    ),
+    guidesRail: (
+      <Section
+        key="guidesRail"
+        title="People Rail"
+        icon={<Users className="h-4 w-4" />}
+        {...sectionProps('guidesRail')}
+      >
+        <SectionBgField sectionKey="guidesRail" value={data.sectionBg?.['guidesRail'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show people rail</Label>
+          <Switch
+            checked={data.guidesRail?.visible ?? false}
+            onCheckedChange={(v) => update("guidesRail", { visible: v })}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.guidesRail?.title ?? ''} onChange={(e) => update("guidesRail", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.guidesRail?.subtitle ?? ''} onChange={(e) => update("guidesRail", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        {(data.guidesRail?.items ?? []).map((item, i) => {
+          const items = data.guidesRail?.items ?? [];
+          const itemKey = mediaKey("guidesRail", "items", i, "image");
+          return (
+          <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase">Person {i + 1}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
+                clearMediaSettings(itemKey);
+                update("guidesRail", { items: items.filter((_, j) => j !== i) });
+              }}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+            <ImageField
+              label="Photo"
+              value={item.image}
+              onChange={(v) => {
+                const arr = [...items]; arr[i] = { ...arr[i], image: v }; update("guidesRail", { items: arr });
+              }}
+              settings={mediaSettings[itemKey]}
+              onSettingsChange={(value) => handleMediaSettingsChange(itemKey, value)}
+              onClearSettings={() => clearMediaSettings(itemKey)}
+            />
+            <Input value={item.name} onChange={(e) => {
+              const arr = [...items]; arr[i] = { ...arr[i], name: e.target.value }; update("guidesRail", { items: arr });
+            }} className="h-8 text-xs bg-white border-gray-200" placeholder="Name" />
+            <Input value={item.role} onChange={(e) => {
+              const arr = [...items]; arr[i] = { ...arr[i], role: e.target.value }; update("guidesRail", { items: arr });
+            }} className="h-8 text-xs bg-white border-gray-200" placeholder="Role" />
+            <Input value={item.link ?? ''} onChange={(e) => {
+              const arr = [...items]; arr[i] = { ...arr[i], link: e.target.value }; update("guidesRail", { items: arr });
+            }} className="h-8 text-xs bg-white border-gray-200" placeholder="Link (optional)" />
+          </div>
+        )})}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("guidesRail", { items: [...(data.guidesRail?.items ?? []), { name: "", role: "", image: "", link: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Person
+        </Button>
+      </Section>
+    ),
+    formats: (
+      <Section
+        key="formats"
+        title="Format Carousel"
+        icon={<ImageIcon className="h-4 w-4" />}
+        {...sectionProps('formats')}
+      >
+        <SectionBgField sectionKey="formats" value={data.sectionBg?.['formats'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show format carousel</Label>
+          <Switch
+            checked={data.formats?.visible ?? false}
+            onCheckedChange={(v) => update("formats", { visible: v })}
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Title</Label>
+          <Input value={data.formats?.title ?? ''} onChange={(e) => update("formats", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subtitle</Label>
+          <Input value={data.formats?.subtitle ?? ''} onChange={(e) => update("formats", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        {(data.formats?.slides ?? []).map((slide, i) => {
+          const slides = data.formats?.slides ?? [];
+          const slideKey = mediaKey("formats", "slides", i, "image");
+          return (
+          <div key={i} className="border border-gray-100 rounded-lg p-3 space-y-2 bg-gray-50/50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase">Slide {i + 1}</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-red-500" onClick={() => {
+                clearMediaSettings(slideKey);
+                update("formats", { slides: slides.filter((_, j) => j !== i) });
+              }}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+            <ImageField
+              label="Image"
+              value={slide.image}
+              onChange={(v) => {
+                const arr = [...slides]; arr[i] = { ...arr[i], image: v }; update("formats", { slides: arr });
+              }}
+              settings={mediaSettings[slideKey]}
+              onSettingsChange={(value) => handleMediaSettingsChange(slideKey, value)}
+              onClearSettings={() => clearMediaSettings(slideKey)}
+            />
+            <Input value={slide.label ?? ''} onChange={(e) => {
+              const arr = [...slides]; arr[i] = { ...arr[i], label: e.target.value }; update("formats", { slides: arr });
+            }} className="h-8 text-xs bg-white border-gray-200" placeholder="Label (optional)" />
+          </div>
+        )})}
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => update("formats", { slides: [...(data.formats?.slides ?? []), { image: "", label: "" }] })}>
+          <Plus className="h-3 w-3 mr-1" /> Add Slide
+        </Button>
+      </Section>
+    ),
+    appBanner: (
+      <Section
+        key="appBanner"
+        title="App Banner"
+        icon={<MousePointerClick className="h-4 w-4" />}
+        {...sectionProps('appBanner')}
+      >
+        <SectionBgField sectionKey="appBanner" value={data.sectionBg?.['appBanner'] || ''} onChange={updateSectionBg} />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Show banner</Label>
+          <Switch
+            checked={data.appBanner?.visible ?? false}
+            onCheckedChange={(v) => update("appBanner", { visible: v })}
+          />
+        </div>
+        <ImageField
+          label="Banner Image"
+          value={data.appBanner?.image ?? ''}
+          onChange={(v) => update("appBanner", { image: v })}
+          settings={mediaSettings[mediaKey("appBanner", "image")]}
+          onSettingsChange={(value) => handleMediaSettingsChange(mediaKey("appBanner", "image"), value)}
+          onClearSettings={() => clearMediaSettings(mediaKey("appBanner", "image"))}
+        />
+        <div>
+          <Label className="text-xs text-gray-500">Link</Label>
+          <Input value={data.appBanner?.link ?? ''} onChange={(e) => update("appBanner", { link: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder="https://example.com or #anchor" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Alt Text</Label>
+          <Input value={data.appBanner?.alt ?? ''} onChange={(e) => update("appBanner", { alt: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+      </Section>
+    ),
     logos: (
       <Section 
         key="logos"
@@ -1556,6 +2747,10 @@ export function TemplateEditor({
         <div>
           <Label className="text-xs text-gray-500">Title</Label>
           <Input value={data.logos.title} onChange={(e) => update("logos", { title: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500">Subheadline</Label>
+          <Input value={data.logos.subtitle ?? ''} onChange={(e) => update("logos", { subtitle: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder="Short line under the title" />
         </div>
         {data.logos.logos.map((logo, i) => {
           const logoKey = mediaKey("logos", "logos", i, "image");
@@ -2648,40 +3843,65 @@ export function TemplateEditor({
   return (
     <TemplateEditorCtx.Provider value={{ data, onChange }}>
       <div className="space-y-3 p-1">
+        <AddElementMenu
+          deletedSections={data.deletedSections || []}
+          onRestoreSection={restoreSection}
+          onAddContentBlock={addContentBlock}
+          onAddRichBlock={onAddRichBlock}
+        />
+
         {/* ===== Blocks palette — drag chips onto the canvas (Elementor-style) ===== */}
         <div className="border border-gray-200 rounded-xl bg-white p-3">
           <p className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5 mb-1">
             <ArrowUpDown className="h-3.5 w-3.5 text-violet-500" /> Blocks
           </p>
           <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
-            Drag a block onto the canvas to position it, or click to edit. Grayed-out blocks are hidden.
+            Drag a block onto the canvas to position it, or click to edit. Grayed-out blocks are hidden; dashed ones were deleted — click to bring one back.
           </p>
           <div className="grid grid-cols-2 gap-1.5">
-            {sectionOrder
+            {(CANONICAL_SECTIONS as readonly string[])
               // Dynamic rich blocks are created via the Elements-tab drag
               // path (or the canvas "+" popup), not re-added from this
               // fixed-sections palette — they're managed entirely on the
-              // canvas via their own floating toolbar.
-              .filter((key) => key !== "richContent" && !isRichBlockKey(key))
+              // canvas via their own floating toolbar. Iterates the full
+              // canonical list (not just sectionOrder) so a deleted section's
+              // chip stays here as the only way back in.
+              .filter((key) => key !== "richContent")
               .map((key) => {
-                const isVisible = getSectionVisibility(data, key);
+                const isDeleted = (data.deletedSections || []).includes(key);
+                const isVisible = !isDeleted && getSectionVisibility(data, key);
                 return (
                   <div
                     key={key}
-                    draggable
-                    onDragStart={handleGripDragStart(key)}
+                    draggable={!isDeleted}
+                    onDragStart={isDeleted ? undefined : handleGripDragStart(key)}
                     onDragEnd={cleanupDrag}
-                    onClick={() => onSelectSection?.(key)}
-                    title={`${SECTION_LABELS[key] || key} — drag to canvas or click to edit`}
-                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium cursor-grab active:cursor-grabbing select-none [-webkit-user-drag:element] transition ${
-                      isVisible
-                        ? "border-gray-200 bg-gray-50 text-gray-700 hover:border-violet-300 hover:bg-violet-50"
-                        : "border-dashed border-gray-300 bg-white text-gray-400 hover:border-violet-300"
+                    onClick={() => {
+                      if (isDeleted) restoreSection(key);
+                      else onSelectSection?.(key);
+                    }}
+                    title={
+                      isDeleted
+                        ? `${SECTION_LABELS[key] || key} — deleted, click to restore`
+                        : `${SECTION_LABELS[key] || key} — drag to canvas or click to edit`
+                    }
+                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium select-none [-webkit-user-drag:element] transition ${
+                      isDeleted
+                        ? "cursor-pointer border-dashed border-red-200 bg-red-50/50 text-red-400 hover:border-red-300 hover:bg-red-50"
+                        : `cursor-grab active:cursor-grabbing ${
+                            isVisible
+                              ? "border-gray-200 bg-gray-50 text-gray-700 hover:border-violet-300 hover:bg-violet-50"
+                              : "border-dashed border-gray-300 bg-white text-gray-400 hover:border-violet-300"
+                          }`
                     }`}
                   >
                     <GripVertical className="h-3 w-3 text-gray-300 flex-shrink-0" />
                     <span className="truncate flex-1">{SECTION_LABELS[key] || key}</span>
-                    {!isVisible && <EyeOff className="h-3 w-3 flex-shrink-0" />}
+                    {isDeleted ? (
+                      <Trash2 className="h-3 w-3 flex-shrink-0" />
+                    ) : (
+                      !isVisible && <EyeOff className="h-3 w-3 flex-shrink-0" />
+                    )}
                   </div>
                 );
               })}
@@ -2689,20 +3909,7 @@ export function TemplateEditor({
               draggable
               onDragStart={newContentBlockDragStart}
               onDragEnd={cleanupDrag}
-              onClick={() => {
-                const blocks = [...(data.contentBlocks || [])];
-                blocks.push({
-                  enabled: true,
-                  layout: "media-left" as const,
-                  mediaType: "image" as const,
-                  mediaUrl: "",
-                  textFormat: "plain" as const,
-                  heading: "New Content Block",
-                  content: "Write your content here...",
-                });
-                onChange({ ...data, contentBlocks: blocks });
-                onSelectSection?.("contentBlocks");
-              }}
+              onClick={addContentBlock}
               title="New content block — drag to canvas or click to add"
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-semibold cursor-grab active:cursor-grabbing select-none [-webkit-user-drag:element] hover:bg-violet-100 transition"
             >

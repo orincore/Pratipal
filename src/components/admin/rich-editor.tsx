@@ -989,7 +989,7 @@ export function RichEditor({
   const moveTplSectionTo = useCallback(
     (key: string, gapIndex: number) => {
       if (!templateData || !setTemplateData) return;
-      const order = resolveSectionOrder(templateData.sectionOrder);
+      const order = resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections);
       const from = order.indexOf(key);
       if (from === -1) return;
       const newOrder = [...order];
@@ -1007,7 +1007,7 @@ export function RichEditor({
   const moveTplSection = useCallback(
     (key: string, dir: -1 | 1) => {
       if (!templateData || !setTemplateData) return;
-      const order = resolveSectionOrder(templateData.sectionOrder);
+      const order = resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections);
       const i = order.indexOf(key);
       const j = i + dir;
       if (i < 0 || j < 0 || j >= order.length) return;
@@ -1051,7 +1051,7 @@ export function RichEditor({
       // which is what most blocks show most of the time) pads out 64px of
       // empty vertical space around a single Heading or Button.
       const newBlock: RichBlockEntry = { id, content: normalizeLandingContent(undefined, { paddingY: 8 }) };
-      const order = resolveSectionOrder(templateData.sectionOrder);
+      const order = resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections);
       const newOrder = [...order];
       newOrder.splice(Math.max(0, Math.min(newOrder.length, gapIndex)), 0, sectionKey);
       setTemplateData({
@@ -1079,7 +1079,7 @@ export function RichEditor({
     (sectionKey: string) => {
       if (!templateData || !setTemplateData) return;
       const id = richBlockId(sectionKey);
-      const order = resolveSectionOrder(templateData.sectionOrder).filter((k) => k !== sectionKey);
+      const order = resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections).filter((k) => k !== sectionKey);
       setTemplateData({
         ...templateData,
         richBlocks: (templateData.richBlocks || []).filter((b: RichBlockEntry) => b.id !== id),
@@ -1090,6 +1090,27 @@ export function RichEditor({
       toast.success("Rich content block removed");
     },
     [templateData, setTemplateData, focusRichBlock]
+  );
+
+  // Full delete (not hide) for a fixed/canonical template section: pulls the
+  // key out of sectionOrder and records it in deletedSections so
+  // resolveSectionOrder doesn't silently re-append it as "new". The
+  // section's own data is left untouched, so restoring it later (via the "+"
+  // insert palette, which lists deleted sections alongside hidden ones)
+  // brings its old content straight back.
+  const deleteTplSection = useCallback(
+    (key: string) => {
+      if (!templateData || !setTemplateData) return;
+      const order = resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections).filter((k) => k !== key);
+      setTemplateData({
+        ...templateData,
+        sectionOrder: order,
+        deletedSections: [...new Set([...(templateData.deletedSections || []), key])],
+      });
+      setSelectedTplSection((prev) => (prev === key ? null : prev));
+      toast.success(`${SECTION_LABELS[key] || key} deleted`);
+    },
+    [templateData, setTemplateData]
   );
 
   const insertTplBlock = useCallback(
@@ -1120,8 +1141,14 @@ export function RichEditor({
         };
       } else {
         next = applySectionVisibility(next, key, true);
+        // Restoring a previously-deleted section: drop it from deletedSections
+        // first so resolveSectionOrder treats it as "new" again and re-appends
+        // it, instead of continuing to exclude it.
+        if ((next.deletedSections || []).includes(key)) {
+          next = { ...next, deletedSections: (next.deletedSections || []).filter((k) => k !== key) };
+        }
       }
-      const order = resolveSectionOrder(next.sectionOrder);
+      const order = resolveSectionOrder(next.sectionOrder, next.deletedSections);
       const from = order.indexOf(sectionKey);
       const newOrder = [...order];
       newOrder.splice(from, 1);
@@ -1138,13 +1165,14 @@ export function RichEditor({
 
   const tplInsertableBlocks = useMemo(() => {
     if (!templateData) return [];
-    const hidden = (CANONICAL_SECTIONS as readonly string[])
-      .filter((k) => k !== "richContent" && !getSectionVisibility(templateData, k))
-      .map((k) => ({ key: k, label: SECTION_LABELS[k] || k }));
+    const deletedSet = new Set(templateData.deletedSections || []);
+    const hiddenOrDeleted = (CANONICAL_SECTIONS as readonly string[])
+      .filter((k) => k !== "richContent" && (deletedSet.has(k) || !getSectionVisibility(templateData, k)))
+      .map((k) => ({ key: k, label: deletedSet.has(k) ? `${SECTION_LABELS[k] || k} (deleted)` : SECTION_LABELS[k] || k }));
     return [
       { key: "__newContentBlock", label: "Content Block (new)" },
       { key: "__newRichBlock", label: "Rich Content Block (new)" },
-      ...hidden,
+      ...hiddenOrDeleted,
     ];
   }, [templateData]);
 
@@ -1159,7 +1187,7 @@ export function RichEditor({
           onInsertBlock: insertTplBlock,
           onDuplicateSection: (key: string) => {
             if (key === "contentBlocks") {
-              const order = resolveSectionOrder(templateData.sectionOrder);
+              const order = resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections);
               insertTplBlock("__newContentBlock", order.indexOf("contentBlocks") + 1);
             }
           },
@@ -1169,6 +1197,7 @@ export function RichEditor({
           onInsertRichBlockWithElement: (elementType: string, gapIndex: number) =>
             insertRichBlockAt(gapIndex, elementType),
           onRemoveRichBlock: removeRichBlock,
+          onDeleteSection: deleteTplSection,
         }
       : undefined;
 
@@ -2065,7 +2094,7 @@ export function RichEditor({
   const paletteInsert = useCallback(
     (type: string, fallback: () => void) => {
       if (legacyRichHidden && !focusedBlockIdRef.current && templateData && setTemplateData) {
-        insertRichBlockAt(resolveSectionOrder(templateData.sectionOrder).length, type);
+        insertRichBlockAt(resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections).length, type);
         return;
       }
       fallback();
@@ -3062,6 +3091,9 @@ export function RichEditor({
                 activeNonce={tplFocusNonce}
                 onSelectSection={selectTplSection}
                 hideLegacyRichContent={legacyRichHidden}
+                onAddRichBlock={() =>
+                  insertRichBlockAt(resolveSectionOrder(templateData.sectionOrder, templateData.deletedSections).length)
+                }
               />
             </div>
           ) : activeTab === "widgets" ? (

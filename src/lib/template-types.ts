@@ -57,6 +57,7 @@ export interface WhySection {
 export interface AboutSection {
   name: string;                  // e.g. "Riha Aggarwal"
   title: string;                 // e.g. "About the Coach"
+  subtitle?: string;             // short line under the heading, above the description
   description: string;
   image: string;
   credentials: string[];
@@ -65,6 +66,7 @@ export interface AboutSection {
 
 export interface LogoSection {
   title: string;                 // e.g. "Featured In"
+  subtitle?: string;             // short line under the heading
   logos: { image: string; alt: string }[];
   enabled: boolean;
 }
@@ -460,6 +462,70 @@ export interface MediaFieldOptions {
 export interface SectionStyleOptions {
   paddingTop?: number;
   paddingBottom?: number;
+  // Overrides this section's main heading color. Falls back to the section's
+  // normal (theme-derived) heading color when unset.
+  headingColor?: string;
+  // Overrides this section's CTA button color(s). When set, the button
+  // renders as a solid fill of this color instead of the global
+  // primary/accent gradient.
+  buttonColor?: string;
+  // Overrides this section's CTA button label color. Falls back to whatever
+  // the button normally uses (usually white) when unset.
+  buttonTextColor?: string;
+  // "gradient" opts this section's background into the fully custom
+  // gradient below, replacing its normal background entirely (including the
+  // atmospheric "aura" backdrop most sections use by default). Leaving this
+  // unset (or "solid") keeps existing behavior unchanged: sectionBg's solid
+  // color override if set, else the section's ordinary themed background —
+  // every gradient already baked into the template today is untouched
+  // unless a page explicitly opts in here.
+  bgMode?: "solid" | "gradient";
+  bgGradient?: SectionGradient;
+}
+
+export interface GradientColorStop {
+  color: string;
+  position: number; // 0–100
+}
+
+export type SectionGradientType = "linear" | "radial" | "conic";
+export type SectionGradientAnimation = "none" | "shift" | "pulse" | "rotate";
+
+export interface SectionGradient {
+  type: SectionGradientType;
+  angle: number; // degrees — used by "linear" and "conic" (as the start angle)
+  stops: GradientColorStop[]; // 2+ stops
+  animation: SectionGradientAnimation;
+  animationDuration: number; // seconds
+}
+
+export const DEFAULT_SECTION_GRADIENT: SectionGradient = {
+  type: "linear",
+  angle: 135,
+  stops: [
+    { color: "#7C3AED", position: 0 },
+    { color: "#EC4899", position: 100 },
+  ],
+  animation: "none",
+  animationDuration: 8,
+};
+
+// Builds the CSS `background-image` value for a section gradient. When the
+// gradient's animation is "rotate" (linear/conic only — a radial gradient has
+// no meaningful angle), the fixed `angle` is swapped for a CSS custom
+// property that the storefront's global styles animate via @keyframes (see
+// the `lt-grad-rotate` class in landing-template.tsx) instead of the static
+// value, so the same string works whether or not the page opted into motion.
+export function sectionGradientCss(g: SectionGradient): string {
+  const stops = [...g.stops]
+    .sort((a, b) => a.position - b.position)
+    .map((s) => `${s.color} ${Math.max(0, Math.min(100, s.position))}%`)
+    .join(", ");
+  const animatedAngle = g.animation === "rotate" && g.type !== "radial";
+  const angleExpr = animatedAngle ? "var(--lt-grad-angle)" : `${g.angle}deg`;
+  if (g.type === "radial") return `radial-gradient(circle, ${stops})`;
+  if (g.type === "conic") return `conic-gradient(from ${angleExpr}, ${stops})`;
+  return `linear-gradient(${angleExpr}, ${stops})`;
 }
 
 // Every reorderable section key, in default order. Shared by the sidebar
@@ -540,11 +606,18 @@ export function richBlockId(key: string): string {
 // Resolves a saved (possibly partial/stale) sectionOrder against the
 // canonical list: keeps saved order, appends any new sections at the end.
 // Dynamic richContent:<id> keys are preserved as-is but never auto-injected
-// (they only ever enter sectionOrder via an explicit insert).
-export function resolveSectionOrder(order?: string[]): string[] {
-  const isKnown = (k: string) => (CANONICAL_SECTIONS as readonly string[]).includes(k) || isRichBlockKey(k);
-  const base = order && order.length ? order.filter(isKnown) : [...CANONICAL_SECTIONS];
-  const missing = (CANONICAL_SECTIONS as readonly string[]).filter((k) => !base.includes(k));
+// (they only ever enter sectionOrder via an explicit insert). `deleted` is
+// the page's `deletedSections` list — a canonical section the editor deleted
+// stays out of the resolved order (and isn't re-appended as "new") until the
+// user explicitly restores it, which removes it from `deleted` again.
+export function resolveSectionOrder(order?: string[], deleted?: string[]): string[] {
+  const deletedSet = new Set(deleted || []);
+  const isKnown = (k: string) =>
+    ((CANONICAL_SECTIONS as readonly string[]).includes(k) || isRichBlockKey(k)) && !deletedSet.has(k);
+  const base = order && order.length
+    ? order.filter(isKnown)
+    : (CANONICAL_SECTIONS as readonly string[]).filter((k) => !deletedSet.has(k));
+  const missing = (CANONICAL_SECTIONS as readonly string[]).filter((k) => !base.includes(k) && !deletedSet.has(k));
   return [...base, ...missing];
 }
 
@@ -681,6 +754,10 @@ export interface LandingTemplateData {
   footer: FooterSection;
   floatingButton: FloatingButtonSettings;
   sectionOrder?: string[];
+  // Canonical section keys the editor has explicitly deleted (not just
+  // hidden) — see resolveSectionOrder. Never contains richContent:<id> keys;
+  // those are removed for real via richBlocks instead.
+  deletedSections?: string[];
   // Free-floating rich-content zones, referenced from sectionOrder via
   // `richContent:<id>`. Separate from the one legacy singleton `richContent`
   // slot (whose content lives in the page-level `content` field, unchanged).
@@ -763,6 +840,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
   about: {
     name: "Your Coach Name",
     title: "Meet Your Guide",
+    subtitle: "",
     description: "A transformational coach with over 10 years of experience helping thousands of people unlock their true potential. Featured in major publications and trusted by leaders worldwide.",
     image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&h=500&fit=crop",
     credentials: [
@@ -867,6 +945,7 @@ export const DEFAULT_TEMPLATE_DATA: LandingTemplateData = {
   },
   logos: {
     title: "Featured In",
+    subtitle: "",
     logos: [
       { image: "", alt: "Brand 1" },
       { image: "", alt: "Brand 2" },
@@ -1053,6 +1132,7 @@ export function normalizeTemplateData(data?: Partial<LandingTemplateData>): Land
     footer: { ...DEFAULT_TEMPLATE_DATA.footer, ...data.footer },
     floatingButton: { ...DEFAULT_TEMPLATE_DATA.floatingButton, ...data.floatingButton },
     sectionOrder: data.sectionOrder || DEFAULT_TEMPLATE_DATA.sectionOrder,
+    deletedSections: data.deletedSections || [],
     richBlocks: data.richBlocks || [],
     mediaSettings: data.mediaSettings || DEFAULT_TEMPLATE_DATA.mediaSettings,
     sectionBg: data.sectionBg || {},
