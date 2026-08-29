@@ -511,6 +511,10 @@ function CheckoutPageInner() {
         description: "Order Payment",
         image: siteConfig.logo.footer.startsWith("http") ? siteConfig.logo.footer : `${siteConfig.domain}${siteConfig.logo.footer}`,
         order_id: data.razorpay_order_id,
+        // Echoed back on the payment entity in every webhook event, so
+        // /api/razorpay/webhook can still find this order if the order-id
+        // lookup ever comes up empty.
+        notes: { order_id: data.order_id },
         handler: async function (response: any) {
           await verifyPayment(response, data.order_id);
         },

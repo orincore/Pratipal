@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { GalleryMasonrySkeleton } from "@/components/skeletons/page-skeletons";
 import { Images, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 
 interface GalleryImage {
@@ -91,13 +92,7 @@ export default function GalleryPage() {
 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
 
-          {loading && (
-            <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 space-y-5">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="break-inside-avoid rounded-2xl bg-stone-200 animate-pulse aspect-video" />
-              ))}
-            </div>
-          )}
+          {loading && <GalleryMasonrySkeleton />}
 
           {!loading && images.length === 0 && (
             <div className="text-center py-24 text-stone-400">

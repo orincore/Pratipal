@@ -1124,3 +1124,54 @@ div[data-button] a:hover {
   }
 }
 
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Loading skeletons
+
+   Shown by the route-level loading.tsx files (and by the client pages that
+   fetch their own data) while a page's content is on the way.
+
+   The sweep carries a tint of the brand accent at its core rather than a plain
+   white glare, so a loading page still reads as Pratipal rather than as a
+   generic grey pulse. Blocks stagger via --sk-i so one wave crosses the layout
+   in reading order instead of every box blinking independently.
+   ────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  :root {
+    --sk-base: rgba(35, 45, 95, 0.13);
+    --sk-sheen: rgba(255, 255, 255, 0.52);
+    --sk-glow: rgba(217, 119, 69, 0.30);
+    --sk-speed: 1.9s;
+  }
+
+  .sk {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--sk-base);
+    background-image: linear-gradient(
+      100deg,
+      transparent 18%,
+      var(--sk-sheen) 38%,
+      var(--sk-glow) 50%,
+      var(--sk-sheen) 62%,
+      transparent 82%
+    );
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    animation: sk-sweep var(--sk-speed) linear infinite;
+    animation-delay: calc(var(--sk-i, 0) * 85ms);
+  }
+
+  @keyframes sk-sweep {
+    0%   { background-position: 220% 0; }
+    100% { background-position: -120% 0; }
+  }
+
+  /* Reserves the same space and keeps the brand tint, minus the movement. */
+  @media (prefers-reduced-motion: reduce) {
+    .sk {
+      animation: none;
+      background-image: none;
+    }
+  }
+}

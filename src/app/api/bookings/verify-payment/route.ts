@@ -1,11 +1,19 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import getDB from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
-import { BRAND, renderEmailLayout, emailInfoCard, emailNote, emailButton } from "@/lib/email-template";
-import { siteConfig } from "@/config/site.config";
-import { sendWhatsappNotification } from "@/lib/whatsapp";
+import { confirmSessionBooking } from "@/lib/booking-fulfilment";
 
+/**
+ * The browser reporting back from Razorpay's `handler` callback.
+ *
+ * The signature is recomputed with the Razorpay secret — a handler callback can
+ * be forged, an HMAC over the server's own secret cannot.
+ *
+ * This is now the *fastest* confirmation path rather than the only one:
+ * /api/razorpay/webhook confirms the same booking through the same
+ * confirmSessionBooking, which sends the customer and admin notifications
+ * exactly once no matter which of them gets there first. See
+ * src/lib/booking-fulfilment.ts.
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -23,153 +31,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify signature
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      console.error("RAZORPAY_KEY_SECRET is not configured");
+      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 });
+    }
+
     const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+      .createHmac("sha256", secret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    if (generatedSignature !== razorpay_signature) {
+    const provided = Buffer.from(String(razorpay_signature));
+    const expected = Buffer.from(generatedSignature);
+    const isValid =
+      provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
+
+    if (!isValid) {
       return NextResponse.json(
         { error: "Invalid payment signature" },
         { status: 400 }
       );
     }
 
-    const { SessionBooking } = await getDB();
+    const outcome = await confirmSessionBooking({
+      bookingId: booking_id,
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      razorpaySignature: razorpay_signature,
+    });
 
-    // Update booking with payment details
-    const booking = await SessionBooking.findById(booking_id);
-    
-    if (!booking) {
-      return NextResponse.json(
-        { error: "Booking not found" },
-        { status: 404 }
-      );
+    if (outcome.status === "not_found") {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
-
-    // Generate WhatsApp redirect URL
-    const whatsappNumber = siteConfig.contact.whatsapp;
-    const message = `Hi, I just booked a session on ${BRAND.name}!
-
-📋 *Booking Details*
-• Booking ID: ${booking.booking_number}
-• Service: ${booking.service_name}
-• Plan: ${booking.frequency_label}
-• Amount Paid: ₹${booking.amount}
-
-👤 *My Details*
-• Name: ${booking.customer_name}
-• Email: ${booking.customer_email}
-• Phone: ${booking.customer_phone}
-
-💳 *Payment*
-• Transaction ID: ${razorpay_payment_id}
-• Status: Confirmed ✅
-
-Please confirm my booking. Thank you!`;
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-
-    // Update booking
-    booking.payment_status = "paid";
-    booking.razorpay_payment_id = razorpay_payment_id;
-    booking.razorpay_signature = razorpay_signature;
-    booking.whatsapp_redirect_url = whatsappUrl;
-    await booking.save();
-
-    // Send confirmation email to customer
-    const bookingType = booking.order_type === "course" ? "Course" : "Service";
-    sendMail({
-      to: booking.customer_email,
-      subject: `${bookingType} Booking Confirmed — ${booking.booking_number}`,
-      html: renderEmailLayout({
-        preheader: "Your booking has been confirmed and payment received successfully.",
-        badgeIcon: "check",
-        heading: `${bookingType} Booking Confirmed!`,
-        subheading: `Hi ${booking.customer_name}, your booking has been confirmed and payment received successfully.`,
-        bodyHtml:
-          emailInfoCard([
-            { icon: "ticket", label: "Booking ID", value: booking.booking_number },
-            { icon: "leaf", label: bookingType, value: booking.service_name },
-            { icon: "package", label: "Plan", value: booking.frequency_label },
-            { icon: "card", label: "Amount Paid", value: `₹${booking.amount.toFixed(2)}` },
-            { icon: "fileText", label: "Transaction ID", value: razorpay_payment_id },
-          ]) +
-          emailNote(
-            `<strong>Next Step:</strong> We'll contact you on WhatsApp at <strong>${booking.customer_phone}</strong> to schedule your session. You can also reach out to us directly.`,
-            "warning",
-            "phone"
-          ) +
-          `<div style="text-align:center;">${emailButton("Message Us on WhatsApp", whatsappUrl, "#25D366", "messageCircle")}</div>`,
-      }),
-    }).catch(() => {});
-
-    // Send notification to admin
-    const adminEmail = process.env.ADMIN_EMAIL;
-    if (adminEmail) {
-      sendMail({
-        to: adminEmail,
-        subject: `New ${bookingType} Booking: ${booking.booking_number} — ₹${booking.amount.toFixed(2)}`,
-        html: renderEmailLayout({
-          badgeIcon: "calendar",
-          heading: `New ${bookingType} Booking`,
-          subheading: `Booking #${booking.booking_number}`,
-          bodyHtml:
-            emailInfoCard([
-              { icon: "user", label: "Name", value: booking.customer_name },
-              { icon: "mail", label: "Email", value: `<a href="mailto:${booking.customer_email}" style="color:${BRAND.navy};">${booking.customer_email}</a>` },
-              { icon: "phone", label: "Phone", value: booking.customer_phone },
-              { icon: "leaf", label: bookingType, value: booking.service_name },
-              { icon: "tag", label: "Category", value: booking.service_category },
-              { icon: "package", label: "Plan", value: booking.frequency_label },
-              { icon: "card", label: "Amount", value: `₹${booking.amount.toFixed(2)}` },
-              { icon: "fileText", label: "Transaction ID", value: razorpay_payment_id },
-              { icon: "clock", label: "Received", value: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" },
-            ]) +
-            `<div style="text-align:center;">${emailButton("Contact Customer on WhatsApp", whatsappUrl, "#25D366", "messageCircle")}</div>`,
-          footerNote: "Internal notification — sent to the admin mailbox.",
-        }),
-      }).catch(() => {});
-    }
-
-    // WhatsApp notifications (additive alongside the emails above).
-    // after() keeps the serverless function alive until this finishes — an
-    // un-awaited fire-and-forget call is frozen by Vercel the instant the
-    // response is sent, so it never completes in production.
-    const bookingWhatsappNumber = booking.customer_whatsapp || booking.customer_phone;
-    const bookingSummary = `Booking #${booking.booking_number} — ${booking.service_name} (${booking.frequency_label} plan)`;
-    after(() =>
-      sendWhatsappNotification({
-        event: "booking_confirmed_customer",
-        to: bookingWhatsappNumber,
-        data: {
-          customerName: booking.customer_name,
-          sessionTypeLabel: bookingType,
-          bookingSummary,
-          amount: booking.amount,
-        },
-      }).catch(() => {})
-    );
-
-    if (process.env.ADMIN_WHATSAPP_NUMBER) {
-      after(() =>
-        sendWhatsappNotification({
-          event: "booking_confirmed_admin",
-          to: process.env.ADMIN_WHATSAPP_NUMBER,
-          data: {
-            sessionTypeLabel: bookingType,
-            bookingSummary,
-            customerSummary: `${booking.customer_name} (${bookingWhatsappNumber})`,
-            amount: booking.amount,
-          },
-        }).catch(() => {})
-      );
+    if (outcome.status === "order_mismatch") {
+      return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
     }
 
     return NextResponse.json({
       success: true,
-      booking: booking.toJSON(),
-      whatsapp_url: whatsappUrl,
+      booking: outcome.booking?.toJSON ? outcome.booking.toJSON() : outcome.booking,
+      whatsapp_url: outcome.whatsappUrl,
+      alreadyConfirmed: outcome.alreadyConfirmed,
     });
   } catch (error: any) {
     console.error("Payment verification error:", error);

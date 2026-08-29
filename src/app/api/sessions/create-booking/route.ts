@@ -33,16 +33,21 @@ export async function POST(req: NextRequest) {
     // Create booking record
     const booking = await SessionBooking.create({
       booking_number: bookingNumber,
+      customer_id: customerEmail,
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: customerPhone,
-      session_id: sessionType,
+      service_id: sessionType,
+      service_name: sessionType,
+      service_category: healingType || courseType || "General",
+      frequency_label: frequency || "One-time",
       session_date: new Date(),
       session_time: "TBD",
       amount: amount,
       payment_status: "pending",
       booking_type: "service",
       order_type: "service",
+      admin_notes: notes || undefined,
     });
 
     return NextResponse.json({

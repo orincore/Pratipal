@@ -101,6 +101,10 @@ function EnrollModal({ course, onClose }: { course: Course; onClose: () => void 
           name: siteConfig.razorpayDisplayName,
           description: course.title,
           order_id: razorpay_order_id,
+          // Echoed back on the payment entity in every webhook event, so
+          // /api/razorpay/webhook can still find this booking if the order-id
+          // lookup ever comes up empty.
+          notes: { booking_id: booking.id },
           prefill: { name: name.trim(), email: email.trim(), contact: phone.trim() },
           theme: { color: "#0d9488" },
           handler: async (response: any) => {

@@ -61,9 +61,9 @@ export async function POST(req: NextRequest) {
         name: booking.customer_name,
         email: booking.customer_email,
         phone: booking.customer_phone,
-        sessionType: booking.session_type,
-        frequency: booking.frequency,
-        healingType: booking.healing_type,
+        sessionType: booking.service_name,
+        frequency: booking.frequency_label,
+        healingType: booking.service_category,
         bookingId: booking.booking_number,
         amount: booking.amount,
         bookingDate: new Date(booking.created_at).toLocaleDateString("en-IN", {

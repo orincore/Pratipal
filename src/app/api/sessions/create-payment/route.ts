@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         booking_id: bookingId,
         customer_name: booking.customer_name,
         customer_email: booking.customer_email,
-        session_type: booking.session_type,
+        service_name: booking.service_name,
       },
     };
 

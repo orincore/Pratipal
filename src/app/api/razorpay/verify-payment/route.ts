@@ -1,12 +1,21 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import getDB from "@/lib/db";
-import { sendMail, orderConfirmationHtml, ebookDeliveryHtml } from "@/lib/mailer";
-import { BRAND, renderEmailLayout, emailInfoCard } from "@/lib/email-template";
-import { sendWhatsappNotification, formatOrderItemsForWhatsapp } from "@/lib/whatsapp";
-import { resolveOrderWhatsappNumber } from "@/lib/customer-phone";
+import { fulfilStoreOrder, markStoreOrderFailed } from "@/lib/order-fulfilment";
 
+/**
+ * The browser reporting back from Razorpay's `handler` callback.
+ *
+ * The signature is recomputed here with the Razorpay secret — the browser's
+ * claim that a payment succeeded is never trusted, since a handler callback can
+ * be forged and an HMAC over the server's own secret cannot.
+ *
+ * This is now the *fastest* confirmation path rather than the only one:
+ * /api/razorpay/webhook fulfils the same order through the same
+ * fulfilStoreOrder, which decrements stock, delivers e-books and sends
+ * confirmations exactly once no matter which of them gets there first. See
+ * src/lib/order-fulfilment.ts.
+ */
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -16,258 +25,55 @@ export async function POST(req: NextRequest) {
       order_id,
     } = await req.json();
 
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !order_id) {
+      return NextResponse.json({ error: "Missing payment details" }, { status: 400 });
+    }
+
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      console.error("RAZORPAY_KEY_SECRET is not configured");
+      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 });
+    }
+
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-      .update(body)
+      .createHmac("sha256", secret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    const isValid = expectedSignature === razorpay_signature;
+    const provided = Buffer.from(String(razorpay_signature));
+    const expected = Buffer.from(expectedSignature);
+    const isValid =
+      provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
 
-    const { Order, OrderItem, Product, Customer, CartItem } = await getDB();
-
-    if (isValid) {
-      // Payment confirmed — this is the moment the order is actually
-      // "placed" from the customer's perspective (the pending Order record
-      // created in /api/razorpay/create-order isn't final until payment
-      // succeeds), so kick off the tracking timeline here.
-      const orderReceivedAt = new Date().toISOString();
-      await Order.findByIdAndUpdate(order_id, {
-        payment_status: "paid",
-        status: "processing",
-        tracking_status: "order_received",
-        tracking_updated_at: orderReceivedAt,
-        $push: { tracking_history: { status: "order_received", timestamp: orderReceivedAt } },
-      });
-
-      const order = await Order.findById(order_id).lean();
-      const orderItems = await OrderItem.find({ order_id: order?._id }).lean();
-
-      if (orderItems && orderItems.length > 0) {
-        for (const item of orderItems) {
-          if (item.product_id) {
-            await Product.findByIdAndUpdate(item.product_id, {
-              $inc: { stock_quantity: -item.quantity }
-            });
-          }
-        }
-      }
-
-      // Deliver any e-books in this order by email now that payment is
-      // confirmed. Awaited (unlike the order-confirmation email below,
-      // which is fire-and-forget) because the delivery status recorded on
-      // each OrderItem needs to reflect whether the send actually
-      // succeeded — a serverless function isn't guaranteed to keep running
-      // after the response goes out, so this can't be left to finish in
-      // the background.
-      if (order && orderItems && orderItems.length > 0) {
-        const ebookItems = orderItems.filter((i: any) => i.is_ebook && i.ebook_download_url);
-        for (const item of ebookItems) {
-          try {
-            await sendMail({
-              to: order.customer_email,
-              subject: `Your E-Book is Ready — ${item.product_name}`,
-              html: ebookDeliveryHtml({
-                customerName: order.customer_name,
-                productName: item.product_name,
-                orderNumber: order.order_number,
-                downloadUrl: item.ebook_download_url as string,
-              }),
-            });
-            await OrderItem.findByIdAndUpdate(item._id, {
-              ebook_delivery_status: "delivered",
-              ebook_delivered_at: new Date(),
-            });
-
-            const ebookWhatsappNumber = await resolveOrderWhatsappNumber({
-              shipping_address: order.shipping_address,
-              customer_id: order.customer_id,
-            });
-            // after() keeps the serverless function alive until this finishes
-            // — an un-awaited fire-and-forget call is frozen by Vercel the
-            // instant the response is sent, so it never completes in production.
-            after(() =>
-              sendWhatsappNotification({
-                event: "ebook_delivered_customer",
-                to: ebookWhatsappNumber,
-                data: {
-                  customerName: order.customer_name,
-                  productName: item.product_name,
-                  orderNumber: order.order_number,
-                  orderItemId: item._id.toString(),
-                },
-              }).catch(() => {})
-            );
-
-            if (process.env.ADMIN_WHATSAPP_NUMBER) {
-              after(() =>
-                sendWhatsappNotification({
-                  event: "ebook_sold_admin",
-                  to: process.env.ADMIN_WHATSAPP_NUMBER,
-                  data: {
-                    orderSummary: `${item.product_name} — Order ${order.order_number}`,
-                    buyerSummary: `${order.customer_name} (${order.customer_email})`,
-                    amount: item.subtotal,
-                  },
-                }).catch(() => {})
-              );
-            }
-          } catch (mailErr: any) {
-            console.error(`Ebook delivery email failed for order item ${item._id}:`, mailErr?.message || mailErr);
-            await OrderItem.findByIdAndUpdate(item._id, {
-              ebook_delivery_status: "failed",
-            }).catch(() => {});
-          }
-        }
-      }
-
-      // Clear both customer cart and session cart
-      const customer = await Customer.findOne({ email: order?.customer_email }).lean();
-
-      if (customer) {
-        // Clear customer cart
-        await CartItem.deleteMany({ customer_id: customer._id.toString() });
-      }
-
-      // Also clear session-based cart if exists
-      const cookieStore = await cookies();
-      const sessionId = cookieStore.get("cart_session")?.value;
-      if (sessionId) {
-        await CartItem.deleteMany({ session_id: sessionId });
-      }
-
-      // Send order confirmation email
-      if (order) {
-        // Send confirmation to customer
-        sendMail({
-          to: order.customer_email,
-          subject: `Order Confirmed — ${order.order_number}`,
-          html: orderConfirmationHtml({
-            orderNumber: order.order_number,
-            customerName: order.customer_name,
-            items: orderItems.map((i: any) => ({
-              product_name: i.product_name,
-              quantity: i.quantity,
-              price: i.price,
-              subtotal: i.subtotal,
-            })),
-            subtotal: order.subtotal,
-            tax: order.tax,
-            shippingCost: order.shipping_cost,
-            total: order.total,
-            paymentMethod: order.payment_method || "online",
-            shippingAddress: order.shipping_address || {},
-          }),
-        }).catch((mailErr: any) => {
-          console.error("Order confirmation email failed:", mailErr?.message || mailErr);
-        });
-
-        // Send notification to admin
-        const adminEmail = process.env.ADMIN_EMAIL;
-        if (adminEmail) {
-          const itemsList = orderItems.map((i: any) => `• ${i.product_name} × ${i.quantity} — ₹${i.subtotal.toFixed(2)}`).join('\n');
-          const addr = order.shipping_address || {};
-          const addrLine = [addr.address_line1, addr.address_line2, addr.city, addr.state, addr.pincode || addr.postal_code, addr.country]
-            .filter(Boolean).join(", ");
-          
-          sendMail({
-            to: adminEmail,
-            subject: `New Order: ${order.order_number} — ₹${order.total.toFixed(2)}`,
-            html: renderEmailLayout({
-              badgeIcon: "bag",
-              heading: "New Order Received",
-              subheading: `Order #${order.order_number}`,
-              bodyHtml:
-                emailInfoCard([
-                  { icon: "user", label: "Name", value: order.customer_name },
-                  { icon: "mail", label: "Email", value: `<a href="mailto:${order.customer_email}" style="color:${BRAND.navy};">${order.customer_email}</a>` },
-                  { icon: "card", label: "Payment", value: "Online Payment (Razorpay)" },
-                  { icon: "fileText", label: "Transaction ID", value: razorpay_payment_id },
-                ]) +
-                `<div style="background:${BRAND.infoCardBg};border-radius:12px;padding:16px;margin-bottom:22px;">
-                  <p style="font-size:13px;color:${BRAND.textDark};margin:0 0 8px;font-weight:600;">Order Items</p>
-                  <p style="font-size:13px;color:${BRAND.textMuted};margin:0;white-space:pre-wrap;line-height:1.7;">${itemsList}</p>
-                </div>` +
-                emailInfoCard([
-                  { icon: "fileText", label: "Subtotal", value: `₹${order.subtotal.toFixed(2)}` },
-                  { icon: "fileText", label: "Tax (18%)", value: `₹${order.tax.toFixed(2)}` },
-                  { icon: "truck", label: "Shipping", value: order.shipping_cost === 0 ? "Free" : `₹${order.shipping_cost.toFixed(2)}` },
-                  { icon: "card", label: "Total", value: `₹${order.total.toFixed(2)}` },
-                ]) +
-                `<div style="background:${BRAND.infoCardBg};border-radius:12px;padding:16px;margin-bottom:${order.notes ? "22px" : "0"};">
-                  <p style="font-size:13px;color:${BRAND.textDark};margin:0 0 8px;font-weight:600;">Shipping Address</p>
-                  <p style="font-size:13px;color:${BRAND.textMuted};margin:0;">${addrLine || "—"}</p>
-                </div>` +
-                (order.notes ? `<div style="background:${BRAND.infoCardBg};border-radius:12px;padding:16px;">
-                  <p style="font-size:13px;color:${BRAND.textDark};margin:0 0 8px;font-weight:600;">Order Notes</p>
-                  <p style="font-size:13px;color:${BRAND.textMuted};margin:0;white-space:pre-wrap;">${order.notes}</p>
-                </div>` : ""),
-              footerNote: `Received at ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST — sent to the admin mailbox.`,
-            }),
-          }).catch(() => {});
-        }
-
-        // WhatsApp notifications (additive alongside the emails above).
-        // after() keeps the serverless function alive until this finishes —
-        // an un-awaited fire-and-forget call is frozen by Vercel the instant
-        // the response is sent, so it never completes in production.
-        after(() =>
-          resolveOrderWhatsappNumber({
-            shipping_address: order.shipping_address,
-            customer_id: order.customer_id,
-          }).then((customerWhatsappNumber) => {
-            const itemsSummary = formatOrderItemsForWhatsapp(orderItems);
-            const sends = [
-              sendWhatsappNotification({
-                event: "order_confirmed_customer",
-                to: customerWhatsappNumber,
-                data: {
-                  customerName: order.customer_name,
-                  orderNumber: order.order_number,
-                  itemsSummary,
-                  total: order.total,
-                },
-              }),
-            ];
-
-            if (process.env.ADMIN_WHATSAPP_NUMBER) {
-              sends.push(
-                sendWhatsappNotification({
-                  event: "order_confirmed_admin",
-                  to: process.env.ADMIN_WHATSAPP_NUMBER,
-                  data: {
-                    orderNumber: order.order_number,
-                    customerName: order.customer_name,
-                    customerPhone: customerWhatsappNumber,
-                    itemsSummary,
-                    total: order.total,
-                  },
-                })
-              );
-            }
-
-            return Promise.all(sends);
-          }).catch(() => {})
-        );
-      } else {
-        console.warn("Skipping confirmation email — order not found for id:", order_id);
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "Payment verified successfully",
-      });
-    } else {
-      await Order.findByIdAndUpdate(order_id, {
-        payment_status: "failed",
-        status: "failed",
-      });
-
-      return NextResponse.json(
-        { error: "Payment verification failed" },
-        { status: 400 }
-      );
+    if (!isValid) {
+      // Only a still-pending order may be marked failed. Without that guard a
+      // forged call could downgrade an order that was already paid for.
+      await markStoreOrderFailed({ orderId: order_id });
+      return NextResponse.json({ error: "Payment verification failed" }, { status: 400 });
     }
+
+    const cookieStore = await cookies();
+    const sessionCartId = cookieStore.get("cart_session")?.value || null;
+
+    const outcome = await fulfilStoreOrder({
+      orderId: order_id,
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      sessionCartId,
+    });
+
+    if (outcome.status === "not_found") {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+    if (outcome.status === "order_mismatch") {
+      return NextResponse.json({ error: "Payment verification failed" }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Payment verified successfully",
+      alreadyConfirmed: outcome.alreadyConfirmed,
+    });
   } catch (err: any) {
     console.error("Payment verification error:", err);
     return NextResponse.json(

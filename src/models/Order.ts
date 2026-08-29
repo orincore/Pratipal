@@ -8,6 +8,10 @@ export interface IOrder extends Document {
   status: "pending" | "processing" | "completed" | "cancelled" | "refunded" | "failed";
   payment_status: "pending" | "paid" | "failed" | "refunded";
   payment_method?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  paid_at?: Date;
+  refunded_at?: Date;
   subtotal: number;
   tax: number;
   shipping_cost: number;
@@ -40,6 +44,14 @@ const OrderSchema = new Schema<IOrder>(
     status: { type: String, enum: ["pending", "processing", "completed", "cancelled", "refunded", "failed"], default: "pending" },
     payment_status: { type: String, enum: ["pending", "paid", "failed", "refunded"], default: "pending" },
     payment_method: { type: String },
+    // Recorded at order-creation time so a Razorpay webhook — which knows only
+    // the gateway's own ids — can find the order it belongs to. Without this
+    // an order paid by a customer who never returns from their UPI app can
+    // never be matched back and stays `pending` forever.
+    razorpay_order_id: { type: String },
+    razorpay_payment_id: { type: String },
+    paid_at: { type: Date },
+    refunded_at: { type: Date },
     subtotal: { type: Number, required: true },
     tax: { type: Number, default: 0 },
     shipping_cost: { type: Number, default: 0 },
@@ -80,9 +92,11 @@ const OrderSchema = new Schema<IOrder>(
 OrderSchema.index({ customer_id: 1 });
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ customer_email: 1 });
+// The webhook's only handle on an order is the gateway order id.
+OrderSchema.index({ razorpay_order_id: 1 });
 
-// Always re-register to pick up schema changes (tracking_history etc.) after hot reloads
-const OrderModel = (mongoose.models.Order as mongoose.Model<IOrder> | undefined)?.schema?.path("tracking_history")
+// Always re-register to pick up schema changes (razorpay_order_id etc.) after hot reloads
+const OrderModel = (mongoose.models.Order as mongoose.Model<IOrder> | undefined)?.schema?.path("razorpay_order_id")
   ? (mongoose.models.Order as mongoose.Model<IOrder>)
   : (() => { try { return mongoose.model<IOrder>("Order", OrderSchema); } catch { delete mongoose.models.Order; return mongoose.model<IOrder>("Order", OrderSchema); } })();
 

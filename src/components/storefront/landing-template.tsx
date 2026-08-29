@@ -1721,17 +1721,104 @@ const formatInr = (n: number) =>
   `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 // Razorpay's checkout script is only fetched when someone actually opens a paid
-// form, so free pages never pay for it.
+// form, so free pages never pay for it. Kicked off when the dialog opens rather
+// than on submit, so a slow phone connection is spent while they're typing
+// instead of after they've tapped Pay and are staring at a spinner.
+let razorpayScriptPromise: Promise<boolean> | null = null;
 function loadRazorpayCheckout(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if ((window as any).Razorpay) return Promise.resolve(true);
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+
+  razorpayScriptPromise = new Promise<boolean>((resolve) => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
+    script.onerror = () => {
+      // Let the next attempt retry from scratch instead of caching the
+      // failure — mobile networks drop a single request all the time.
+      razorpayScriptPromise = null;
+      resolve(false);
+    };
     document.body.appendChild(script);
   });
+  return razorpayScriptPromise;
+}
+
+// A checkout that has been handed to Razorpay but not yet confirmed.
+//
+// Written to localStorage *before* the sheet opens, because from that moment
+// the page can stop existing at any time: paying by UPI on a phone means
+// leaving the browser for GPay/PhonePe/Paytm, and a backgrounded tab on a
+// memory-constrained phone is routinely discarded. When that happens the
+// landing page reloads from scratch on return — React state, the Razorpay
+// handler and everything else are gone — so localStorage is the only thing
+// left that knows a payment was in flight. On the next load we hand this to
+// /api/invitations/payment-status, which asks Razorpay what actually happened
+// and enrols the registrant if they paid.
+const PENDING_CHECKOUT_KEY = "as:pendingInvitationCheckout";
+// Razorpay orders stay open far longer, but past this the customer has long
+// since given up and a stale prompt would only confuse them.
+const PENDING_CHECKOUT_TTL_MS = 45 * 60 * 1000;
+
+interface PendingCheckout {
+  invitationId: string;
+  slug: string;
+  startedAt: number;
+}
+
+function rememberPendingCheckout(record: PendingCheckout) {
+  try {
+    localStorage.setItem(PENDING_CHECKOUT_KEY, JSON.stringify(record));
+  } catch {
+    // Private mode / storage full. The dismissal check still reconciles a
+    // payment made in this tab; only the returning-tab recovery is lost.
+  }
+}
+
+function readPendingCheckout(slug?: string): PendingCheckout | null {
+  try {
+    const raw = localStorage.getItem(PENDING_CHECKOUT_KEY);
+    if (!raw) return null;
+    const rec = JSON.parse(raw) as PendingCheckout;
+    if (!rec?.invitationId) return null;
+    if (Date.now() - (rec.startedAt || 0) > PENDING_CHECKOUT_TTL_MS) return null;
+    if (slug && rec.slug && rec.slug !== slug) return null;
+    return rec;
+  } catch {
+    return null;
+  }
+}
+
+function forgetPendingCheckout() {
+  try {
+    localStorage.removeItem(PENDING_CHECKOUT_KEY);
+  } catch {
+    /* nothing we can do, and nothing depends on it */
+  }
+}
+
+/**
+ * Asks the server whether a registration ended up paid, letting Razorpay —
+ * not the browser's memory of events — be the authority.
+ *
+ * Used in the two places the browser genuinely doesn't know: when the sheet is
+ * dismissed (did they cancel, or did they pay and the callback never fired?)
+ * and on load after a checkout the page didn't survive.
+ */
+async function fetchInvitationPaid(invitationId: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/invitations/payment-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invitationId }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => ({}));
+    return !!data.paid;
+  } catch {
+    return false;
+  }
 }
 
 function InvitationDialog({
@@ -1927,6 +2014,82 @@ function InvitationDialog({
     }
   };
 
+  const goToThankYou = () => {
+    const thankYouData = {
+      title: invitation.successTitle,
+      description: invitation.successDescription,
+      buttons: invitation.thankYouButtons || [],
+      from: pageSlug || "",
+    };
+    try {
+      sessionStorage.setItem("thankYouData", JSON.stringify(thankYouData));
+    } catch {
+      // The thank-you page falls back to its own defaults without this.
+    }
+    router.push(`/${pageSlug}/thank-you`);
+    setForm(createEmpty());
+  };
+
+  // The resume effect below must not list goToThankYou as a dependency: the
+  // page's countdown re-renders LandingTemplate every second, which hands this
+  // component a fresh `invitation` object and would re-run the effect on every
+  // tick. A ref keeps the callback current without being a dependency.
+  const goToThankYouRef = React.useRef(goToThankYou);
+  useEffect(() => {
+    goToThankYouRef.current = goToThankYou;
+  });
+
+  // Set for as long as this page is driving a checkout, so the resume effect
+  // never treats a payment that's still in progress here as abandoned.
+  const checkoutInFlightRef = React.useRef(false);
+
+  // Start fetching checkout.js as soon as a paid form opens, so the gateway is
+  // ready by the time they finish typing. On a phone this is the difference
+  // between the sheet appearing instantly and several seconds of "Opening
+  // payment…" after the tap that matters most.
+  useEffect(() => {
+    if (open && isPaidWebinar && !isPreviewMode) void loadRazorpayCheckout();
+  }, [open, isPaidWebinar, isPreviewMode]);
+
+  // Pick up a checkout this page didn't survive.
+  //
+  // If they paid by UPI on a phone, the tab was backgrounded while they were
+  // in GPay/PhonePe and may well have been discarded — in which case this is a
+  // fresh page load and every trace of the checkout is gone except the record
+  // written to localStorage before the sheet opened. Ask the server what
+  // Razorpay says happened; if the payment went through, finish the job the
+  // handler never got to do and send them to the thank-you page.
+  //
+  // This runs on the landing page itself (the dialog is mounted for the whole
+  // page), so it works whether or not they reopen the form. Mount only — the
+  // ref guard matters because React runs effects twice in development.
+  const resumeCheckedRef = React.useRef(false);
+  useEffect(() => {
+    if (!isPaidWebinar || isPreviewMode) return;
+    if (resumeCheckedRef.current) return;
+    resumeCheckedRef.current = true;
+
+    const pending = readPendingCheckout(pageSlug);
+    if (!pending) {
+      forgetPendingCheckout(); // clears an expired or foreign-page leftover
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const paid = await fetchInvitationPaid(pending.invitationId);
+      // A checkout started since this began is this page's to finish, so leave
+      // its record alone.
+      if (cancelled || checkoutInFlightRef.current) return;
+      forgetPendingCheckout();
+      if (paid) goToThankYouRef.current();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPaidWebinar, isPreviewMode, pageSlug]);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form.firstName.trim() || !form.email.trim() || !form.whatsapp.trim()) {
@@ -1945,18 +2108,6 @@ function InvitationDialog({
         ? `${form.countryCode}${form.whatsapp.trim().replace(/^0+/, "")}`
         : "",
       location: form.location.trim(),
-    };
-
-    const goToThankYou = () => {
-      const thankYouData = {
-        title: invitation.successTitle,
-        description: invitation.successDescription,
-        buttons: invitation.thankYouButtons || [],
-        from: pageSlug || "",
-      };
-      sessionStorage.setItem("thankYouData", JSON.stringify(thankYouData));
-      router.push(`/${pageSlug}/thank-you`);
-      setForm(createEmpty());
     };
 
     try {
@@ -1980,11 +2131,23 @@ function InvitationDialog({
           throw new Error(createData.error || "Unable to start payment. Please try again.");
         }
 
-        // 2. Load the gateway.
+        // 2. Load the gateway. Usually already resolved — the dialog started
+        //    this when it opened.
         const loaded = await loadRazorpayCheckout();
         if (!loaded) {
           throw new Error("Couldn't load the payment gateway. Check your connection and try again.");
         }
+
+        // 2b. Record the in-flight checkout before anything can navigate away.
+        //     From here on the page may simply cease to exist (UPI app switch
+        //     on a phone), and this is what lets the next load pick the
+        //     payment back up. See rememberPendingCheckout.
+        rememberPendingCheckout({
+          invitationId: createData.invitationId,
+          slug: pageSlug || "",
+          startedAt: Date.now(),
+        });
+        checkoutInFlightRef.current = true;
 
         // 3. Get out of Razorpay's way before it opens.
         //    Razorpay mounts its sheet on document.body, i.e. outside this
@@ -2013,7 +2176,92 @@ function InvitationDialog({
 
         // 4. Hand off to Razorpay, then verify server-side before enrolling.
         await new Promise<void>((resolve) => {
-          const rzp = new (window as any).Razorpay({
+          // Whatever happens next, the customer must end up somewhere: the
+          // thank-you page, or this form with a message explaining why not.
+          // Being dropped on the bare landing page with no gateway and no
+          // explanation — the old failure mode whenever anything below threw
+          // after the dialog had already closed — is never acceptable.
+          let settled = false;
+          let rzpRef: any = null;
+          // Razorpay's overlay is mounted on document.body, outside React's
+          // tree, so a client-side route change does NOT take it with it — it
+          // survives onto the thank-you page as an orphaned fixed-position
+          // node at z-index 2147483647. Usually it has hidden itself by then,
+          // but "usually" is not good enough for the screen that confirms
+          // someone's money, so tear it down explicitly before navigating.
+          const closeSheet = () => {
+            try {
+              rzpRef?.close?.();
+            } catch {
+              /* already closed */
+            }
+            document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+            document.body.style.overflow = "";
+          };
+          const finish = () => {
+            if (settled) return true;
+            settled = true;
+            checkoutInFlightRef.current = false;
+            window.clearTimeout(openWatchdog);
+            window.clearInterval(returnPoll);
+            return false;
+          };
+          const reopenWithError = (message: string) => {
+            if (finish()) return;
+            setError(message);
+            setLoading(false);
+            closeSheet();
+            onOpenChange(true);
+            resolve();
+          };
+          const succeed = () => {
+            if (finish()) return;
+            forgetPendingCheckout();
+            closeSheet();
+            goToThankYou();
+            resolve();
+          };
+
+          // If the sheet never renders (checkout.js wedged, an in-app browser
+          // that blocks it, a gateway error we're never told about), nothing
+          // else here would ever fire and the customer would just be looking
+          // at the landing page. Give it a few seconds, then put the form back.
+          const openWatchdog = window.setTimeout(() => {
+            if (settled) return;
+            if (document.querySelector(".razorpay-container")) return; // it's up
+            reopenWithError(
+              "The payment window didn't open. Please try again, or use a different browser if it keeps happening."
+            );
+          }, 8000);
+
+          // Recovery for the tab that survives a UPI hand-off but comes back
+          // wedged.
+          //
+          // Paying by UPI sends the customer into GPay/PhonePe and back. When
+          // the tab is discarded on the way, the resume effect on next load
+          // catches it. When the tab survives, Razorpay's sheet normally
+          // picks the payment up itself — but if it doesn't, neither `handler`
+          // nor `ondismiss` ever fires and the customer is left watching a
+          // spinner on a payment that actually went through.
+          //
+          // So once they've genuinely left the page and returned, ask the
+          // server what Razorpay says. Bounded to a handful of checks, and it
+          // sends nothing at all unless the page was actually backgrounded —
+          // a desktop card payment never triggers a single request.
+          let leftThePage = false;
+          let returnChecks = 0;
+          const returnPoll = window.setInterval(async () => {
+            if (settled) return;
+            if (document.visibilityState !== "visible") {
+              leftThePage = true;
+              return;
+            }
+            if (!leftThePage || returnChecks >= 5) return;
+            returnChecks++;
+            if (await fetchInvitationPaid(createData.invitationId)) succeed();
+          }, 5000);
+
+          const options: any = {
             key: createData.key_id,
             amount: createData.amount,
             currency: createData.currency,
@@ -2023,9 +2271,22 @@ function InvitationDialog({
             prefill: {
               name: payload.firstName,
               email: payload.email,
-              contact: payload.whatsappNumber,
+              // Razorpay's mobile checkout renders its own country selector,
+              // and a "+91"-prefixed value doesn't match it — the number box
+              // comes up empty and the customer has to key it in again on the
+              // very screen where drop-off is highest. Send Indian numbers as
+              // the bare national digits it expects, everything else in full.
+              contact:
+                form.countryCode === "+91"
+                  ? form.whatsapp.trim().replace(/^0+/, "")
+                  : payload.whatsappNumber,
             },
+            notes: { invitation_id: createData.invitationId },
             theme: { color: accentColor },
+            // One payment per order. Razorpay's own retry would reuse this
+            // order id after a failure, which our verification treats as a
+            // replay; sending them back to the form is both safer and clearer.
+            retry: { enabled: false },
             handler: async (response: any) => {
               try {
                 const verifyRes = await fetch("/api/invitations/verify-payment", {
@@ -2038,35 +2299,62 @@ function InvitationDialog({
                     invitationId: createData.invitationId,
                   }),
                 });
-                const verifyData = await verifyRes.json().catch(() => ({}));
                 if (!verifyRes.ok) {
+                  const verifyData = await verifyRes.json().catch(() => ({}));
                   throw new Error(verifyData.error || "We couldn't confirm your payment.");
                 }
-                goToThankYou();
+                succeed();
               } catch (verifyErr: any) {
-                // Money may well have left their account here, so never imply
-                // the payment failed — point them at support with the id.
-                setError(
+                // They have almost certainly been charged by this point. Ask
+                // the server what Razorpay says before telling them anything —
+                // a dropped verify request on a phone is far more likely than
+                // a payment that didn't happen.
+                if (await fetchInvitationPaid(createData.invitationId)) {
+                  succeed();
+                  return;
+                }
+                reopenWithError(
                   `${verifyErr.message || "We couldn't confirm your payment."} If you were charged, contact us with payment id ${response?.razorpay_payment_id || "(unknown)"} and we'll sort it out.`
                 );
-                setLoading(false);
-                // Bring the form back so the message is actually visible.
-                onOpenChange(true);
-              } finally {
-                resolve();
               }
             },
             modal: {
-              // Closing the sheet is a cancellation, not an error. Reopen the
-              // form with their details intact so retrying is one tap.
-              ondismiss: () => {
+              // A dismissal usually means they changed their mind — but it
+              // also fires when the sheet closes itself after a UPI hand-off,
+              // in which case they may have paid and simply never triggered
+              // the handler. Ask the server which it was.
+              ondismiss: async () => {
+                if (settled) return;
+                if (await fetchInvitationPaid(createData.invitationId)) {
+                  succeed();
+                  return;
+                }
+                if (finish()) return;
+                forgetPendingCheckout();
                 setLoading(false);
                 onOpenChange(true);
                 resolve();
               },
             },
-          });
-          rzp.open();
+          };
+
+          try {
+            const rzp = new (window as any).Razorpay(options);
+            rzpRef = rzp;
+            // A declined card / failed UPI collect: Razorpay reports it here
+            // and leaves the sheet up. Keep the reason so that if they then
+            // close the sheet, the form explains what went wrong instead of
+            // silently reappearing.
+            rzp.on?.("payment.failed", (evt: any) => {
+              const reason = evt?.error?.description;
+              if (reason) setError(`Payment failed: ${reason}. Please try again.`);
+            });
+            rzp.open();
+          } catch (openErr: any) {
+            reopenWithError(
+              openErr?.message || "Couldn't open the payment window. Please try again."
+            );
+          }
         });
         return;
       }
@@ -2086,6 +2374,13 @@ function InvitationDialog({
       // Covers the paid branch failing before the sheet ever opens, which the
       // finally below deliberately skips.
       setLoading(false);
+      forgetPendingCheckout();
+      // The paid branch closes the dialog before handing off to Razorpay, so
+      // anything thrown after that point would otherwise set an error message
+      // into a form nobody can see and leave the customer standing on the
+      // landing page wondering where the gateway went. Reopening is a no-op
+      // when the dialog is already up.
+      onOpenChange(true);
     } finally {
       // The paid branch owns its own spinner once the sheet is up: it has to
       // stay on through Razorpay and only clear on dismiss or verification.

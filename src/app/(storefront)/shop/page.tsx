@@ -1,10 +1,11 @@
 "use client";
 import { siteConfig } from "@/config/site.config";
+import { ProductGridSkeleton } from "@/components/skeletons/page-skeletons";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Loader2, ShoppingBag, Search, X, SlidersHorizontal, Zap, ArrowRight } from "lucide-react";
+import { ShoppingBag, Search, X, SlidersHorizontal, Zap, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { useCartAnimation } from "@/lib/cart-animation-context";
 import { formatPrice } from "@/lib/utils";
@@ -269,9 +270,7 @@ export default function ShopPage() {
         )}
 
         {loading ? (
-          <div className="flex justify-center items-center py-24">
-            <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
-          </div>
+          <ProductGridSkeleton />
         ) : filtered.length === 0 ? (
           <div className="text-center py-24 text-slate-400">
             <ShoppingBag className="h-10 w-10 mx-auto mb-3 opacity-40" />

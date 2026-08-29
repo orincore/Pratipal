@@ -157,6 +157,10 @@ function BookingModal({ service, onClose }: { service: ServiceItem; onClose: () 
           name: siteConfig.razorpayDisplayName,
           description: `${service.title} — ${selectedFreq.label}`,
           order_id: razorpay_order_id,
+          // Echoed back on the payment entity in every webhook event, so
+          // /api/razorpay/webhook can still find this booking if the order-id
+          // lookup ever comes up empty.
+          notes: { booking_id: booking.id },
           prefill: { name: name.trim(), email: email.trim(), contact: phone.trim() },
           theme: { color: "#059669" },
           handler: async (response: RazorpayResponse) => {

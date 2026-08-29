@@ -29,7 +29,7 @@ export async function GET(
     landing_page_slug: (window as any).landing_page_slug,
     created_at: { $gte: (window as any).registration_start, $lte: (window as any).registration_end },
   })
-    .select("first_name email whatsapp_number location created_at")
+    .select("first_name email whatsapp_number location payment_status amount currency razorpay_payment_id paid_at created_at")
     .sort({ created_at: -1 })
     .lean();
 

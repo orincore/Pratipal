@@ -39,3 +39,13 @@ next-env.d.ts
 
 # uploads
 /public/uploads
+
+# build output & caches
+.next-*/  # temporary build dirs, e.g. the .next-buildcheck used to verify a build without touching a running dev server
+.turbo/  # Turbopack cache
+.swc/  # SWC compiler cache
+/dist/
+
+# process logs
+nohup.out  # left behind by backgrounded dev servers
+*.log

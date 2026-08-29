@@ -26,9 +26,15 @@ export async function GET(
 
   const withCounts = await Promise.all(
     windows.map(async (w: any) => {
+      // Enrolled only, so a paid webinar's headline count isn't inflated by
+      // abandoned checkouts. Legacy rows have no payment_status field.
       const registrant_count = await InvitationRequest.countDocuments({
         landing_page_slug: w.landing_page_slug,
         created_at: { $gte: w.registration_start, $lte: w.registration_end },
+        $or: [
+          { payment_status: { $in: ["not_required", "paid"] } },
+          { payment_status: { $exists: false } },
+        ],
       });
       return { ...w, id: w._id.toString(), _id: undefined, registrant_count };
     })

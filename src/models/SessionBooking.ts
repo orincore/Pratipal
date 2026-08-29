@@ -18,11 +18,14 @@ export interface ISessionBooking extends Document {
   session_date?: Date;
   session_time?: string;
   amount: number;
-  payment_status: "pending" | "paid" | "failed";
+  payment_status: "pending" | "paid" | "failed" | "refunded";
   booking_status: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   razorpay_signature?: string;
+  paid_at?: Date;
+  refunded_at?: Date;
+  payment_failure_reason?: string;
   whatsapp_redirect_url?: string;
   admin_notes?: string;
   created_at: Date;
@@ -46,7 +49,7 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
     session_date: { type: Date },
     session_time: { type: String },
     amount: { type: Number, required: true },
-    payment_status: { type: String, enum: ["pending", "paid", "failed"], default: "pending" },
+    payment_status: { type: String, enum: ["pending", "paid", "failed", "refunded"], default: "pending" },
     booking_status: {
       type: String,
       enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"],
@@ -55,6 +58,9 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
     razorpay_order_id: { type: String },
     razorpay_payment_id: { type: String },
     razorpay_signature: { type: String },
+    paid_at: { type: Date },
+    refunded_at: { type: Date },
+    payment_failure_reason: { type: String },
     whatsapp_redirect_url: { type: String },
     admin_notes: { type: String },
   },
@@ -73,7 +79,21 @@ const SessionBookingSchema = new Schema<ISessionBooking>(
 
 SessionBookingSchema.index({ customer_email: 1 });
 SessionBookingSchema.index({ payment_status: 1 });
+// The webhook's only handle on a booking is the gateway order id.
+SessionBookingSchema.index({ razorpay_order_id: 1 });
 SessionBookingSchema.index({ order_type: 1 });
 
-export default mongoose.models.SessionBooking ||
-  mongoose.model<ISessionBooking>("SessionBooking", SessionBookingSchema);
+// Re-register when the cached model predates the payment fields added for the
+// Razorpay webhook — otherwise a hot-reloaded dev process silently drops them.
+const SessionBookingModel = (mongoose.models.SessionBooking as mongoose.Model<ISessionBooking> | undefined)?.schema?.path("paid_at")
+  ? (mongoose.models.SessionBooking as mongoose.Model<ISessionBooking>)
+  : (() => {
+      try {
+        return mongoose.model<ISessionBooking>("SessionBooking", SessionBookingSchema);
+      } catch {
+        delete mongoose.models.SessionBooking;
+        return mongoose.model<ISessionBooking>("SessionBooking", SessionBookingSchema);
+      }
+    })();
+
+export default SessionBookingModel;

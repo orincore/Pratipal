@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { CoursesSkeleton } from "@/components/skeletons/page-skeletons";
 import { useRouter } from "next/navigation";
-import { Loader2, BookOpen, Clock, TrendingUp } from "lucide-react";
+import { BookOpen, Clock, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,15 +48,10 @@ export default function CoursesPage() {
     }
   }
 
+  // Same skeleton the route-level loading.tsx shows, so a client-side refetch
+  // looks identical to a fresh navigation instead of collapsing to a spinner.
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-          <p className="text-sm text-slate-600">Loading courses...</p>
-        </div>
-      </div>
-    );
+    return <CoursesSkeleton />;
   }
 
   const featuredCourses = courses.filter(c => c.featured);

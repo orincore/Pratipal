@@ -1,35 +1,14 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import getDB from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
-import { sendWhatsappNotification } from "@/lib/whatsapp";
-import { buildInvitationConfirmationEmail } from "@/lib/invitation-email";
+import { resolveInvitationPricing } from "@/lib/invitation-pricing";
+import { sendInvitationConfirmation } from "@/lib/invitation-notify";
+
+// Re-exported for the callers that already imported it from this route.
+export { getLandingPageMeta } from "@/lib/invitation-notify";
 
 function sanitizeText(value?: string | null) {
   return (value ?? "").trim();
-}
-
-interface LandingPageMeta {
-  title?: string;
-  whatsappGroupLink?: string;
-}
-
-export async function getLandingPageMeta(
-  landingPageId: string | undefined,
-  landingPageSlug: string | undefined
-): Promise<LandingPageMeta> {
-  const { LandingPage } = await getDB();
-  const query = landingPageId ? { _id: landingPageId } : landingPageSlug ? { slug: landingPageSlug } : null;
-  if (!query) return {};
-
-  const page = await LandingPage.findOne(query).select("title content").lean();
-  const buttons = (page as any)?.content?.templateData?.invitation?.thankYouButtons as
-    | { icon?: string; url?: string }[]
-    | undefined;
-  return {
-    title: (page as any)?.title,
-    whatsappGroupLink: buttons?.find((b) => b.icon === "whatsapp" && b.url)?.url,
-  };
 }
 
 export async function POST(req: NextRequest) {
@@ -50,58 +29,41 @@ export async function POST(req: NextRequest) {
     const { InvitationRequest } = await getDB();
 
     const rawLandingPageId = sanitizeText(body.landingPageId);
+    const rawLandingPageSlug = sanitizeText(body.landingPageSlug);
+
+    // This endpoint enrols someone outright, so it must refuse to run for a
+    // webinar that charges. Without this check anyone could skip the Razorpay
+    // flow by POSTing here directly and get a paid seat for free.
+    const pricing = await resolveInvitationPricing(rawLandingPageId, rawLandingPageSlug);
+    if (pricing?.isPaid) {
+      return NextResponse.json(
+        { error: "This webinar requires payment. Please register through the payment form." },
+        { status: 402 }
+      );
+    }
+
     const invitationData = {
       // landing_page_id is an ObjectId in the schema — only set it when it's a
       // valid id, otherwise Mongoose throws a CastError and the whole sign-up fails.
       landing_page_id: /^[a-f\d]{24}$/i.test(rawLandingPageId) ? rawLandingPageId : undefined,
-      landing_page_slug: sanitizeText(body.landingPageSlug) || undefined,
+      landing_page_slug: rawLandingPageSlug || undefined,
       first_name: firstName,
       email,
       whatsapp_number: whatsappNumber || undefined,
       location: location || undefined,
+      payment_status: "not_required" as const,
     };
 
     await InvitationRequest.create(invitationData);
 
-    // Email and WhatsApp are both best-effort and independent: a failure in
-    // one must not prevent the other from sending, and neither may make the
-    // sign-up appear to fail since the request has already been saved.
-    const landingPageMeta = await getLandingPageMeta(invitationData.landing_page_id, invitationData.landing_page_slug).catch(
-      () => ({} as LandingPageMeta)
-    );
-
-    try {
-      const confirmationEmail = buildInvitationConfirmationEmail({
-        firstName,
-        email,
-        whatsappNumber,
-        location,
-        whatsappGroupLink: landingPageMeta.whatsappGroupLink,
-      });
-      await sendMail({
-        to: email,
-        subject: confirmationEmail.subject,
-        html: confirmationEmail.html,
-      });
-    } catch (mailErr) {
-      console.error("Invitation email send failed (sign-up still saved)", mailErr);
-    }
-
-    // Instant WhatsApp confirmation to the registrant, replacing the admin
-    // email notice (submissions are visible in the admin dashboard instead).
-    // Wrapped in after() because on Vercel the serverless function is frozen
-    // as soon as the response is sent — an un-awaited fetch left running in
-    // the background never completes there (it only worked on localhost
-    // because the dev server process stays alive).
-    if (whatsappNumber) {
-      after(() =>
-        sendWhatsappNotification({
-          event: "invitation_registration_confirmed",
-          to: whatsappNumber,
-          data: { firstName, topicTitle: landingPageMeta.title },
-        }).catch(() => {})
-      );
-    }
+    await sendInvitationConfirmation({
+      firstName,
+      email,
+      whatsappNumber,
+      location,
+      landingPageId: invitationData.landing_page_id,
+      landingPageSlug: invitationData.landing_page_slug,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
@@ -129,7 +91,7 @@ export async function GET(req: NextRequest) {
   }
 
   const invitations = await InvitationRequest.find(filter)
-    .select('landing_page_id landing_page_slug first_name email whatsapp_number location created_at')
+    .select('landing_page_id landing_page_slug first_name email whatsapp_number location payment_status amount currency razorpay_payment_id paid_at created_at')
     .sort({ created_at: -1 })
     .lean();
 
