@@ -1598,21 +1598,12 @@ export function TemplateEditor({
                   className="h-8 text-xs bg-gray-50 border-gray-200"
                   placeholder="Only 23 seats left · closes Sunday"
                 />
-                <div>
-                  <Label className="text-xs text-gray-500">Countdown ends at</Label>
-                  <Input
-                    type="datetime-local"
-                    value={toDatetimeLocal(data.floatingButton.countdownTo)}
-                    onChange={(e) => update("floatingButton", { countdownTo: fromDatetimeLocal(e.target.value) })}
-                    className="h-8 text-xs mt-1 bg-gray-50 border-gray-200"
-                  />
-                </div>
-                <Input
-                  value={data.floatingButton.countdownLabel ?? ''}
-                  onChange={(e) => update("floatingButton", { countdownLabel: e.target.value })}
-                  className="h-8 text-xs bg-gray-50 border-gray-200"
-                  placeholder="Countdown label — e.g. Starts in"
-                />
+                <p className="text-[10px] text-gray-400 leading-relaxed">
+                  This bar shows the webinar date/time automatically, from the
+                  countdown set in <span className="font-medium text-gray-500">Announcement Bar</span>.
+                  Set it once there and both update together — nothing to
+                  configure here.
+                </p>
                 <div>
                   <Label className="text-xs text-gray-500">Short button label (bar only)</Label>
                   <Input

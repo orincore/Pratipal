@@ -19,6 +19,8 @@ import {
   Video,
   Pencil,
   ExternalLink,
+  ArrowUpDown,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,10 +78,33 @@ function splitLocalDateTime(iso: string): { date: string; time: string } {
   };
 }
 
+type SortField = "created_at" | "first_name" | "email";
+
 export default function LandingPageInvitationsPage() {
   const params = useParams();
   const router = useRouter();
   const landingPageId = params.id as string;
+
+  const [activeTab, setActiveTab] = useState<"windows" | "participants">("windows");
+
+  // "All Participants" tab — registrants for this page who fall outside
+  // every existing window's registration range (or everyone, if the page
+  // has no windows at all). Server-paginated/sorted/filtered — a page can
+  // have thousands of registrants, unlike a single window's slice.
+  const [participants, setParticipants] = useState<InvitationRequest[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [participantsError, setParticipantsError] = useState<string | null>(null);
+  const [participantsTotal, setParticipantsTotal] = useState(0);
+  const [participantsPages, setParticipantsPages] = useState(1);
+  const [participantsWindowCount, setParticipantsWindowCount] = useState(0);
+  const [participantsPage, setParticipantsPage] = useState(1);
+  const participantsLimit = 20;
+  const [participantsSortBy, setParticipantsSortBy] = useState<SortField>("created_at");
+  const [participantsSortDir, setParticipantsSortDir] = useState<"asc" | "desc">("desc");
+  const [participantsSearchInput, setParticipantsSearchInput] = useState("");
+  const [participantsSearch, setParticipantsSearch] = useState(""); // debounced
+  const [participantsFrom, setParticipantsFrom] = useState("");
+  const [participantsTo, setParticipantsTo] = useState("");
 
   const [windows, setWindows] = useState<InvitationWindow[]>([]);
   const [loadingWindows, setLoadingWindows] = useState(true);
@@ -150,6 +175,88 @@ export default function LandingPageInvitationsPage() {
   useEffect(() => {
     fetchWindows();
   }, [fetchWindows]);
+
+  // Debounce the search box — otherwise every keystroke fires a fresh
+  // server round-trip instead of just the one once typing pauses.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setParticipantsSearch(participantsSearchInput.trim());
+      setParticipantsPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [participantsSearchInput]);
+
+  const fetchParticipants = useCallback(async () => {
+    if (!landingPageId) return;
+    setParticipantsLoading(true);
+    setParticipantsError(null);
+    try {
+      const qs = new URLSearchParams({
+        landingPageId,
+        unwindowed: "true",
+        page: String(participantsPage),
+        limit: String(participantsLimit),
+        sortBy: participantsSortBy,
+        sortDir: participantsSortDir,
+      });
+      if (participantsSearch) qs.set("search", participantsSearch);
+      if (participantsFrom) qs.set("from", new Date(participantsFrom).toISOString());
+      if (participantsTo) qs.set("to", new Date(`${participantsTo}T23:59:59.999`).toISOString());
+
+      const res = await fetch(`/api/invitations?${qs.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to load participants");
+      }
+      const data = await res.json();
+      setParticipants(data.invitations ?? []);
+      setParticipantsTotal(data.total ?? 0);
+      setParticipantsPages(data.pages ?? 1);
+      setParticipantsWindowCount(data.windowCount ?? 0);
+    } catch (err: any) {
+      setParticipantsError(err.message || "Unable to load participants");
+      setParticipants([]);
+    } finally {
+      setParticipantsLoading(false);
+    }
+  }, [landingPageId, participantsPage, participantsSortBy, participantsSortDir, participantsSearch, participantsFrom, participantsTo]);
+
+  useEffect(() => {
+    if (activeTab === "participants") fetchParticipants();
+  }, [activeTab, fetchParticipants]);
+
+  const toggleParticipantsSort = useCallback((field: SortField) => {
+    setParticipantsPage(1);
+    setParticipantsSortBy((prev) => {
+      if (prev !== field) {
+        setParticipantsSortDir(field === "created_at" ? "desc" : "asc");
+        return field;
+      }
+      setParticipantsSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return prev;
+    });
+  }, []);
+
+  const downloadParticipantsCSV = useCallback(() => {
+    const headers = ["Name", "Email", "WhatsApp", "Location", "Submitted At"];
+    const rows = participants.map((inv) => [
+      inv.first_name,
+      inv.email,
+      inv.whatsapp_number || "",
+      inv.location || "",
+      fmt(inv.created_at),
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `all-participants-${landingPageId}-page${participantsPage}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [participants, landingPageId, participantsPage]);
 
   const openWindow = useCallback(async (w: InvitationWindow) => {
     setSelectedWindow(w);
@@ -319,7 +426,7 @@ export default function LandingPageInvitationsPage() {
     );
   }, [invitations, search]);
 
-  const handleDeleteInvitation = useCallback(async (id: string) => {
+  const handleDeleteInvitation = useCallback(async (id: string, fromParticipantsTab = false) => {
     if (!confirm("Delete this invitation? This cannot be undone.")) return;
     setDeleting(id);
     try {
@@ -328,13 +435,20 @@ export default function LandingPageInvitationsPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to delete");
       }
-      setInvitations((prev) => prev.filter((inv) => inv.id !== id));
+      if (fromParticipantsTab) {
+        // Re-fetch rather than splice locally — deleting the last row on a
+        // page should pull the next page back rather than leave a hole, and
+        // total/pages need to reflect the server's count either way.
+        await fetchParticipants();
+      } else {
+        setInvitations((prev) => prev.filter((inv) => inv.id !== id));
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete invitation");
     } finally {
       setDeleting(null);
     }
-  }, []);
+  }, [fetchParticipants]);
 
   const downloadCSV = useCallback(() => {
     const headers = ["Name", "Email", "WhatsApp", "Location", "Submitted At"];
@@ -370,7 +484,11 @@ export default function LandingPageInvitationsPage() {
         </Button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <h1 className="text-sm font-semibold text-gray-800 truncate">
-            {selectedWindow ? `Registrants — ${selectedWindow.name}` : "Registration Windows"}
+            {selectedWindow
+              ? `Registrants — ${selectedWindow.name}`
+              : activeTab === "windows"
+              ? "Registration Windows"
+              : "All Participants"}
           </h1>
           <span className="text-[11px] text-gray-400 font-mono hidden sm:inline">Page ID: {landingPageId}</span>
         </div>
@@ -386,7 +504,198 @@ export default function LandingPageInvitationsPage() {
         </Button>
       </div>
 
-      {!selectedWindow ? (
+      {!selectedWindow && (
+        <div className="flex bg-white border-b border-gray-200 px-4 gap-1 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab("windows")}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+              activeTab === "windows"
+                ? "border-violet-600 text-violet-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Registration Windows
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("participants")}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
+              activeTab === "participants"
+                ? "border-violet-600 text-violet-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <UserRound className="h-3.5 w-3.5" /> All Participants
+          </button>
+        </div>
+      )}
+
+      {!selectedWindow && activeTab === "participants" ? (
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="border-b border-gray-200 bg-white px-4 py-3 flex flex-col gap-3">
+            <p className="text-xs text-gray-500">
+              Every registrant for this page who isn&apos;t already claimed by a registration window
+              above{participantsWindowCount === 0 ? " — this page has no windows yet, so that's everyone" : ""}.
+              {participantsWindowCount > 0 && ` (${participantsWindowCount} window${participantsWindowCount === 1 ? "" : "s"} exist${participantsWindowCount === 1 ? "s" : ""} — their registrants are shown under Registration Windows instead.)`}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                value={participantsSearchInput}
+                onChange={(e) => setParticipantsSearchInput(e.target.value)}
+                placeholder="Search name, email, WhatsApp or location"
+                className="h-9 text-xs w-64"
+              />
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-400 font-medium">From</span>
+                <input
+                  type="date"
+                  value={participantsFrom}
+                  onChange={(e) => { setParticipantsFrom(e.target.value); setParticipantsPage(1); }}
+                  className="h-9 border border-gray-200 rounded-lg px-2.5 text-xs text-gray-700 bg-white"
+                />
+                <span className="text-[11px] text-gray-400 font-medium">To</span>
+                <input
+                  type="date"
+                  value={participantsTo}
+                  onChange={(e) => { setParticipantsTo(e.target.value); setParticipantsPage(1); }}
+                  className="h-9 border border-gray-200 rounded-lg px-2.5 text-xs text-gray-700 bg-white"
+                />
+                {(participantsFrom || participantsTo) && (
+                  <button
+                    type="button"
+                    onClick={() => { setParticipantsFrom(""); setParticipantsTo(""); setParticipantsPage(1); }}
+                    className="text-[11px] text-gray-400 hover:text-gray-600 underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex-1" />
+              <Button variant="outline" size="sm" className="h-9 text-xs" onClick={downloadParticipantsCSV} disabled={participants.length === 0}>
+                <Download className="h-3.5 w-3.5 mr-1" /> Export Page CSV
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 text-xs" onClick={fetchParticipants} disabled={participantsLoading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${participantsLoading ? "animate-spin" : ""}`} /> Refresh
+              </Button>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-gray-400">
+              Sort by:
+              {([
+                ["created_at", "Submitted"],
+                ["first_name", "Name"],
+                ["email", "Email"],
+              ] as [SortField, string][]).map(([field, label]) => (
+                <button
+                  key={field}
+                  type="button"
+                  onClick={() => toggleParticipantsSort(field)}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold cursor-pointer ${
+                    participantsSortBy === field ? "bg-violet-50 text-violet-700" : "hover:bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {label}
+                  {participantsSortBy === field && (
+                    <ArrowUpDown className={`h-3 w-3 ${participantsSortDir === "asc" ? "rotate-180" : ""} transition-transform`} />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            {participantsLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-2">
+                <RefreshCw className="h-6 w-6 animate-spin" />
+                <p className="text-sm">Loading participants…</p>
+              </div>
+            ) : participantsError ? (
+              <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm text-red-600">{participantsError}</div>
+            ) : participants.length === 0 ? (
+              <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-8 text-center text-sm text-gray-500">
+                {participantsSearch || participantsFrom || participantsTo
+                  ? "No participants match these filters."
+                  : "No participants outside a registration window yet."}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {participants.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <p className="text-base font-semibold text-gray-900">{inv.first_name}</p>
+                        {inv.location && (
+                          <Badge variant="outline" className="text-[11px] flex items-center gap-1">
+                            {inv.location}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3.5 w-3.5" /> {inv.email}
+                        </span>
+                        {inv.whatsapp_number && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3.5 w-3.5" /> {inv.whatsapp_number}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="text-xs text-gray-400 uppercase tracking-wide">Submitted</div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <CalendarClock className="h-4 w-4 text-violet-500" />
+                        {fmt(inv.created_at)}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteInvitation(inv.id, true)}
+                        disabled={deleting === inv.id}
+                      >
+                        <Trash2 className={`h-3.5 w-3.5 mr-1 ${deleting === inv.id ? "animate-spin" : ""}`} />
+                        {deleting === inv.id ? "Deleting…" : "Delete"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {participantsPages > 1 && (
+            <div className="border-t border-gray-200 bg-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+              <span className="text-[11px] text-gray-400">
+                {participantsTotal.toLocaleString()} total · Page {participantsPage} of {participantsPages}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setParticipantsPage((p) => Math.max(1, p - 1))}
+                  disabled={participantsPage <= 1 || participantsLoading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setParticipantsPage((p) => Math.min(participantsPages, p + 1))}
+                  disabled={participantsPage >= participantsPages || participantsLoading}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : !selectedWindow ? (
         <div className="flex-1 overflow-hidden flex flex-col">
           <div className="border-b border-gray-200 bg-white px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>

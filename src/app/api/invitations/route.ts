@@ -81,10 +81,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { InvitationRequest } = await getDB();
   const url = new URL(req.url);
   const landingPageId = url.searchParams.get("landingPageId");
 
+  // "Unwindowed" tab on the invitations page: registrants for this page who
+  // don't fall inside any existing InvitationWindow's registration range —
+  // paginated/sortable/date-filterable, since a page with no windows at all
+  // means EVERY registrant it's ever had lands in this one bucket.
+  if (url.searchParams.get("unwindowed") === "true") {
+    return getUnwindowedInvitations(url, landingPageId);
+  }
+
+  const { InvitationRequest } = await getDB();
   const filter: any = {};
   if (landingPageId) {
     filter.landing_page_id = landingPageId;
@@ -102,6 +110,77 @@ export async function GET(req: NextRequest) {
   }));
 
   return NextResponse.json({ invitations: data });
+}
+
+const SORTABLE_FIELDS = new Set(["created_at", "first_name", "email"]);
+
+async function getUnwindowedInvitations(url: URL, landingPageId: string | null) {
+  if (!landingPageId || !/^[a-f\d]{24}$/i.test(landingPageId)) {
+    return NextResponse.json({ error: "A valid landingPageId is required" }, { status: 400 });
+  }
+
+  const { InvitationRequest, InvitationWindow, LandingPage } = await getDB();
+
+  const page = await LandingPage.findById(landingPageId).select("slug").lean();
+  if (!page) {
+    return NextResponse.json({ error: "Landing page not found" }, { status: 404 });
+  }
+  const slug = (page as any).slug;
+
+  const pageNum = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20", 10) || 20));
+  const sortByParam = url.searchParams.get("sortBy") || "created_at";
+  const sortBy = SORTABLE_FIELDS.has(sortByParam) ? sortByParam : "created_at";
+  const sortDir = url.searchParams.get("sortDir") === "asc" ? 1 : -1;
+  const search = (url.searchParams.get("search") || "").trim();
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+
+  const windows = await InvitationWindow.find({ landing_page_slug: slug })
+    .select("registration_start registration_end")
+    .lean();
+
+  const filter: any = { landing_page_slug: slug };
+  // No windows at all → nothing to exclude, this IS every registrant the
+  // page has ever had. With windows, exclude anyone already claimed by one
+  // of them (their created_at falls inside its registration range).
+  if (windows.length > 0) {
+    filter.$nor = windows.map((w: any) => ({
+      created_at: { $gte: w.registration_start, $lte: w.registration_end },
+    }));
+  }
+  if (from || to) {
+    filter.created_at = {
+      ...(from ? { $gte: new Date(from) } : {}),
+      ...(to ? { $lte: new Date(to) } : {}),
+    };
+  }
+  if (search) {
+    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [{ first_name: regex }, { email: regex }, { whatsapp_number: regex }, { location: regex }];
+  }
+
+  const total = await InvitationRequest.countDocuments(filter);
+  const invitations = await InvitationRequest.find(filter)
+    .select('landing_page_id landing_page_slug first_name email whatsapp_number location payment_status amount currency razorpay_payment_id paid_at created_at')
+    .sort({ [sortBy]: sortDir })
+    .skip((pageNum - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  const data = invitations.map((inv: any) => ({
+    ...inv,
+    id: inv._id.toString(),
+    _id: undefined,
+  }));
+
+  return NextResponse.json({
+    invitations: data,
+    total,
+    page: pageNum,
+    pages: Math.max(1, Math.ceil(total / limit)),
+    windowCount: windows.length,
+  });
 }
 
 export async function DELETE(req: NextRequest) {

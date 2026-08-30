@@ -232,10 +232,17 @@ function YouTubeEmbed({ videoId, autoplay, muted, className }: {
   // Use the muted setting as provided (browser may block unmuted autoplay)
   const src = `https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? "1" : "0"}&mute=${muted ? "1" : "0"}&loop=${autoplay ? "1" : "0"}&playlist=${videoId}&rel=0&modestbranding=1&playsinline=1`;
 
+  // Blanked (fully unloaded, not just paused) for the duration of a Razorpay
+  // checkout — see useSuspendDuringCheckout. Restoring the real src afterwards
+  // just replays the embed from the top, which is a non-issue for a muted
+  // background/teaser video and far cheaper than losing a payment.
+  const [suspended, setSuspended] = React.useState(false);
+  useSuspendDuringCheckout(setSuspended);
+
   return (
     <iframe
       key={`${videoId}-${autoplay}`}
-      src={src}
+      src={suspended ? "about:blank" : src}
       className={["absolute inset-0 h-full w-full", className].filter(Boolean).join(" ")}
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowFullScreen
@@ -331,6 +338,30 @@ function useCountdown(target?: string) {
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// The docked mobile bar shows the webinar's actual date/time instead of a
+// second countdown (see DockedWebinarDate) — sourced from the SAME
+// announcementBar.countdownTo instant the top bar counts down to, so there's
+// exactly one place to set it and both widgets update together. Fixed to IST
+// rather than the viewer's local zone: a live countdown is timezone-agnostic
+// (it just measures a duration), but a printed date/time is a promise about
+// when the event actually happens, and every one of these webinars runs on
+// Indian time regardless of who's reading the page.
+// Broken into the same shape <Countdown>'s chips expect — {value, unit} pairs
+// — so DockedWebinarDate can reuse that exact chip look (glowing bordered
+// box, bold value, small caption) instead of inventing a second visual
+// language for "when this is."
+function formatWebinarDateChips(iso?: string): { value: string; unit: string }[] | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const tz = "Asia/Kolkata";
+  return [
+    { value: d.toLocaleDateString("en-IN", { day: "2-digit", timeZone: tz }), unit: "Date" },
+    { value: d.toLocaleDateString("en-IN", { month: "short", timeZone: tz }).toUpperCase(), unit: "Month" },
+    { value: d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: tz }), unit: "IST" },
+  ];
+}
 
 function Countdown({
   target,
@@ -463,21 +494,16 @@ function CountUpValue({ value, className, style }: { value: string; className?: 
 }
 
 // ---------------------------------------------------------------------------
-// Countdown sized for the docked mobile bar: accent-lit chips with unit
-// captions, a live pulse dot, and a seconds chip that ticks. Separate from
-// <Countdown> because that one is tuned for full-width sections and its chips
-// go invisible against an already-dark strip.
+// Webinar date for the docked mobile bar, in the exact chip style the old
+// countdown used there — same pulse-dot label row, same glowing bordered
+// boxes with a bold value over a small caption — just showing when the
+// thing happens instead of counting down to it (the top announcement bar
+// already owns that). Reads announcementBar.countdownTo directly so there's
+// still only one field to set for both widgets.
 // ---------------------------------------------------------------------------
-function DockedCountdown({ target, label, accent }: { target?: string; label?: string; accent: string }) {
-  const time = useCountdown(target);
-  if (!time) return null;
-
-  const parts = [
-    ...(time.days > 0 ? [{ value: time.days, unit: "Days" }] : []),
-    { value: time.hours, unit: "Hrs" },
-    { value: time.minutes, unit: "Min" },
-    { value: time.seconds, unit: "Sec" },
-  ];
+function DockedWebinarDate({ target, accent, label = "Webinar Date" }: { target?: string; accent: string; label?: string }) {
+  const parts = formatWebinarDateChips(target);
+  if (!parts) return null;
 
   return (
     <div className="min-w-0">
@@ -498,19 +524,17 @@ function DockedCountdown({ target, label, accent }: { target?: string; label?: s
       <span className="flex items-center gap-[3px] sm:gap-1.5">
         {parts.map((p, i) => (
           <React.Fragment key={p.unit}>
-            {i > 0 && <span className="font-display text-[11px] font-bold leading-none text-white/25">:</span>}
+            {i > 0 && <span className="font-display text-[11px] font-bold leading-none text-white/25">•</span>}
             <span
-              className={`flex min-w-[27px] flex-col items-center rounded-[9px] px-1 py-[3px] sm:min-w-[32px] sm:px-1.5 ${
-                p.unit === "Sec" ? "lt-tick" : ""
-              }`}
+              className="flex min-w-[30px] flex-col items-center rounded-[9px] px-1.5 py-[3px] sm:min-w-[36px] sm:px-2"
               style={{
                 backgroundColor: hexToRgba(accent, 0.2),
                 border: `1px solid ${hexToRgba(accent, 0.5)}`,
                 boxShadow: `0 0 12px -4px ${hexToRgba(accent, 0.9)}`,
               }}
             >
-              <span className="font-display text-[15px] font-bold leading-none tabular-nums text-white sm:text-base">
-                {pad2(p.value)}
+              <span className="font-display text-[13px] font-bold leading-none tabular-nums text-white sm:text-[15px]">
+                {p.value}
               </span>
               <span className="font-body mt-[3px] text-[6.5px] font-semibold uppercase leading-none tracking-[0.1em] text-white/60 sm:text-[7.5px]">
                 {p.unit}
@@ -1640,6 +1664,26 @@ function VideoWithControls({
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
 
+  // Pause for the duration of a Razorpay checkout (see
+  // useSuspendDuringCheckout) and resume afterwards if it was genuinely
+  // playing. Muted playback is exempt from the browser's user-gesture
+  // requirement, so the programmatic resume works even though nothing was
+  // just tapped; play() still returns a promise that can reject (autoplay
+  // policy, the element having gone away), hence the swallowed catch.
+  const wasPlayingRef = React.useRef(false);
+  useSuspendDuringCheckout(
+    React.useCallback((active: boolean) => {
+      const video = videoRef.current;
+      if (!video) return;
+      if (active) {
+        wasPlayingRef.current = !video.paused;
+        video.pause();
+      } else if (wasPlayingRef.current) {
+        video.play().catch(() => {});
+      }
+    }, [])
+  );
+
   const togglePlayPause = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -1685,7 +1729,6 @@ function VideoWithControls({
         ref={videoRef}
         src={src}
         className={className}
-        style={{ objectFit: "cover" }}
         autoPlay={autoplay}
         muted={mute}
         loop={autoplay}
@@ -1743,6 +1786,36 @@ function loadRazorpayCheckout(): Promise<boolean> {
     document.body.appendChild(script);
   });
   return razorpayScriptPromise;
+}
+
+// While Razorpay's sheet is up, every autoplaying YouTube embed or native
+// <video> elsewhere on the page keeps decoding/streaming underneath it. That
+// stacks on top of the gateway's own iframe(s) at exactly the moment iOS's
+// per-tab memory ceiling is tightest — Safari and Chrome-on-iOS both run on
+// WebKit, which reloads a tab outright (Jetsam) once it's judged to be using
+// too much memory. That reload looks to the customer like "Razorpay closed
+// and the page refreshed," is inherently load-dependent (so it doesn't
+// happen every time), and doesn't occur on desktop, where the memory ceiling
+// is far higher — matching exactly what's being reported. Media below
+// subscribes to this and suspends itself for the duration of a checkout;
+// see handleSubmit for where it's toggled.
+type CheckoutMediaListener = (active: boolean) => void;
+const checkoutMediaListeners = new Set<CheckoutMediaListener>();
+function setCheckoutMediaActive(active: boolean) {
+  checkoutMediaListeners.forEach((listener) => listener(active));
+}
+function useSuspendDuringCheckout(handler: (active: boolean) => void) {
+  const handlerRef = React.useRef(handler);
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
+  useEffect(() => {
+    const listener: CheckoutMediaListener = (active) => handlerRef.current(active);
+    checkoutMediaListeners.add(listener);
+    return () => {
+      checkoutMediaListeners.delete(listener);
+    };
+  }, []);
 }
 
 // A checkout that has been handed to Razorpay but not yet confirmed.
@@ -2166,6 +2239,11 @@ function InvitationDialog({
         // page") if body is still pinned position:fixed when it fires. See
         // unlockScroll's comment for the full race this closes.
         unlockScroll();
+        // Suspend background video/YouTube embeds now that the landing page
+        // is visible again behind the (about-to-open) sheet — see
+        // useSuspendDuringCheckout for why that combination matters on iOS.
+        // Cleared in finish(), whichever way the checkout ends.
+        setCheckoutMediaActive(true);
         // Let Radix finish unmounting before the sheet mounts.
         await new Promise((r) => setTimeout(r, 280));
         if (typeof document !== "undefined") {
@@ -2204,7 +2282,61 @@ function InvitationDialog({
             checkoutInFlightRef.current = false;
             window.clearTimeout(openWatchdog);
             window.clearInterval(returnPoll);
+            disarmHistoryGuard();
+            setCheckoutMediaActive(false);
             return false;
+          };
+
+          // Razorpay pushes its own history entry when the sheet opens so
+          // that a single Android back-press / desktop back click dismisses
+          // just the sheet. iOS's edge-swipe-back gesture doesn't respect
+          // that one-entry-at-a-time contract the same way — a decisive swipe
+          // can overshoot straight past it to whatever page came before this
+          // one. That lands on a URL Next's client router never navigated to
+          // itself, so it falls back to a hard reload — which is exactly
+          // "Razorpay closes and the page refreshes." Push one more guard
+          // entry before the sheet opens and re-push it on every popstate
+          // for as long as checkout is unsettled, so the browser is never
+          // actually allowed to leave; treat the attempt like a dismissal
+          // instead (ask Razorpay/the server what really happened).
+          let historyGuardArmed = false;
+          const onPopState = () => {
+            if (settled) return;
+            try {
+              window.history.pushState({ __checkoutGuard: true }, "", window.location.href);
+            } catch {
+              // Storage-restricted browser (rare, private-mode edge case) —
+              // nothing more we can do; the popstate is at least still
+              // handled like a dismissal below instead of falling through.
+            }
+            void (async () => {
+              if (await fetchInvitationPaid(createData.invitationId)) {
+                succeed();
+                return;
+              }
+              reopenWithError("Payment was interrupted. Please try again.");
+            })();
+          };
+          const armHistoryGuard = () => {
+            if (historyGuardArmed) return;
+            historyGuardArmed = true;
+            try {
+              window.history.pushState({ __checkoutGuard: true }, "", window.location.href);
+            } catch {
+              /* see onPopState's catch — degrades to no guard, not a crash */
+            }
+            window.addEventListener("popstate", onPopState);
+          };
+          const disarmHistoryGuard = () => {
+            if (!historyGuardArmed) return;
+            historyGuardArmed = false;
+            window.removeEventListener("popstate", onPopState);
+            // The pushed guard entry is left in history rather than popped:
+            // popping it here would fire this same popstate handler (or race
+            // with whatever navigation is already happening, e.g. the
+            // router.push to /thank-you). It's the same URL as the entry
+            // below it, so at worst it costs the customer one extra,
+            // invisible back-press later — far cheaper than the alternative.
           };
           const reopenWithError = (message: string) => {
             if (finish()) return;
@@ -2339,6 +2471,7 @@ function InvitationDialog({
           };
 
           try {
+            armHistoryGuard();
             const rzp = new (window as any).Razorpay(options);
             rzpRef = rzp;
             // A declined card / failed UPI collect: Razorpay reports it here
@@ -2473,11 +2606,16 @@ function InvitationDialog({
                   <Input
                     id="lt-inv-whatsapp"
                     value={form.whatsapp}
-                    onChange={(e) => update("whatsapp", e.target.value)}
+                    // Digits only, stripped as they're typed — pasting a
+                    // number with letters/spaces/dashes in it just drops
+                    // whatever isn't a digit rather than rejecting the paste.
+                    onChange={(e) => update("whatsapp", e.target.value.replace(/\D/g, ""))}
                     placeholder="WhatsApp number"
                     autoComplete="tel-national"
                     className="h-11 rounded-xl flex-1 text-base sm:text-sm"
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     required
                   />
                 </div>
@@ -2808,7 +2946,11 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
     });
   };
 
-  const renderHeroCarousel = (fitClassName: string = "object-cover object-top") => {
+  // object-contain, not cover: whatever size/aspect ratio the admin uploads,
+  // the media scales to fit its frame in full — nothing gets cropped off the
+  // top/sides. The frame itself stays a fixed aspect-video box, so a
+  // differently-shaped image just letterboxes instead of losing content.
+  const renderHeroCarousel = (fitClassName: string = "object-contain") => {
     if (heroSlides.length === 0) {
       return renderMedia(t.hero.heroImage, mediaKey("hero", "heroImage"), {
         wrapperClassName: "absolute inset-0 w-full h-full",
@@ -3045,7 +3187,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
                   )}
                 </h1>
                 {hasContent(t.hero.subheadline) && (
-                  <p className="lt-rise font-body max-w-2xl text-base sm:text-lg leading-relaxed text-white whitespace-pre-line" style={{ ["--lt-i" as string]: 2 }}>
+                  <p className="lt-rise font-body max-w-2xl text-base sm:text-lg font-medium leading-relaxed text-white whitespace-pre-line" style={{ ["--lt-i" as string]: 2 }}>
                     {t.hero.subheadline}
                   </p>
                 )}
@@ -3154,7 +3296,7 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
 
                 {hasContent(t.hero.subheadline) && (
                   <p
-                    className="lt-rise font-body mx-auto mt-7 max-w-2xl text-base sm:text-lg leading-relaxed text-white whitespace-pre-line"
+                    className="lt-rise font-body mx-auto mt-7 max-w-2xl text-base sm:text-lg font-medium leading-relaxed text-white whitespace-pre-line"
                     style={{ ["--lt-i" as string]: 3 }}
                   >
                     {t.hero.subheadline}
@@ -5402,10 +5544,10 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
           aria-hidden="true"
           className={`${
             isCheckoutBar
-              // The countdown chips carry a label and unit captions, so a bar
+              // The date chips carry a label and unit captions, so a bar
               // with one is taller than a bare price/note bar. Under-reserving
               // here lets the strip cover the last rows of the footer.
-              ? hasContent(t.floatingButton.countdownTo)
+              ? hasContent(t.announcementBar?.countdownTo)
                 ? "h-[88px]"
                 : "h-[68px]"
               // Floating-pill variant: h-14 button (56px) + its bottom-4
@@ -5443,14 +5585,16 @@ export function LandingTemplate({ data, pageContent, landingPageId, pageSlug, ed
           }}
         >
           <div className="mx-auto flex max-w-3xl items-center gap-3 px-3 py-2.5 sm:gap-5 sm:px-6 sm:py-3">
-            {(hasContent(t.floatingButton.countdownTo) ||
+            {(hasContent(t.announcementBar?.countdownTo) ||
               hasContent(t.floatingButton.priceText) ||
               hasContent(t.floatingButton.noteText)) && (
               <div className="min-w-0 flex-1">
-                {hasContent(t.floatingButton.countdownTo) && (
-                  <DockedCountdown
-                    target={t.floatingButton.countdownTo}
-                    label={t.floatingButton.countdownLabel}
+                {/* Same instant the top announcement bar counts down to —
+                    see formatWebinarDateTime — so setting it once there
+                    updates both. No separate date to configure here. */}
+                {hasContent(t.announcementBar?.countdownTo) && (
+                  <DockedWebinarDate
+                    target={t.announcementBar?.countdownTo}
                     accent={c.ctaAccent || c.accent}
                   />
                 )}
