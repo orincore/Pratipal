@@ -836,6 +836,7 @@ function MediaField({
   settings,
   onSettingsChange,
   onClearSettings,
+  allowThumbnail,
 }: {
   label: string;
   value: string;
@@ -843,8 +844,14 @@ function MediaField({
   settings?: MediaFieldOptions;
   onSettingsChange?: (value: Partial<MediaFieldOptions>) => void;
   onClearSettings?: () => void;
+  // Shows a "Thumbnail" cover-image uploader alongside Autoplay/Mute for
+  // video/YouTube media. Opt-in per call site (currently just Hero Image) so
+  // this doesn't appear on every media field across the editor at once.
+  allowThumbnail?: boolean;
 }) {
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const thumbnailFileRef = React.useRef<HTMLInputElement>(null);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [mediaType, setMediaType] = useState<'link' | 'upload' | 'youtube' | 'instagram'>(() => {
     if (!value) return 'link';
     if (value.includes('youtube.com') || value.includes('youtu.be')) return 'youtube';
@@ -933,6 +940,40 @@ function MediaField({
       e.target.value = "";
     }
   }, [onChange]);
+
+  // Same presigned-R2 upload path as handleUpload above, restricted to
+  // images and writing to the media's `thumbnail` setting instead of `value`.
+  const handleThumbnailUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image"); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Max 10MB"); return; }
+    const toastId = "tpl-thumbnail-upload";
+    setUploadingThumbnail(true);
+    try {
+      toast.loading("Uploading thumbnail...", { id: toastId });
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, fileType: file.type, fileSize: file.size }),
+      });
+      if (!presignRes.ok) {
+        const err = await presignRes.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Upload failed");
+      }
+      const { uploadUrl, url, storage } = await presignRes.json();
+      const putRes = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!putRes.ok) throw new Error("Upload failed");
+      onSettingsChange?.({ thumbnail: url });
+      toast.success(`Thumbnail uploaded${storage === 'r2' ? ' to R2' : ' locally'}!`, { id: toastId });
+    } catch (err: any) {
+      console.error("Thumbnail upload error:", err);
+      toast.error(err.message || "Upload failed", { id: toastId });
+    } finally {
+      setUploadingThumbnail(false);
+      e.target.value = "";
+    }
+  }, [onSettingsChange]);
 
   const extractYouTubeId = (url: string) => {
     const patterns = [
@@ -1077,6 +1118,68 @@ function MediaField({
               onCheckedChange={(checked) => onSettingsChange({ mute: checked })}
             />
           </div>
+          {allowThumbnail && (
+            <div className="border-t border-gray-200 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-gray-500">
+                  Thumbnail
+                  <span className="block text-[10px] font-normal text-gray-400">
+                    Cover image shown before the video plays
+                  </span>
+                </span>
+                {currentSettings.thumbnail && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-red-500 hover:text-red-600"
+                    onClick={() => onSettingsChange({ thumbnail: undefined })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={thumbnailFileRef}
+                type="file"
+                accept="image/*"
+                onChange={handleThumbnailUpload}
+                className="hidden"
+              />
+              {currentSettings.thumbnail ? (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <img
+                    src={currentSettings.thumbnail}
+                    alt=""
+                    className="h-10 w-16 flex-shrink-0 rounded border border-gray-200 object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 flex-1 text-[11px]"
+                    onClick={() => thumbnailFileRef.current?.click()}
+                    disabled={uploadingThumbnail}
+                  >
+                    <Upload className="h-3 w-3 mr-1.5" />
+                    {uploadingThumbnail ? "Uploading..." : "Replace"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-1.5 h-7 w-full text-[11px]"
+                  onClick={() => thumbnailFileRef.current?.click()}
+                  disabled={uploadingThumbnail}
+                >
+                  <ImageIcon className="h-3 w-3 mr-1.5" />
+                  {uploadingThumbnail ? "Uploading..." : "Upload Thumbnail"}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1131,6 +1234,7 @@ function ImageField({
   settings,
   onSettingsChange,
   onClearSettings,
+  allowThumbnail,
 }: {
   label: string;
   value: string;
@@ -1138,6 +1242,7 @@ function ImageField({
   settings?: MediaFieldOptions;
   onSettingsChange?: (value: Partial<MediaFieldOptions>) => void;
   onClearSettings?: () => void;
+  allowThumbnail?: boolean;
 }) {
   return (
     <MediaField
@@ -1147,6 +1252,7 @@ function ImageField({
       settings={settings}
       onSettingsChange={onSettingsChange}
       onClearSettings={onClearSettings}
+      allowThumbnail={allowThumbnail}
     />
   );
 }
@@ -1699,16 +1805,17 @@ export function TemplateEditor({
           <Input value={data.hero.ctaButtonLink} onChange={(e) => update("hero", { ctaButtonLink: e.target.value })} className="h-8 text-xs mt-1 bg-gray-50 border-gray-200" placeholder={data.hero.ctaButtonAction === "url" ? "https://example.com" : "#register"} />
         </div>
         <ImageField
-          label="Hero Image (Controls autoplay/mute for all carousel slides)"
+          label="Hero Image (Controls autoplay/mute/thumbnail for all carousel slides)"
           value={data.hero.heroImage}
           onChange={(v) => update("hero", { heroImage: v })}
           settings={mediaSettings[heroImageKey]}
           onSettingsChange={(value) => handleMediaSettingsChange(heroImageKey, value)}
           onClearSettings={() => clearMediaSettings(heroImageKey)}
+          allowThumbnail
         />
         <div className="space-y-2">
           <Label className="text-xs text-gray-500">Carousel Slides</Label>
-          <p className="text-[11px] text-gray-400">Add images, videos, or YouTube links. Autoplay/mute settings are controlled by Hero Image above.</p>
+          <p className="text-[11px] text-gray-400">Add images, videos, or YouTube links. Autoplay/mute/thumbnail settings are controlled by Hero Image above.</p>
           {data.hero.heroMedia.map((media, i) => {
             const slideKey = mediaKey("hero", "heroMedia", i, "url");
             return (

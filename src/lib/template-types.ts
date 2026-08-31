@@ -455,6 +455,10 @@ export interface FloatingButtonSettings {
 export interface MediaFieldOptions {
   autoplay: boolean;
   mute: boolean;
+  // Custom poster/cover image shown before a video/YouTube media plays —
+  // used as the native <video> `poster` and, for YouTube, as a click-to-play
+  // cover (replacing YouTube's own default thumbnail). Ignored for images.
+  thumbnail?: string;
 }
 
 // Per-section style overrides (Elementor-style spacing controls). Values are
