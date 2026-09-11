@@ -17,10 +17,10 @@ import {
   Users,
   X,
   Video,
-  Pencil,
   ExternalLink,
   ArrowUpDown,
   UserRound,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,8 +57,32 @@ interface InvitationRequest {
   email: string;
   whatsapp_number: string | null;
   location: string | null;
+  payment_status?: "not_required" | "pending" | "paid" | "failed" | "refunded";
+  amount?: number | null;
+  razorpay_payment_id?: string | null;
   created_at: string;
+  window_id?: string | null;
+  window_name?: string | null;
 }
+
+// A pending or failed row is someone who opened the payment sheet and did not
+// complete it. They are NOT enrolled, so the list has to say so plainly rather
+// than showing them the same as everyone else.
+const PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
+  paid: { label: "Paid", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  pending: { label: "Payment pending", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  failed: { label: "Payment failed", className: "bg-red-50 text-red-600 border-red-200" },
+  refunded: { label: "Refunded", className: "bg-gray-50 text-gray-600 border-gray-200" },
+};
+
+const PAYMENT_FILTERS: [string, string][] = [
+  ["all", "All payments"],
+  ["paid", "Paid"],
+  ["pending", "Payment pending"],
+  ["failed", "Payment failed"],
+  ["refunded", "Refunded"],
+  ["not_required", "Free"],
+];
 
 const TIMEZONES = ["Asia/Kolkata", "UTC", "America/New_York", "Europe/London"];
 
@@ -68,7 +92,7 @@ function fmt(iso?: string) {
 }
 
 // Splits an ISO timestamp into the local date/time strings the <input type="date"/"time">
-// pickers expect, so an edit modal can be pre-filled with a window's existing values.
+// pickers expect, so the edit modal can be pre-filled with a window's existing values.
 function splitLocalDateTime(iso: string): { date: string; time: string } {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -87,10 +111,10 @@ export default function LandingPageInvitationsPage() {
 
   const [activeTab, setActiveTab] = useState<"windows" | "participants">("windows");
 
-  // "All Participants" tab — registrants for this page who fall outside
-  // every existing window's registration range (or everyone, if the page
-  // has no windows at all). Server-paginated/sorted/filtered — a page can
-  // have thousands of registrants, unlike a single window's slice.
+  // "All Participants" tab — every registrant for this page, optionally
+  // narrowed to one window (or people outside every window) and/or a
+  // payment status. Server-paginated/sorted/filtered — a page can have
+  // thousands of registrants, unlike a single window's slice.
   const [participants, setParticipants] = useState<InvitationRequest[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantsError, setParticipantsError] = useState<string | null>(null);
@@ -105,6 +129,8 @@ export default function LandingPageInvitationsPage() {
   const [participantsSearch, setParticipantsSearch] = useState(""); // debounced
   const [participantsFrom, setParticipantsFrom] = useState("");
   const [participantsTo, setParticipantsTo] = useState("");
+  const [participantsWindowFilter, setParticipantsWindowFilter] = useState("all"); // "all" | "none" | window id
+  const [participantsPaymentFilter, setParticipantsPaymentFilter] = useState("all");
 
   const [windows, setWindows] = useState<InvitationWindow[]>([]);
   const [loadingWindows, setLoadingWindows] = useState(true);
@@ -193,7 +219,9 @@ export default function LandingPageInvitationsPage() {
     try {
       const qs = new URLSearchParams({
         landingPageId,
-        unwindowed: "true",
+        paginated: "true",
+        window: participantsWindowFilter,
+        payment: participantsPaymentFilter,
         page: String(participantsPage),
         limit: String(participantsLimit),
         sortBy: participantsSortBy,
@@ -219,7 +247,7 @@ export default function LandingPageInvitationsPage() {
     } finally {
       setParticipantsLoading(false);
     }
-  }, [landingPageId, participantsPage, participantsSortBy, participantsSortDir, participantsSearch, participantsFrom, participantsTo]);
+  }, [landingPageId, participantsPage, participantsSortBy, participantsSortDir, participantsSearch, participantsFrom, participantsTo, participantsWindowFilter, participantsPaymentFilter]);
 
   useEffect(() => {
     if (activeTab === "participants") fetchParticipants();
@@ -238,12 +266,16 @@ export default function LandingPageInvitationsPage() {
   }, []);
 
   const downloadParticipantsCSV = useCallback(() => {
-    const headers = ["Name", "Email", "WhatsApp", "Location", "Submitted At"];
+    const headers = ["Name", "Email", "WhatsApp", "Location", "Window", "Payment", "Amount", "Payment ID", "Submitted At"];
     const rows = participants.map((inv) => [
       inv.first_name,
       inv.email,
       inv.whatsapp_number || "",
       inv.location || "",
+      inv.window_name || "",
+      inv.payment_status === "not_required" || !inv.payment_status ? "Free" : PAYMENT_BADGE[inv.payment_status]?.label || inv.payment_status,
+      inv.amount ? String(inv.amount) : "",
+      inv.razorpay_payment_id || "",
       fmt(inv.created_at),
     ]);
     const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
@@ -451,12 +483,15 @@ export default function LandingPageInvitationsPage() {
   }, [fetchParticipants]);
 
   const downloadCSV = useCallback(() => {
-    const headers = ["Name", "Email", "WhatsApp", "Location", "Submitted At"];
+    const headers = ["Name", "Email", "WhatsApp", "Location", "Payment", "Amount", "Payment ID", "Submitted At"];
     const rows = filteredInvitations.map((inv) => [
       inv.first_name,
       inv.email,
       inv.whatsapp_number || "",
       inv.location || "",
+      inv.payment_status === "not_required" || !inv.payment_status ? "Free" : PAYMENT_BADGE[inv.payment_status]?.label || inv.payment_status,
+      inv.amount ? String(inv.amount) : "",
+      inv.razorpay_payment_id || "",
       fmt(inv.created_at),
     ]);
     const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
@@ -535,9 +570,13 @@ export default function LandingPageInvitationsPage() {
         <div className="flex-1 overflow-hidden flex flex-col">
           <div className="border-b border-gray-200 bg-white px-4 py-3 flex flex-col gap-3">
             <p className="text-xs text-gray-500">
-              Every registrant for this page who isn&apos;t already claimed by a registration window
-              above{participantsWindowCount === 0 ? " — this page has no windows yet, so that's everyone" : ""}.
-              {participantsWindowCount > 0 && ` (${participantsWindowCount} window${participantsWindowCount === 1 ? "" : "s"} exist${participantsWindowCount === 1 ? "s" : ""} — their registrants are shown under Registration Windows instead.)`}
+              Every registrant for this page
+              {participantsWindowCount > 0
+                ? " — use the filters to narrow to one registration window, people outside every window, or a payment status."
+                : " — use the payment filter to narrow by payment status."}
+              {!participantsLoading && !participantsError && (
+                <span className="ml-1 font-semibold text-gray-700">{participantsTotal.toLocaleString()} matching</span>
+              )}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Input
@@ -546,6 +585,36 @@ export default function LandingPageInvitationsPage() {
                 placeholder="Search name, email, WhatsApp or location"
                 className="h-9 text-xs w-64"
               />
+              {windows.length > 0 && (
+                <Select
+                  value={participantsWindowFilter}
+                  onValueChange={(v) => { setParticipantsWindowFilter(v); setParticipantsPage(1); }}
+                >
+                  <SelectTrigger className="h-9 w-52 text-xs bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All windows</SelectItem>
+                    <SelectItem value="none">Not in any window</SelectItem>
+                    {windows.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Select
+                value={participantsPaymentFilter}
+                onValueChange={(v) => { setParticipantsPaymentFilter(v); setParticipantsPage(1); }}
+              >
+                <SelectTrigger className="h-9 w-44 text-xs bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_FILTERS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-gray-400 font-medium">From</span>
                 <input
@@ -613,9 +682,9 @@ export default function LandingPageInvitationsPage() {
               <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm text-red-600">{participantsError}</div>
             ) : participants.length === 0 ? (
               <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-8 text-center text-sm text-gray-500">
-                {participantsSearch || participantsFrom || participantsTo
+                {participantsSearch || participantsFrom || participantsTo || participantsWindowFilter !== "all" || participantsPaymentFilter !== "all"
                   ? "No participants match these filters."
-                  : "No participants outside a registration window yet."}
+                  : "No participants yet."}
               </div>
             ) : (
               <div className="space-y-3">
@@ -627,6 +696,17 @@ export default function LandingPageInvitationsPage() {
                     <div>
                       <div className="flex items-center gap-3">
                         <p className="text-base font-semibold text-gray-900">{inv.first_name}</p>
+                        {inv.window_name && (
+                          <Badge variant="outline" className="text-[11px] bg-violet-50 text-violet-700 border-violet-200">
+                            {inv.window_name}
+                          </Badge>
+                        )}
+                        {inv.payment_status && inv.payment_status !== "not_required" && PAYMENT_BADGE[inv.payment_status] && (
+                          <Badge variant="outline" className={`text-[11px] ${PAYMENT_BADGE[inv.payment_status].className}`}>
+                            {PAYMENT_BADGE[inv.payment_status].label}
+                            {inv.amount ? ` · ₹${inv.amount}` : ""}
+                          </Badge>
+                        )}
                         {inv.location && (
                           <Badge variant="outline" className="text-[11px] flex items-center gap-1">
                             {inv.location}
@@ -837,6 +917,12 @@ export default function LandingPageInvitationsPage() {
                     <div>
                       <div className="flex items-center gap-3">
                         <p className="text-base font-semibold text-gray-900">{inv.first_name}</p>
+                        {inv.payment_status && inv.payment_status !== "not_required" && PAYMENT_BADGE[inv.payment_status] && (
+                          <Badge variant="outline" className={`text-[11px] ${PAYMENT_BADGE[inv.payment_status].className}`}>
+                            {PAYMENT_BADGE[inv.payment_status].label}
+                            {inv.amount ? ` · ₹${inv.amount}` : ""}
+                          </Badge>
+                        )}
                         {inv.location && (
                           <Badge variant="outline" className="text-[11px] flex items-center gap-1">
                             {inv.location}

@@ -84,12 +84,11 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const landingPageId = url.searchParams.get("landingPageId");
 
-  // "Unwindowed" tab on the invitations page: registrants for this page who
-  // don't fall inside any existing InvitationWindow's registration range —
-  // paginated/sortable/date-filterable, since a page with no windows at all
-  // means EVERY registrant it's ever had lands in this one bucket.
-  if (url.searchParams.get("unwindowed") === "true") {
-    return getUnwindowedInvitations(url, landingPageId);
+  // "All Participants" tab on the invitations page: every registrant for this
+  // page, paginated/sortable/date-filterable, optionally narrowed to one
+  // window or to people outside every window.
+  if (url.searchParams.get("paginated") === "true" || url.searchParams.get("unwindowed") === "true") {
+    return getPaginatedInvitations(url, landingPageId);
   }
 
   const { InvitationRequest } = await getDB();
@@ -113,8 +112,9 @@ export async function GET(req: NextRequest) {
 }
 
 const SORTABLE_FIELDS = new Set(["created_at", "first_name", "email"]);
+const PAYMENT_STATUSES = new Set(["not_required", "pending", "paid", "failed", "refunded"]);
 
-async function getUnwindowedInvitations(url: URL, landingPageId: string | null) {
+async function getPaginatedInvitations(url: URL, landingPageId: string | null) {
   if (!landingPageId || !/^[a-f\d]{24}$/i.test(landingPageId)) {
     return NextResponse.json({ error: "A valid landingPageId is required" }, { status: 400 });
   }
@@ -135,44 +135,74 @@ async function getUnwindowedInvitations(url: URL, landingPageId: string | null) 
   const search = (url.searchParams.get("search") || "").trim();
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
+  // "all" (default) | "none" (outside every window) | a window id.
+  // The legacy unwindowed=true flag maps to "none".
+  const windowParam =
+    url.searchParams.get("window") || (url.searchParams.get("unwindowed") === "true" ? "none" : "all");
+  const payment = url.searchParams.get("payment") || "all";
 
   const windows = await InvitationWindow.find({ landing_page_slug: slug })
-    .select("registration_start registration_end")
+    .select("name registration_start registration_end")
+    .sort({ registration_start: 1 })
     .lean();
 
-  const filter: any = { landing_page_slug: slug };
-  // No windows at all → nothing to exclude, this IS every registrant the
-  // page has ever had. With windows, exclude anyone already claimed by one
-  // of them (their created_at falls inside its registration range).
-  if (windows.length > 0) {
-    filter.$nor = windows.map((w: any) => ({
-      created_at: { $gte: w.registration_start, $lte: w.registration_end },
-    }));
+  // Match on id OR slug — a registrant may carry only one of them (e.g. the
+  // page's slug was renamed after they signed up, or the form sent no id).
+  const and: any[] = [{ $or: [{ landing_page_id: landingPageId }, { landing_page_slug: slug }] }];
+
+  const inRange = (w: any) => ({ created_at: { $gte: w.registration_start, $lte: w.registration_end } });
+  if (windowParam === "none") {
+    if (windows.length > 0) and.push({ $nor: windows.map(inRange) });
+  } else if (windowParam !== "all") {
+    const w = windows.find((w: any) => w._id.toString() === windowParam);
+    if (!w) {
+      return NextResponse.json({ error: "Window not found" }, { status: 404 });
+    }
+    and.push(inRange(w));
+  }
+  if (PAYMENT_STATUSES.has(payment)) {
+    // Rows from before payment tracking have no status at all — they were free.
+    and.push(
+      payment === "not_required"
+        ? { $or: [{ payment_status: "not_required" }, { payment_status: { $exists: false } }] }
+        : { payment_status: payment }
+    );
   }
   if (from || to) {
-    filter.created_at = {
-      ...(from ? { $gte: new Date(from) } : {}),
-      ...(to ? { $lte: new Date(to) } : {}),
-    };
+    and.push({
+      created_at: {
+        ...(from ? { $gte: new Date(from) } : {}),
+        ...(to ? { $lte: new Date(to) } : {}),
+      },
+    });
   }
   if (search) {
     const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filter.$or = [{ first_name: regex }, { email: regex }, { whatsapp_number: regex }, { location: regex }];
+    and.push({ $or: [{ first_name: regex }, { email: regex }, { whatsapp_number: regex }, { location: regex }] });
   }
+  const filter = { $and: and };
 
   const total = await InvitationRequest.countDocuments(filter);
   const invitations = await InvitationRequest.find(filter)
     .select('landing_page_id landing_page_slug first_name email whatsapp_number location payment_status amount currency razorpay_payment_id paid_at created_at')
-    .sort({ [sortBy]: sortDir })
+    .sort({ [sortBy]: sortDir, _id: sortDir })
     .skip((pageNum - 1) * limit)
     .limit(limit)
     .lean();
 
-  const data = invitations.map((inv: any) => ({
-    ...inv,
-    id: inv._id.toString(),
-    _id: undefined,
-  }));
+  const data = invitations.map((inv: any) => {
+    const t = new Date(inv.created_at).getTime();
+    const w: any = windows.find(
+      (w: any) => t >= new Date(w.registration_start).getTime() && t <= new Date(w.registration_end).getTime()
+    );
+    return {
+      ...inv,
+      id: inv._id.toString(),
+      _id: undefined,
+      window_id: w ? w._id.toString() : null,
+      window_name: w ? w.name : null,
+    };
+  });
 
   return NextResponse.json({
     invitations: data,
