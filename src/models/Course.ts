@@ -6,6 +6,8 @@ export interface ICourse extends Document {
   subtitle: string;
   description: string;
   price: number;
+  /** Optional higher "sale" price, shown crossed out beside `price` (the discounted price). */
+  original_price?: number;
   featured_image?: string;
   duration?: string;
   level?: "beginner" | "intermediate" | "advanced" | "all";
@@ -41,6 +43,7 @@ const CourseSchema = new Schema<ICourse>(
     subtitle: { type: String, required: true },
     description: { type: String, required: true },
     price: { type: Number, required: true },
+    original_price: { type: Number, min: 0 },
     featured_image: { type: String },
     duration: { type: String },
     level: { 

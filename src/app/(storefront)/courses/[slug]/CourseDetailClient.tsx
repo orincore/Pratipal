@@ -19,6 +19,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { TrustpilotSection } from "@/components/storefront/trustpilot-section";
 import { ShareButtons } from "@/components/storefront/share-buttons";
+import { CoursePrice } from "@/components/storefront/course-price";
+import { CourseImage } from "@/components/storefront/course-image";
 
 interface Course {
   id: string;
@@ -27,6 +29,7 @@ interface Course {
   subtitle: string;
   description: string;
   price: number;
+  original_price?: number;
   featured_image?: string;
   duration?: string;
   level?: string;
@@ -147,7 +150,7 @@ function EnrollModal({ course, onClose }: { course: Course; onClose: () => void 
           </button>
           <p className="text-xs text-white/70 uppercase tracking-wider mb-1">{course.category || "Course"}</p>
           <h2 className="text-lg font-bold text-white leading-tight pr-8">{course.title}</h2>
-          <p className="text-2xl font-bold text-emerald-200 mt-2">{formatPrice(course.price)}</p>
+          <CoursePrice className="mt-2" price={course.price} originalPrice={course.original_price} variant="detail" tone="dark" />
         </div>
 
         {/* Body */}
@@ -259,7 +262,7 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
           {/* Mobile: image first, like Udemy */}
           {course.featured_image && (
             <div className="lg:hidden -mx-4 sm:-mx-6 mb-5">
-              <img src={course.featured_image} alt={course.title} className="w-full h-auto" />
+              <CourseImage src={course.featured_image} alt={course.title} />
             </div>
           )}
           <div className="lg:max-w-[62%]">
@@ -395,9 +398,9 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
             <div className="sticky top-24 lg:-mt-[21rem] z-20">
               {/* Udemy-style purchase card (desktop) */}
               <div className="hidden lg:block bg-white text-slate-800 shadow-xl border border-slate-200">
-                {course.featured_image && <img src={course.featured_image} alt={course.title} className="w-full h-auto" />}
+                {course.featured_image && <CourseImage src={course.featured_image} alt={course.title} />}
                 <div className="p-6">
-                  <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">{formatPrice(course.price)}</p>
+                  <CoursePrice className="mb-4" price={course.price} originalPrice={course.original_price} variant="detail" />
                   <Button
                     onClick={() => setShowEnroll(true)}
                     className="w-full rounded-none bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white h-12 text-base font-bold mb-3"
@@ -440,7 +443,7 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
 
       {/* Mobile sticky purchase bar (Udemy-style) */}
       <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,.1)] px-4 py-3 flex items-center gap-4">
-        <p className="text-xl font-bold text-slate-800 whitespace-nowrap">{formatPrice(course.price)}</p>
+        <CoursePrice price={course.price} originalPrice={course.original_price} variant="bar" />
         <Button onClick={() => setShowEnroll(true)} className="flex-1 rounded-none bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white h-12 text-base font-bold">
           Enroll Now
         </Button>

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Clock, Leaf } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { CoursePrice, DiscountRibbon } from "@/components/storefront/course-price";
+import { CourseImage } from "@/components/storefront/course-image";
 
 interface Course {
   id: string;
@@ -11,6 +13,7 @@ interface Course {
   slug: string;
   subtitle: string;
   price: number;
+  original_price?: number;
   featured_image?: string;
   duration?: string;
   category?: string;
@@ -74,15 +77,16 @@ export function CoursesSection() {
                 className="group flex flex-col rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 bg-white hover:border-teal-200 hover:-translate-y-1"
               >
                 {/* Image */}
-                <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-100 flex-shrink-0">
+                <div className="relative w-full overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-100 flex-shrink-0">
                   {course.featured_image ? (
-                    <img
+                    <CourseImage
                       src={course.featured_image}
                       alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className=""
+                      imgClassName="group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="h-44 flex items-center justify-center">
                       <BookOpen className="h-12 w-12 text-teal-300" />
                     </div>
                   )}
@@ -91,6 +95,7 @@ export function CoursesSection() {
                       {course.category}
                     </span>
                   )}
+                  <DiscountRibbon price={course.price} originalPrice={course.original_price} className="bottom-3 left-3" />
                   {course.featured && (
                     <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wide">
                       Featured
@@ -116,9 +121,7 @@ export function CoursesSection() {
                         </>
                       )}
                     </div>
-                    <span className="text-base font-bold text-teal-700">
-                      {formatPrice(course.price)}
-                    </span>
+                    <CoursePrice price={course.price} originalPrice={course.original_price} variant="compact" />
                   </div>
                 </div>
               </Link>

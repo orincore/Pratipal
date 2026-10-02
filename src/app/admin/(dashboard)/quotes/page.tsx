@@ -115,7 +115,7 @@ export default function AdminQuotesPage() {
     }
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -172,6 +172,16 @@ export default function AdminQuotesPage() {
                   className="mt-1"
                   required
                 />
+                {formData.date > today ? (
+                  <p className="mt-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                    Upcoming quote — it stays hidden and will automatically appear on the website on{" "}
+                    <strong>{format(new Date(formData.date + "T00:00:00"), "MMM d, yyyy")}</strong>.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    Tip: pick a future date to schedule this quote — it will show automatically on that day.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -228,6 +238,11 @@ export default function AdminQuotesPage() {
                   <span className="text-xs font-medium text-gray-500">
                     {format(new Date(q.date + "T00:00:00"), "MMM d, yyyy")}
                   </span>
+                  {q.date > today && (
+                    <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">
+                      Upcoming — hidden until {format(new Date(q.date + "T00:00:00"), "MMM d")}
+                    </Badge>
+                  )}
                   {q.date === today && (
                     <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px]">
                       Today

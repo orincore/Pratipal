@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/utils";
 import { TrustpilotSection } from "@/components/storefront/trustpilot-section";
+import { CoursePrice, DiscountRibbon } from "@/components/storefront/course-price";
+import { CourseImage } from "@/components/storefront/course-image";
 
 interface Course {
   id: string;
@@ -19,6 +21,7 @@ interface Course {
   subtitle: string;
   description: string;
   price: number;
+  original_price?: number;
   featured_image?: string;
   duration?: string;
   level?: string;
@@ -162,16 +165,17 @@ function CourseCard({ course, router, featured = false }: { course: Course; rout
       <Link
         href={`/courses/${course.slug}`}
         aria-label={`View ${course.title}`}
-        className="relative block h-56 flex-shrink-0 overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 cursor-pointer"
+        className="relative block flex-shrink-0 overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 cursor-pointer"
       >
         {course.featured_image ? (
-          <img
+          <CourseImage
             src={course.featured_image}
             alt={course.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className=""
+            imgClassName="group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-teal-400">
+          <div className="w-full h-56 flex items-center justify-center text-teal-400">
             <BookOpen className="h-16 w-16" />
           </div>
         )}
@@ -180,6 +184,7 @@ function CourseCard({ course, router, featured = false }: { course: Course; rout
             {course.category}
           </Badge>
         )}
+        <DiscountRibbon price={course.price} originalPrice={course.original_price} className="bottom-3 left-3" />
         {featured && (
           <Badge className="absolute top-4 right-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg border-0">
             Featured
@@ -221,11 +226,9 @@ function CourseCard({ course, router, featured = false }: { course: Course; rout
           )}
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-end justify-between">
           <div>
-            <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-              {formatPrice(course.price)}
-            </p>
+            <CoursePrice price={course.price} originalPrice={course.original_price} variant="card" />
           </div>
           <Button
             onClick={() => router.push(`/courses/${course.slug}`)}

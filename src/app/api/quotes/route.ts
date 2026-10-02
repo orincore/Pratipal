@@ -7,7 +7,7 @@ export async function GET() {
   try {
     await connectDB();
 
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD, India date
 
     let quote = await Quote.findOne({ date: today, status: "active" }).lean();
 

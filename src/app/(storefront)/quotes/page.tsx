@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { siteConfig } from "@/config/site.config";
 import { connectDB } from "@/lib/mongodb";
 import Quote from "@/models/Quote";
-import { format, isToday, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -15,16 +15,20 @@ export const metadata: Metadata = {
 
 async function getQuotes() {
   await connectDB();
-  const quotes = await Quote.find({ status: "active" })
+  // Quotes dated in the future stay hidden until their date arrives (IST).
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+  const quotes = await Quote.find({ status: "active", date: { $lte: today } })
     .sort({ date: -1 })
     .lean() as any[];
-  return quotes.map((q) => ({ ...q, id: q._id.toString() }));
+  // Newest first, explicitly (date is a YYYY-MM-DD string, so lexical order is chronological).
+  quotes.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return { today, quotes: quotes.map((q) => ({ ...q, id: q._id.toString() })) };
 }
 
 export default async function QuotesPage() {
-  const quotes = await getQuotes();
-  const todayQuote = quotes.find((q) => isToday(parseISO(q.date)));
-  const pastQuotes = quotes.filter((q) => !isToday(parseISO(q.date)));
+  const { today, quotes } = await getQuotes();
+  const todayQuote = quotes.find((q) => q.date === today);
+  const pastQuotes = quotes.filter((q) => q.date !== today);
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -111,7 +115,7 @@ export default async function QuotesPage() {
                 Previous Quotes
               </p>
             )}
-            <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {pastQuotes.map((q, i) => {
                 // Cycle through a few accent colours for variety
                 const accents = [
@@ -125,7 +129,7 @@ export default async function QuotesPage() {
                 return (
                   <div
                     key={q.id}
-                    className={`break-inside-avoid rounded-2xl bg-gradient-to-br ${accent.bg} p-6 shadow-md hover:shadow-xl transition-shadow duration-300 relative overflow-hidden`}
+                    className={`flex flex-col rounded-2xl bg-gradient-to-br ${accent.bg} p-6 shadow-md hover:shadow-xl transition-shadow duration-300 relative overflow-hidden`}
                   >
                     <div className="absolute -top-4 -right-4 h-24 w-24 rounded-full bg-white/5 blur-xl" />
                     <span aria-hidden="true" className="absolute top-3 left-4 text-5xl leading-none text-white/10 font-serif select-none">&ldquo;</span>

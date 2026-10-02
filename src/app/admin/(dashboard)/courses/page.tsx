@@ -32,6 +32,7 @@ interface Course {
   subtitle: string;
   description: string;
   price: number;
+  original_price?: number;
   featured_image?: string;
   duration?: string;
   level?: string;
@@ -64,6 +65,7 @@ export default function AdminCoursesPage() {
     subtitle: "",
     description: "",
     price: 0,
+    original_price: "" as number | "",
     featured_image: "",
     duration: "",
     level: "all",
@@ -112,6 +114,7 @@ export default function AdminCoursesPage() {
       subtitle: "",
       description: "",
       price: 0,
+      original_price: "" as number | "",
       featured_image: "",
       duration: "",
       level: "all",
@@ -143,6 +146,7 @@ export default function AdminCoursesPage() {
       subtitle: course.subtitle,
       description: course.description,
       price: course.price,
+      original_price: course.original_price ?? "",
       featured_image: course.featured_image || "",
       duration: course.duration || "",
       level: course.level || "all",
@@ -427,15 +431,33 @@ export default function AdminCoursesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label>Price (₹) *</Label>
+                  <Label>Discounted Price (₹) *</Label>
                   <Input
                     type="number"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
                     required
                   />
+                  <p className="mt-1 text-xs text-gray-500">The price customers actually pay.</p>
+                </div>
+                <div>
+                  <Label>Sale Price (₹) — optional</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={formData.original_price}
+                    onChange={(e) =>
+                      setFormData({ ...formData, original_price: e.target.value === "" ? "" : Number(e.target.value) })
+                    }
+                    placeholder="e.g. 9999"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.original_price !== "" && Number(formData.original_price) > formData.price
+                      ? `Shown crossed out beside the discounted price — ${Math.round(((Number(formData.original_price) - formData.price) / Number(formData.original_price)) * 100)}% off.`
+                      : "Higher price shown crossed out. Leave empty to show only the discounted price."}
+                  </p>
                 </div>
                 <div>
                   <Label>Duration</Label>
@@ -859,7 +881,12 @@ export default function AdminCoursesPage() {
                     </div>
                     <CardDescription className="text-slate-600">{course.subtitle}</CardDescription>
                     <div className="flex items-center gap-4 mt-3">
-                      <p className="text-lg font-semibold text-emerald-600">₹{course.price.toLocaleString()}</p>
+                      <p className="text-lg font-semibold text-emerald-600">
+                        ₹{course.price.toLocaleString()}
+                        {course.original_price && course.original_price > course.price && (
+                          <span className="ml-2 text-sm font-normal text-slate-400 line-through">₹{course.original_price.toLocaleString()}</span>
+                        )}
+                      </p>
                       {course.duration && (
                         <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
                           {course.duration}
