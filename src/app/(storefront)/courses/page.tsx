@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { CoursesSkeleton } from "@/components/skeletons/page-skeletons";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BookOpen, Clock, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -154,11 +155,15 @@ export default function CoursesPage() {
 function CourseCard({ course, router, featured = false }: { course: Course; router: any; featured?: boolean }) {
   return (
     <Card
-      className={`group overflow-hidden border-0 bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 ${
+      className={`group h-full flex flex-col overflow-hidden border-0 bg-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 ${
         featured ? "ring-2 ring-emerald-400/50 shadow-emerald-100" : ""
       }`}
     >
-      <div className="relative h-56 overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
+      <Link
+        href={`/courses/${course.slug}`}
+        aria-label={`View ${course.title}`}
+        className="relative block h-56 flex-shrink-0 overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 cursor-pointer"
+      >
         {course.featured_image ? (
           <img
             src={course.featured_image}
@@ -180,19 +185,19 @@ function CourseCard({ course, router, featured = false }: { course: Course; rout
             Featured
           </Badge>
         )}
-      </div>
-      <CardContent className="p-6">
+      </Link>
+      <CardContent className="p-6 flex flex-col flex-1">
         <div className="mb-4">
-          <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-teal-600 transition-colors">
+          <h3 className="text-xl font-bold text-slate-800 mb-2 line-clamp-2 min-h-[3.5rem] group-hover:text-teal-600 transition-colors">
             {course.title}
           </h3>
-          <p className="text-sm text-slate-600 line-clamp-2">
+          <p className="text-sm text-slate-600 line-clamp-2 min-h-[2.5rem]">
             {course.subtitle}
           </p>
         </div>
 
         {course.highlights && course.highlights.length > 0 && (
-          <div className="mb-4 space-y-2">
+          <div className="mb-4 space-y-2 min-h-[4.5rem]">
             {course.highlights.slice(0, 3).map((highlight, idx) => (
               <div key={`highlight-${idx}`} className="flex items-start gap-2 text-sm text-slate-600">
                 <span className="text-emerald-500 mt-1 font-bold">✓</span>
@@ -202,7 +207,7 @@ function CourseCard({ course, router, featured = false }: { course: Course; rout
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-4 pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-between mt-auto mb-4 pt-4 border-t border-slate-100">
           {course.duration && (
             <div className="flex items-center gap-1 text-sm text-slate-500">
               <Clock className="h-4 w-4 text-teal-500" />

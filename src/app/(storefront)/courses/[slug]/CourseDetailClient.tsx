@@ -261,22 +261,51 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
           >
             <ArrowLeft className="h-4 w-4" /> Back to Courses
           </button>
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
-            <div>
-              {course.category && <Badge className="mb-4 bg-white/20 text-white border-white/30">{course.category}</Badge>}
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">{course.title}</h1>
-              <p className="text-xl text-emerald-100 mb-6">{course.subtitle}</p>
-              <div className="flex flex-wrap gap-4 text-sm">
-                {course.duration && <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><span>{course.duration}</span></div>}
-                {course.level && <div className="flex items-center gap-2"><Award className="h-5 w-5" /><span>{course.level}</span></div>}
-              </div>
+          <div className="max-w-3xl">
+            {course.category && <Badge className="mb-4 bg-white/20 text-white border-white/30">{course.category}</Badge>}
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">{course.title}</h1>
+            <p className="text-xl text-emerald-100 mb-6">{course.subtitle}</p>
+            <div className="flex flex-wrap gap-4 text-sm">
+              {course.duration && <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><span>{course.duration}</span></div>}
+              {course.level && <div className="flex items-center gap-2"><Award className="h-5 w-5" /><span>{course.level}</span></div>}
             </div>
+          </div>
+          {/* Image below headline on mobile; image left + price details right on desktop */}
+          <div className="grid lg:grid-cols-2 gap-8 items-center mt-8">
             <div>
               {course.featured_image && (
                 <div className="rounded-2xl overflow-hidden shadow-2xl">
                   <img src={course.featured_image} alt={course.title} className="w-full h-auto" />
                 </div>
               )}
+            </div>
+            <div className="hidden lg:block">
+              <div className="rounded-2xl bg-white/95 text-slate-800 shadow-2xl p-6 max-w-md ml-auto">
+                <p className="text-sm text-slate-500 mb-1">Course Investment</p>
+                <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">
+                  {formatPrice(course.price)}
+                </p>
+                <Button
+                  onClick={() => setShowEnroll(true)}
+                  className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white py-6 text-lg font-semibold mb-4 shadow-lg"
+                >
+                  Enroll Now
+                </Button>
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Lifetime access to course materials</span></div>
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Expert guidance and support</span></div>
+                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Certificate of completion</span></div>
+                  {(course.bonuses?.length ?? 0) > 0 && (
+                    <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Exclusive bonus materials</span></div>
+                  )}
+                </div>
+                <Separator className="my-4" />
+                <div className="space-y-2 text-sm">
+                  {course.duration && <div className="flex justify-between"><span className="text-slate-500">Duration:</span><span className="font-medium text-slate-700">{course.duration}</span></div>}
+                  {course.level && <div className="flex justify-between"><span className="text-slate-500">Level:</span><span className="font-medium text-slate-700 capitalize">{course.level}</span></div>}
+                  {course.category && <div className="flex justify-between"><span className="text-slate-500">Category:</span><span className="font-medium text-slate-700">{course.category}</span></div>}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -401,7 +430,7 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
           {/* Sticky sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
-              <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
+              <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm lg:hidden">
                 <CardContent className="p-6">
                   <div className="text-center mb-6">
                     <p className="text-sm text-slate-500 mb-2">Course Investment</p>
