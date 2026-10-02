@@ -245,15 +245,10 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
   if (!course) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50">
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600 text-white pt-24 sm:pt-28 pb-12 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-xl" />
-          <div className="absolute top-40 right-20 w-48 h-48 bg-emerald-400/20 rounded-full blur-2xl" />
-          <div className="absolute bottom-20 left-1/4 w-40 h-40 bg-teal-400/15 rounded-full blur-xl" />
-        </div>
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 pb-20 lg:pb-0">
+      {/* Hero (Udemy-style dark banner) */}
+      <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600 text-white pt-24 sm:pt-28 pb-8 lg:pb-12 lg:min-h-[24rem]">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => router.push("/courses")}
@@ -261,51 +256,19 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
           >
             <ArrowLeft className="h-4 w-4" /> Back to Courses
           </button>
-          <div className="max-w-3xl">
-            {course.category && <Badge className="mb-4 bg-white/20 text-white border-white/30">{course.category}</Badge>}
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">{course.title}</h1>
-            <p className="text-xl text-emerald-100 mb-6">{course.subtitle}</p>
-            <div className="flex flex-wrap gap-4 text-sm">
-              {course.duration && <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><span>{course.duration}</span></div>}
-              {course.level && <div className="flex items-center gap-2"><Award className="h-5 w-5" /><span>{course.level}</span></div>}
+          {/* Mobile: image first, like Udemy */}
+          {course.featured_image && (
+            <div className="lg:hidden -mx-4 sm:-mx-6 mb-5">
+              <img src={course.featured_image} alt={course.title} className="w-full h-auto" />
             </div>
-          </div>
-          {/* Image below headline on mobile; image left + price details right on desktop */}
-          <div className="grid lg:grid-cols-2 gap-8 items-center mt-8">
-            <div>
-              {course.featured_image && (
-                <div className="rounded-2xl overflow-hidden shadow-2xl">
-                  <img src={course.featured_image} alt={course.title} className="w-full h-auto" />
-                </div>
-              )}
-            </div>
-            <div className="hidden lg:block">
-              <div className="rounded-2xl bg-white/95 text-slate-800 shadow-2xl p-6 max-w-md ml-auto">
-                <p className="text-sm text-slate-500 mb-1">Course Investment</p>
-                <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">
-                  {formatPrice(course.price)}
-                </p>
-                <Button
-                  onClick={() => setShowEnroll(true)}
-                  className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white py-6 text-lg font-semibold mb-4 shadow-lg"
-                >
-                  Enroll Now
-                </Button>
-                <div className="space-y-2 text-sm text-slate-600">
-                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Lifetime access to course materials</span></div>
-                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Expert guidance and support</span></div>
-                  <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Certificate of completion</span></div>
-                  {(course.bonuses?.length ?? 0) > 0 && (
-                    <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Exclusive bonus materials</span></div>
-                  )}
-                </div>
-                <Separator className="my-4" />
-                <div className="space-y-2 text-sm">
-                  {course.duration && <div className="flex justify-between"><span className="text-slate-500">Duration:</span><span className="font-medium text-slate-700">{course.duration}</span></div>}
-                  {course.level && <div className="flex justify-between"><span className="text-slate-500">Level:</span><span className="font-medium text-slate-700 capitalize">{course.level}</span></div>}
-                  {course.category && <div className="flex justify-between"><span className="text-slate-500">Category:</span><span className="font-medium text-slate-700">{course.category}</span></div>}
-                </div>
-              </div>
+          )}
+          <div className="lg:max-w-[62%]">
+            {course.category && <Badge className="mb-3 bg-white/20 text-white border-white/30">{course.category}</Badge>}
+            <h1 className="text-3xl md:text-[2rem] font-bold leading-tight mb-3">{course.title}</h1>
+            <p className="text-lg text-emerald-100 mb-4">{course.subtitle}</p>
+            <div className="flex flex-wrap gap-4 text-sm text-white">
+              {course.duration && <div className="flex items-center gap-2"><Clock className="h-4 w-4" /><span>{course.duration}</span></div>}
+              {course.level && <div className="flex items-center gap-2"><Award className="h-4 w-4" /><span className="capitalize">{course.level}</span></div>}
             </div>
           </div>
         </div>
@@ -429,37 +392,29 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
 
           {/* Sticky sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24">
-              <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm lg:hidden">
-                <CardContent className="p-6">
-                  <div className="text-center mb-6">
-                    <p className="text-sm text-slate-500 mb-2">Course Investment</p>
-                    <p className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">
-                      {formatPrice(course.price)}
-                    </p>
-                  </div>
+            <div className="sticky top-24 lg:-mt-[21rem] z-20">
+              {/* Udemy-style purchase card (desktop) */}
+              <div className="hidden lg:block bg-white text-slate-800 shadow-xl border border-slate-200">
+                {course.featured_image && <img src={course.featured_image} alt={course.title} className="w-full h-auto" />}
+                <div className="p-6">
+                  <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">{formatPrice(course.price)}</p>
                   <Button
                     onClick={() => setShowEnroll(true)}
-                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white py-6 text-lg font-semibold mb-4 shadow-lg"
+                    className="w-full rounded-none bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white h-12 text-base font-bold mb-3"
                   >
                     Enroll Now
                   </Button>
-                  <div className="space-y-3 text-sm text-slate-600">
-                    <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Lifetime access to course materials</span></div>
-                    <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Expert guidance and support</span></div>
-                    <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Certificate of completion</span></div>
-                    {(course.bonuses?.length ?? 0) > 0 && (
-                      <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /><span>Exclusive bonus materials</span></div>
-                    )}
-                  </div>
-                  <Separator className="my-6" />
+                  <p className="text-xs text-center text-slate-500 mb-4">Secure payment · Lifetime access</p>
+                  <p className="font-bold text-sm mb-2">This course includes:</p>
                   <div className="space-y-2 text-sm">
-                    {course.duration && <div className="flex justify-between"><span className="text-slate-500">Duration:</span><span className="font-medium text-slate-700">{course.duration}</span></div>}
-                    {course.level && <div className="flex justify-between"><span className="text-slate-500">Level:</span><span className="font-medium text-slate-700 capitalize">{course.level}</span></div>}
-                    {course.category && <div className="flex justify-between"><span className="text-slate-500">Category:</span><span className="font-medium text-slate-700">{course.category}</span></div>}
+                    {course.duration && <div className="flex items-center gap-3"><Clock className="h-4 w-4" /><span>{course.duration}</span></div>}
+                    <div className="flex items-center gap-3"><BookOpen className="h-4 w-4" /><span>Lifetime access to course materials</span></div>
+                    <div className="flex items-center gap-3"><User className="h-4 w-4" /><span>Expert guidance and support</span></div>
+                    <div className="flex items-center gap-3"><Award className="h-4 w-4" /><span>Certificate of completion</span></div>
+                    {(course.bonuses?.length ?? 0) > 0 && <div className="flex items-center gap-3"><Gift className="h-4 w-4" /><span>Exclusive bonus materials</span></div>}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               <Card className="mt-6 bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-200 shadow-lg">
                 <CardContent className="p-6 text-center">
@@ -481,6 +436,14 @@ export default function CourseDetailClient({ slug }: { slug: string }) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Mobile sticky purchase bar (Udemy-style) */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,.1)] px-4 py-3 flex items-center gap-4">
+        <p className="text-xl font-bold text-slate-800 whitespace-nowrap">{formatPrice(course.price)}</p>
+        <Button onClick={() => setShowEnroll(true)} className="flex-1 rounded-none bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-700 hover:via-teal-700 hover:to-blue-700 text-white h-12 text-base font-bold">
+          Enroll Now
+        </Button>
       </div>
 
       {/* Enroll Modal */}
